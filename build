@@ -1,0 +1,14 @@
+#!/bin/zsh
+
+if [ "release" = "$1" ]; then
+	clang -Ofast -Weverything -Wno-poison-system-directories game.c -o universe
+
+elif [ "clean" = "$1" ]; then
+	rm -rf universe
+	rm -rf universe.dSYM
+
+elif [ "" = "$1" ]; then 
+	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined game.c -o universe
+else 
+	echo "build: unknown target: $1"
+fi
