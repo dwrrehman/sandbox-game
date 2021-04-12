@@ -75,9 +75,14 @@ typedef unsigned int uint;
 
 // generation parameters;
 static const nat default_inventory_size = 8;
-static const nat max_player_health = 8;
-static const nat initial_player_health = 8;
-static const nat spawn_attempts = 100;
+
+static const nat max_rogue_health = 16;
+
+static const nat max_player_health = 12;
+static const nat initial_player_health = 10;
+
+static const nat rogue_spawn_attempts = 100;
+static const nat player_spawn_attempts = 1000;
 
 enum blocks {
 	air_block = 0,
@@ -100,18 +105,14 @@ enum items {
 };
 
 
-
-
 static const char* visualize_player = " ¶";
+static const char* visualize_rogue = " R";
 
-static const char* visualize_block[total_block_count] =             {"  ", "██", "██", "██", "██", }; // ☐☐
-
+static const char* visualize_block[total_block_count] =             {"  ", "██", "██", "██", "██", }; 	// ☐☐
 static const nat visualize_block_color[total_block_count] =         {0,     136,  64,  240,  250,  };
 
-static const char* visualize_item[total_item_count] =               {" ",  "d",   "G",  "s",  ":", };
-
+static const char* visualize_item[total_item_count] =               {" ",     "d",   "G",  "s",  ":", };
 static const nat visualize_item_color[total_item_count] =           {249,     136,  64,  240,  250,  };
-
 
 struct slot {
 	byte item;
@@ -181,7 +182,6 @@ static inline void adjust_window_size() {
 	}
 }
 
-
 static inline nat at(integer x_offset, integer y_offset) {
 	const nat S = universe.side;
 	return  
@@ -205,14 +205,39 @@ static inline void display() {
 		   				    // also another for the fact that we go from -height to +height.
 	for (integer x = -height + 1; x < height; x++) {
 		for (integer y = -width; y < width; y++) {
+
 			byte block = universe.state[at(x, y)];
+
+			bool at_rogue = false, at_player = false;
+
+			for (nat i = 0; i < universe.rogue_count; i++) {
+				if (at(x,y) == at_position(universe.rogues[i].x,universe.rogues[i].y, 0, 0)) {
+					at_rogue = true;
+					break;
+				}
+			}
+			
+			for (nat i = 1; i < universe.player_count; i++) {
+				if (at(x,y) == at_position(universe.players[i].x,universe.players[i].y, 0, 0)) {
+					at_player = true;
+					break;
+				}
+			}
+
 			if (not x and not y) {
-				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 245L, visualize_player);
-			} else if (not block) {
+				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 69L, visualize_player);
+
+			} else if (at_rogue) {			
+				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 9L, visualize_rogue);
+
+			} else if (at_player) {
+				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 235L, visualize_player);
+			
+			} else if (block == air_block) {
 				length += (nat)sprintf(screen + length, "  ");
 			} else {
 				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 
-				visualize_block_color[block], visualize_block[block]); 
+							visualize_block_color[block], visualize_block[block]); 
 			}
 		}
 		screen[length++] = '\033'; 		// (print new line)
@@ -288,9 +313,9 @@ static inline void generate_universe() {
 	}
 }
 
-static inline void spawn_player() {
+static inline void spawn_rogue() {
 	nat x = 0, y = 0;
-	for (nat i = 0; i < spawn_attempts; i++) {
+	for (nat i = 0; i < rogue_spawn_attempts; i++) {
 		x = (nat)rand() % universe.side;
 		y = (nat)rand() % universe.side;
 		if (
@@ -306,31 +331,63 @@ static inline void spawn_player() {
 
 			universe.state[at_position(x, y, 0, 0)] 
 		) continue; else {
-			universe.players[0].x = x;
-			universe.players[0].y = y;
+			universe.rogues = realloc(universe.rogues, sizeof(struct player) * (universe.rogue_count + 1));
+			universe.rogues[universe.rogue_count].x = x;
+			universe.rogues[universe.rogue_count].y = y;
+			universe.rogues[universe.rogue_count].health = (nat) rand() % max_rogue_health;
+			universe.rogues[universe.rogue_count].inventory = calloc(sizeof(struct slot), universe.inventory_size);
+			universe.rogue_count++;
 			return;
 		}
 	}
-	printf("could not spawn player! aborting...\n");
+	strcpy(message, "debug: rogue spawn attempt failed");
+}
+
+static inline void spawn_player() {
+	nat x = 0, y = 0;
+	for (nat i = 0; i < player_spawn_attempts; i++) {
+		x = (nat)rand() % universe.side;
+		y = (nat)rand() % universe.side;
+		if (
+			universe.state[at_position(x, y, 1, 1)] or 
+			universe.state[at_position(x, y, 1, -1)] or 
+			universe.state[at_position(x, y, -1, 1)] or 
+			universe.state[at_position(x, y, -1, -1)] or 
+
+			universe.state[at_position(x, y, 0, -1)] or 
+			universe.state[at_position(x, y, -1, 0)] or 
+			universe.state[at_position(x, y, 1, 0)] or 
+			universe.state[at_position(x, y, 0, 1)] or 
+
+			universe.state[at_position(x, y, 0, 0)] 
+		) continue; else {
+			universe.players = realloc(universe.players, sizeof(struct player) * (universe.player_count + 1));
+			universe.players[universe.player_count].x = x;
+			universe.players[universe.player_count].y = y;
+			universe.players[universe.player_count].health = initial_player_health;
+			universe.players[universe.player_count].inventory = calloc(sizeof(struct slot), universe.inventory_size);
+			universe.player_count++;
+			return;
+		}
+	}
+	printf("could not spawn player after %lu attempts, aborting...\n", player_spawn_attempts);
 	abort();
 }
 
 static inline void create_universe(nat size) {
 	universe.side = size;
 	universe.count = universe.side * universe.side;
+	universe.inventory_size = default_inventory_size;
+
 	universe.state = malloc(universe.count);
 	generate_universe();
-
+	
 	universe.rogue_count = 0;
 	universe.player_count = 0;
-
-	universe.inventory_size = default_inventory_size;
+	universe.players = NULL;
+	universe.rogues = NULL;
 	
-	universe.players = calloc(1, sizeof(struct player));
-	universe.players[0].health = initial_player_health;
-	universe.players[0].inventory = calloc(sizeof(struct slot), universe.inventory_size);
 	spawn_player();
-	universe.player_count++;
 }
 
 static inline void load_universe(const char* filename) {
@@ -514,14 +571,26 @@ static inline void place_block(nat at) {
 	}
 }
 
+static inline void pathfind_rogue() {
+	
+}
+
 static inline void compute() {
+
+	const nat rogue_spawn_modulus = 512;
+
 	// for (size_t i = 0; i < universe.count; i++) {
 	// 	if (rand() % 128 == 0 and universe.state[i]) {
 	// 		universe.state[i]--;
 	// 	}
 	// }
-}
 
+	if ((nat) rand() % rogue_spawn_modulus == 0) {
+		spawn_rogue();
+	}
+
+	pathfind_rogue();
+}
 
 
 int main(int argc, const char** argv) {
@@ -595,6 +664,10 @@ int main(int argc, const char** argv) {
 			if (universe.players[0].selected) universe.players[0].selected--;
 		} else if (c == '>') {
 			if (universe.players[0].selected < universe.inventory_size - 1) universe.players[0].selected++;
+		} else if (c == ';') {
+			sprintf(message, "%lu rogues, %lu players side=%lu:count=%lu:inv=%lu  ", 
+				universe.rogue_count, universe.player_count, 
+				universe.side, universe.count, universe.inventory_size); 
 		}
 
 		if (not universe.players[0].inventory[universe.players[0].selected].count) 
