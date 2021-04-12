@@ -20,10 +20,37 @@
 // add plants! flowers!
 // add trees somehow! ?....
 
-// done features:
-
+// ----------- done features: -------------------
+// 
 // 	 save/serialize and also load/open binary world file!      .state file   
 
+
+// tb:
+
+//TODO: move the player block to the proper location.
+// player block is going to be 255, i think. rogues are going to be 254, i think.
+// i think i want a possible attach to be like... shooting at you! 
+// and then simulate a projectile flying through the air. i also want it to be 
+// like... direcional: > v < ^ for the various direcional projectiles.
+// but, also i want melee combat with the rogues, to be neccessary.
+// and i want their health and strength to vary, and correlate.
+
+// also i want to add wiring! somehow. im not sure how... 
+// i think i need wire, an then a junction, and then a cross-over (nonjunction).
+// and then i also need an inverter, i think, or a transister, maybe.
+// hmm... 
+
+// -------------- controls: --------------------
+
+// - tab to save and quit.
+// - delete to just quit, without saving.
+
+// w a s d   or  W A S D  to move.
+
+// I J K L    to place the currently selected item in your inventory.
+// i j l k    to break blocks, and put them in your inventory
+
+// < >    to change which inventory item is selected.
 
 #include <iso646.h>
 #include <stdbool.h>
@@ -535,18 +562,6 @@ int main(int argc, const char** argv) {
 		else if (c == 'w' or c == 'W') {
 			if (not universe.state[at(-1,0)]) {
 				universe.players[0].x = (universe.players[0].x + universe.side - 1) % universe.side;
-				//TODO: move the player block to the proper location.
-				// player block is going to be 255, i think. rogues are going to be 254, i think.
-				// i think i want a possible attach to be like... shooting at you! 
-				// and then simulate a projectile flying through the air. i also want it to be 
-				// like... direcional: > v < ^ for the various direcional projectiles.
-				// but, also i want melee combat with the rogues, to be neccessary.
-				// and i want their health and strength to vary, and correlate.
-
-				// also i want to add wiring! somehow. im not sure how... 
-				// i think i need wire, an then a junction, and then a cross-over (nonjunction).
-				// and then i also need an inverter, i think, or a transister, maybe.
-				// hmm... 
 			}
 			
 
