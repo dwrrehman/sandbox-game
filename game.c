@@ -111,8 +111,6 @@ enum rogue_states {
 	searching_state,
 };
 
-
-
 static const byte default_gamemode = survival_mode;
 static const byte default_inventory_size = 8;
 
@@ -123,12 +121,15 @@ static const byte initial_player_health = 10;
 static const nat rogue_spawn_attempts = 100;
 static const nat player_spawn_attempts = 1000;
 
-static const nat astar_cost_limit = 10;
-static const nat rogue_dormant_radius = 15;
+static const nat astar_cost_limit = 100;
+static const nat rogue_dormant_radius = 50;
 
+static const nat rogue_spawn_modulus = 128;
+static const nat maximum_rogue_count = 1;
 
 static const char* visualize_player = " ¶";
 static const char* visualize_rogue = " R";
+static const char* visualize_rogue_path = " ☐";
 
 static const char* visualize_block[total_block_count] =             {"  ", "██", "██", "██", "██", }; 	// ☐☐
 static const nat visualize_block_color[total_block_count] =         {0,     136,  64,  240,  250,  };
@@ -265,16 +266,9 @@ static inline bool point_is_not_in_list(struct point_list list, struct point ele
 	return true;
 }
 
-
-static inline int compare_nodes(const void* a_raw, const void* b_raw) {
-	const struct node* a_node = a_raw;
-	const struct node* b_node = b_raw;
-	return a_node->f > b_node->f;
-}
-
-static inline nat at_x_y(nat x, nat y) {
-	return universe.side * x + y;
-}
+// static inline nat at_x_y(nat x, nat y) {
+// 	return universe.side * x + y;
+// }
 
 static inline nat at_point(struct point p) {
 	return universe.side * p.x + p.y;
@@ -339,7 +333,6 @@ static inline void adjust_window_size() {
 	}
 }
 
-
 static inline void display() {
 	nat length = 3; 
 	memcpy(screen, "\033[H", 3);
@@ -353,12 +346,18 @@ static inline void display() {
 			nat ap = at_player(x,y);
 			byte block = universe.state[ap];
 
-			bool at_rogue = false, at_other_player = false;
+			bool at_rogue = false, at_other_player = false, in_rogue_path = false;
 
 			for (nat i = 0; i < universe.rogue_count; i++) {
 				if (ap == at_point(universe.rogues[i].location)) {
 					at_rogue = true;
 					break;
+				}
+				for (nat p = 0; p < universe.rogues[i].path.count; p++) {
+					if (ap == at_point(universe.rogues[i].path.list[p])) {
+						in_rogue_path = true;
+						goto double_break;
+					}
 				}
 			}
 			
@@ -369,6 +368,8 @@ static inline void display() {
 				}
 			}
 
+			double_break:
+
 			if (not x and not y) {
 				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 69L, visualize_player);
 
@@ -377,6 +378,10 @@ static inline void display() {
 
 			} else if (at_other_player) {
 				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 235L, visualize_player);
+
+			} else if (in_rogue_path) {
+				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 231L, visualize_rogue_path);
+			
 			
 			} else if (block == air_block) {
 				length += (nat)sprintf(screen + length, "  ");
@@ -459,6 +464,9 @@ static inline void generate_universe() {
 }
 
 static inline void spawn_rogue() {
+
+	if (universe.rogue_count >= maximum_rogue_count) return;
+
 	nat x = 0, y = 0;
 	for (nat i = 0; i < rogue_spawn_attempts; i++) {
 		x = (nat)rand() % universe.side;
@@ -525,6 +533,7 @@ static inline void spawn_player() {
 				.location = (struct point){.x = x, .y = y},
 				.health = initial_player_health,
 				.selected = 0,
+				.gamemode = default_gamemode,
 			};
 
 			universe.players = realloc(universe.players, sizeof(struct player) * (universe.player_count + 1));
@@ -550,6 +559,7 @@ static inline void create_universe(nat size) {
 	universe.rogues = NULL;
 	
 	spawn_player();
+	spawn_rogue();
 }
 
 static inline void load_universe(const char* filename) {
@@ -774,7 +784,12 @@ static inline void place_block(nat at) {
 // ------------------------ pathfinding -------------------------------
 
 
-
+// static inline struct node* deep_copy(struct node this) {
+// 	struct node* copy = malloc(sizeof(struct node));
+// 	*copy = this;
+// 	if (this.parent) copy->parent = deep_copy(*this.parent);
+// 	return copy;
+// }
 
 static inline struct node_list get_valid_path_neighbors(struct node origin, nat g) {
 
@@ -785,6 +800,8 @@ static inline struct node_list get_valid_path_neighbors(struct node origin, nat 
 
 	for (integer i = -1; i <= 1; i++) {
 		for (integer j = -1; j <= 1; j++) {
+
+			// struct node* copy = deep_copy(origin);
 
 			struct node* copy = malloc(sizeof(struct node));
 			*copy = origin;
@@ -819,12 +836,6 @@ static inline nat distance(struct point a, struct point b) {
 	));
 }
 
-static inline void compute_f(struct point goal, struct node current, struct node* neighbor) {
-    neighbor->g = current.g + 1;
-    neighbor->h = distance(neighbor->point, goal);
-    neighbor->f = neighbor->g + neighbor->h;
-}
-
 static inline struct point_list construct_path(struct node current_initial) {
 
 	struct point_list path = {0};
@@ -841,6 +852,12 @@ static inline struct point_list construct_path(struct node current_initial) {
 	}
 
 	return path;
+}
+
+static inline int compare_nodes(const void* a_raw, const void* b_raw) {
+	const struct node* a_node = a_raw;
+	const struct node* b_node = b_raw;
+	return (int)b_node->f - (int)a_node->f;
 }
 
 static inline struct point_list astar(struct point start, struct point goal) {
@@ -865,7 +882,6 @@ static inline struct point_list astar(struct point start, struct point goal) {
 		// check to see if we cost too much.
 		if (current.g > astar_cost_limit) return pathfinding_failure;
 
-
 		// check to see if we reached the goal.
 		struct node_list goal_neighbors = get_valid_path_neighbors((struct node) {.point = goal}, 0);
 
@@ -879,9 +895,11 @@ static inline struct point_list astar(struct point start, struct point goal) {
 
 		for (nat i = 0; i < neighbors.count; i++) {
 
-			const struct node neighbor = neighbors.list[i];
+			struct node neighbor = neighbors.list[i];
 		
-			compute_f(goal, current, neighbors.list + i);
+			neighbor.g = current.g + 1;
+    			neighbor.h = distance(neighbor.point, goal);
+    			neighbor.f = neighbor.g + neighbor.h;
 
 			if (point_is_not_in_list(closed, neighbor.point) and 
 			    node_is_not_in_list(open, neighbor)) 
@@ -909,6 +927,10 @@ static inline struct point_list astar(struct point start, struct point goal) {
 	}
 	return pathfinding_failure;
 }
+
+
+
+
 
 static inline void find_targets() {
 
@@ -952,7 +974,7 @@ static inline void move_rogues() {
 
 static inline void compute() {
 
-	const nat rogue_spawn_modulus = 512;
+	
 
 	// for (size_t i = 0; i < universe.count; i++) {
 	// 	if (rand() % 128 == 0 and universe.state[i]) {
@@ -1079,6 +1101,28 @@ int main(int argc, const char** argv) {
 
 
 
+
+
+
+
+
+
+
+
+
+		// if (std::find(points.begin(), points.end(), neighbor.point) != points.end()) {
+  //                   std::vector<point> points = {};
+  //                   std::vector<nat> indicies = {};
+  //                   nat i = 0;
+  //                   for (auto& node : open) {
+  //                       if (node.g > neighbor.g and node.point == neighbor.point) {
+  //                           points.push_back(node.point);
+  //                           indicies.push_back(i);
+  //                       }
+  //                       i++;
+  //                   }
+  //                   open[indicies.front()] = neighbor;
+  //               }
 
 
 
