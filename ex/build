@@ -1,0 +1,1 @@
+clang++ -std=c++17 hello.cpp -Ofast -o hello  -lglfw -lMoltenVK

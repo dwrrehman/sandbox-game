@@ -108,13 +108,20 @@ int main(const int argc, const char** argv) {
 	get(vkEnumeratePhysicalDevices);
 	get(vkGetPhysicalDeviceQueueFamilyProperties);
 	get(vkCreateDevice);
-	get(vkCreateShaderModule);
 	get(vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
 	get(vkGetPhysicalDeviceSurfaceFormatsKHR);
 	get(vkGetPhysicalDeviceSurfaceSupportKHR);
 	get(vkCreateSwapchainKHR);
 	get(vkGetSwapchainImagesKHR);
+	get(vkCreateFence);
+	get(vkCreateCommandPool);
+	get(vkAllocateCommandBuffers);
+	get(vkCreateImageView);
 	get(vkCreateRenderPass);
+	get(vkCreateShaderModule);
+	get(vkCreatePipelineLayout);
+	get(vkCreateGraphicsPipelines);
+	get(vkDestroyShaderModule);
 
 	const char* instance_extensions[] = {
 		VK_KHR_SURFACE_EXTENSION_NAME, 
@@ -214,7 +221,6 @@ int main(const int argc, const char** argv) {
 		vk_error("no suitable queue family index found for the device");
 	
 	printf("debug: ---> using queue_family_index = %d    (out of %d)\n", queue_index, queue_family_count);
-
 
 	VkBool32 supported;
 	vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, queue_index, surface, &supported);
@@ -352,165 +358,71 @@ int main(const int argc, const char** argv) {
 	vkGetSwapchainImagesKHR(device, swapchain, &image_count, NULL);
 	VkImage* swapchain_images = calloc(image_count,  sizeof(VkImage));
 	vkGetSwapchainImagesKHR(device, swapchain, &image_count, swapchain_images);
-	printf("debug: got %d images.\n", image_count);
+	printf("debug: found %d swapchain images.\n", image_count);
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-	// for (size_t i = 0; i < image_count; i++) {
-	// 	context.per_frame[i]
-
-	// 	VkFenceCreateInfo info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-	// 	info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-	// 	VK_CHECK(vkCreateFence(context.device, &info, nullptr, &per_frame.queue_submit_fence));
-
-	// 	VkCommandPoolCreateInfo cmd_pool_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-	// 	cmd_pool_info.flags            = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-	// 	cmd_pool_info.queueFamilyIndex = context.graphics_queue_index;
-	// 	VK_CHECK(vkCreateCommandPool(context.device, &cmd_pool_info, nullptr, &per_frame.primary_command_pool));
-
-	// 	VkCommandBufferAllocateInfo cmd_buf_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-	// 	cmd_buf_info.commandPool        = per_frame.primary_command_pool;
-	// 	cmd_buf_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	// 	cmd_buf_info.commandBufferCount = 1;
-	// 	VK_CHECK(vkAllocateCommandBuffers(context.device, &cmd_buf_info, &per_frame.primary_command_buffer));
-
-	// 	per_frame.device      = context.device;
-	// 	per_frame.queue_index = context.graphics_queue_index;
-	// }
-
-
-
-
-
-
-
-
-
-	// for (size_t i = 0; i < image_count; i++)
-	// {
-	// 	// Create an image view which we can render into.
-	// 	VkImageViewCreateInfo view_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-	// 	view_info.viewType                    = VK_IMAGE_VIEW_TYPE_2D;
-	// 	view_info.format                      = context.swapchain_dimensions.format;
-	// 	view_info.image                       = swapchain_images[i];
-	// 	view_info.subresourceRange.levelCount = 1;
-	// 	view_info.subresourceRange.layerCount = 1;
-	// 	view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	// 	view_info.components.r                = VK_COMPONENT_SWIZZLE_R;
-	// 	view_info.components.g                = VK_COMPONENT_SWIZZLE_G;
-	// 	view_info.components.b                = VK_COMPONENT_SWIZZLE_B;
-	// 	view_info.components.a                = VK_COMPONENT_SWIZZLE_A;
-
-	// 	VkImageView image_view;
-	// 	VK_CHECK(vkCreateImageView(context.device, &view_info, nullptr, &image_view));
-
-	// 	context.swapchain_image_views.push_back(image_view);
-	// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	//--------------  load shader modules: ----------------
+	VkFence* queue_submit_fence = calloc(image_count, sizeof(VkFence));
+	VkCommandPool* primary_command_pool = calloc(image_count, sizeof(VkCommandPool));
+	VkCommandBuffer* primary_command_buffer = calloc(image_count, sizeof(VkCommandBuffer));
+	VkImageView* swapchain_image_views = calloc(image_count, sizeof(VkImageView)); 
 	
-	size_t code_length = 0;
-	printf("debug: reading in shader vertex spir-v file...\n");
-	unsigned int* code = open_file("shaders/shader.vert.spv", &code_length);
+	for (uint32_t i = 0; i < image_count; i++) {
 
-	VkShaderModuleCreateInfo vertex_module_info = {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.codeSize = code_length,
-		.pCode    = code,
-	};
+		VkFenceCreateInfo info = {
+			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+			.flags = VK_FENCE_CREATE_SIGNALED_BIT,
+		};
+		
+		printf("debug: \t - image #%d: creating fence...\n", i);
+		if (vkCreateFence(device, &info, NULL, queue_submit_fence + i) != VK_SUCCESS) 
+			vk_error("create fence");
 
-	printf("debug: creating vertex shader module from %lu bytes...\n", code_length);
-	VkShaderModule vertex_shader_module;
-	if (vkCreateShaderModule(device, &vertex_module_info, NULL, &vertex_shader_module) != VK_SUCCESS)
-		vk_error("create vertex shader module");
+
+		VkCommandPoolCreateInfo cmd_pool_info = {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+			.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+			.queueFamilyIndex = queue_index,
+		};
+
+		printf("debug: \t - image #%d: creating command pool...\n", i);
+		if (vkCreateCommandPool(device, &cmd_pool_info, NULL, primary_command_pool + i) != VK_SUCCESS)
+			vk_error("create command pool");
+
+
+		VkCommandBufferAllocateInfo cmd_buf_info = {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+			.commandPool        = primary_command_pool[i],
+			.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			.commandBufferCount = 1,
+		};
+
+		printf("debug: \t - image #%d: allocating command buffer...\n", i);
+		if (vkAllocateCommandBuffers(device, &cmd_buf_info, primary_command_buffer + i) != VK_SUCCESS) 
+			vk_error("allocate command buffers");
 	
-	munmap(code, code_length);
-	
+		VkImageViewCreateInfo view_info = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.viewType                    = VK_IMAGE_VIEW_TYPE_2D,
+			.format                      = format.format,
+			.image                       = swapchain_images[i],
+			.subresourceRange.levelCount = 1,
+			.subresourceRange.layerCount = 1, 
+			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.components.r                = VK_COMPONENT_SWIZZLE_IDENTITY,
+			.components.g                = VK_COMPONENT_SWIZZLE_IDENTITY,
+			.components.b                = VK_COMPONENT_SWIZZLE_IDENTITY,
+			.components.a                = VK_COMPONENT_SWIZZLE_IDENTITY,
+		};
 
+		printf("debug: \t - image #%d: creating image view...\n", i);		
 
-	printf("debug: reading in shader fragment spir-v file...\n");
-	code = open_file("shaders/shader.frag.spv", &code_length);
-
-	VkShaderModuleCreateInfo fragment_module_info = {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.codeSize = code_length,
-		.pCode    = code,
-	};
-
-	printf("debug: creating fragment shader module from %lu bytes...\n", code_length);
-	VkShaderModule fragment_shader_module;
-	if (vkCreateShaderModule(device, &fragment_module_info, NULL, &fragment_shader_module) != VK_SUCCESS)
-		vk_error("create fragment shader module");
-	
-	munmap(code, code_length);
-	
-
-
+		if (vkCreateImageView(device, &view_info, NULL, swapchain_image_views + i) != VK_SUCCESS) 
+			vk_error("create image view");
+	}
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	///---------------------------- create render pass -----------------------------------
 
 
 
@@ -563,6 +475,241 @@ int main(const int argc, const char** argv) {
 	
 
 
+ 	// ------------------------- init frame buffers --------------------------
+
+
+	VkFramebuffer* swapchain_framebuffers = calloc(image_count, sizeof(VkFramebuffer));
+
+
+	for (uint32_t i = 0; i < image_count; i++) {
+		
+		VkFramebufferCreateInfo framebuffer_info = {
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass      = render_pass,
+			.attachmentCount = 1,
+			.pAttachments    = swapchain_image_views + i,
+			.width           = swapchain_size.width,
+			.height          = swapchain_size.height,
+			.layers          = 1,
+		};
+
+		printf("debug: \t - image #%d: creating frame buffer...\n", i);	
+	
+		if (vkCreateFramebuffer(device, &framebuffer_info, NULL, swapchain_framebuffers + i) != VK_SUCCESS) 
+			vk_error("create frame buffer");
+
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	//--------------  load shader modules: ----------------
+	
+
+	size_t code_length = 0;
+	printf("debug: reading in shader vertex spir-v file...\n");
+	unsigned int* code = open_file("shaders/shader.vert.spv", &code_length);
+
+	VkShaderModuleCreateInfo vertex_module_info = {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = code_length,
+		.pCode    = code,
+	};
+
+	printf("debug: creating vertex shader module from %lu bytes...\n", code_length);
+	VkShaderModule vertex_shader_module;
+	if (vkCreateShaderModule(device, &vertex_module_info, NULL, &vertex_shader_module) != VK_SUCCESS)
+		vk_error("create vertex shader module");
+	
+	munmap(code, code_length);
+	
+
+	printf("debug: reading in shader fragment spir-v file...\n");
+	code = open_file("shaders/shader.frag.spv", &code_length);
+
+	VkShaderModuleCreateInfo fragment_module_info = {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = code_length,
+		.pCode    = code,
+	};
+
+	printf("debug: creating fragment shader module from %lu bytes...\n", code_length);
+	VkShaderModule fragment_shader_module;
+	if (vkCreateShaderModule(device, &fragment_module_info, NULL, &fragment_shader_module) != VK_SUCCESS)
+		vk_error("create fragment shader module");
+	
+	munmap(code, code_length);
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	VkPipelineVertexInputStateCreateInfo vertex_input = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
+	};
+
+	VkPipelineInputAssemblyStateCreateInfo input_assembly = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+	};
+
+	VkPipelineRasterizationStateCreateInfo raster = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+		.cullMode = VK_CULL_MODE_BACK_BIT,
+		.frontFace = VK_FRONT_FACE_CLOCKWISE,
+		.lineWidth = 1.0f,
+	};
+
+	VkPipelineColorBlendAttachmentState blend_attachment = {
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+	};
+
+	VkPipelineColorBlendStateCreateInfo blend = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,	
+		.attachmentCount = 1,
+		.pAttachments    = &blend_attachment
+	};
+
+	VkPipelineViewportStateCreateInfo viewport = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.scissorCount  = 1,
+	};
+
+	VkPipelineDepthStencilStateCreateInfo depth_stencil = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+	};
+
+	VkPipelineMultisampleStateCreateInfo multisample = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+	};
+
+	VkDynamicState dynamics[2] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+
+	VkPipelineDynamicStateCreateInfo dynamic = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+		.pDynamicStates    = dynamics,
+		.dynamicStateCount = 2,
+	};
+	
+	VkPipelineShaderStageCreateInfo shader_stages[2] = {
+		(VkPipelineShaderStageCreateInfo) {
+			.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage  = VK_SHADER_STAGE_VERTEX_BIT,
+			.module = vertex_shader_module,
+			.pName  = "main",
+		},
+		(VkPipelineShaderStageCreateInfo) {
+			.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage  = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.module = fragment_shader_module,
+			.pName  = "main",
+		},
+	};
+
+
+	VkPipelineLayoutCreateInfo layout_info = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
+	};
+	
+	printf("debug: creating pipeline layout...\n");
+	VkPipelineLayout pipeline_layout;
+	if (vkCreatePipelineLayout(device, &layout_info, NULL, &pipeline_layout) != VK_SUCCESS) 
+		vk_error("create pipeline layout");	
+
+	VkGraphicsPipelineCreateInfo pipeline_info = {
+		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+		.stageCount = 2,
+		.pStages = shader_stages,
+		.pVertexInputState = &vertex_input,
+		.pInputAssemblyState = &input_assembly,
+		.pRasterizationState = &raster,
+		.pColorBlendState = &blend,
+		.pMultisampleState = &multisample,
+		.pViewportState = &viewport,
+		.pDepthStencilState = &depth_stencil,
+		.pDynamicState = &dynamic,
+		.renderPass = render_pass,
+		.layout = pipeline_layout,
+	};
+
+	printf("debug: creating graphics pipeline...\n");
+
+	VkPipeline pipeline;
+	if (vkCreateGraphicsPipelines(device, NULL, 1, &pipeline_info, NULL, &pipeline) != VK_SUCCESS)
+		vk_error("create graphics pipeline");
+
+	printf("debug: destroying left over shader modules...\n");
+
+	vkDestroyShaderModule(device, vertex_shader_module, NULL);
+	vkDestroyShaderModule(device, fragment_shader_module, NULL);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 	while (not glfwWindowShouldClose(window)) {
@@ -584,6 +731,54 @@ int main(const int argc, const char** argv) {
 
 	glfwTerminate();
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
