@@ -1,14 +1,25 @@
 #!/bin/zsh
 
 if [ "release" = "$1" ]; then
-	clang -Ofast -Weverything -Wno-poison-system-directories game.c -o universe
+	clang -Ofast client.c -o client
+	clang -Ofast server.c -o server
 
 elif [ "clean" = "$1" ]; then
-	rm -rf universe
-	rm -rf universe.dSYM
+	rm -rf client
+	rm -rf client.dSYM
+	rm -rf server
+	rm -rf server.dSYM
 
 elif [ "" = "$1" ]; then 
-	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined game.c -o universe -ferror-limit=4
+	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined client.c -o client
+	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined server.c -o server
+
+elif [ "client" = "$1" ]; then 
+	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined client.c -o client
+	
+elif [ "server" = "$1" ]; then 
+	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined server.c -o server
+
 else 
 	echo "build: unknown target: $1"
 fi
