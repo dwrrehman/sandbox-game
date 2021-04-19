@@ -1,735 +1,804 @@
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+// a 2D, minecraft-like, top-down sandbox game, 
+//   made by daniel warren riaz rehman, 
+//     on 2104121.124522 
 
-#include <stdbool.h>
+// ----------bugs:-----------
+
+// - found a bug where the line above you is shifted to amke your player seem on the left.... hmm... 
+// 
+
+// ------------- features: -----------------
+
+
+//  get a frames per second counter, and display it.
+
+// add more blocks!    
+// add water! 
+// add sand! 
+// add granite!   
+// add pebbles,
+// add plants! flowers!
+// add trees somehow! ?....
+
+// ----------- done features: -------------------
+// 
+// 	 save/serialize and also load/open binary world file!      .state file   
+
+
+// tb:
+
+//TODO: move the player block to the proper location.
+// player block is going to be 255, i think. rogues are going to be 254, i think.
+// i think i want a possible attach to be like... shooting at you! 
+// and then simulate a projectile flying through the air. i also want it to be 
+// like... direcional: > v < ^ for the various direcional projectiles.
+// but, also i want melee combat with the rogues, to be neccessary.
+// and i want their health and strength to vary, and correlate.
+
+// also i want to add wiring! somehow. im not sure how... 
+// i think i need wire, an then a junction, and then a cross-over (nonjunction).
+// and then i also need an inverter, i think, or a transister, maybe.
+// hmm... 
+
+// -------------- controls: --------------------
+
+// - tab to save and quit.
+// - delete to just quit, without saving.
+
+// w a s d   or  W A S D  to move.
+
+// I J K L    to place the currently selected item in your inventory.
+// i j l k    to break blocks, and put them in your inventory
+
+// < >    to change which inventory item is selected.
+
 #include <iso646.h>
-#include <stdnoreturn.h>
+#include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
-#include <string.h>
+#include <time.h>
 #include <math.h>
+#include <string.h>
+#include <termios.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#define window_width 1200
-#define window_height 800
-#define window_title "My cool new game"
+/// --------------------------- core data types -----------------------------
 
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type,
-                                                     uint64_t object, size_t location, int32_t message_code,
-                                                     const char *layer_prefix, const char *message, void *user_data)
-{
-	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
-	{
-		printf("\033[0;31mValidation Layer: Error\033[m: %s: %s\n", layer_prefix, message);
+typedef size_t nat;
+typedef unsigned int uint;
+typedef uint8_t byte;
+
+typedef ssize_t integer;
+
+
+/// ---------------------- constants / parameters: -----------------------
+
+
+enum blocks {
+	air_block = 0,
+	dirt_block = 1,
+	grass_block = 2,
+	stone_block = 3,
+	glass_block = 4,
+
+	total_block_count,
+};
+
+enum items {
+	no_item = 0,
+	dirt_item = 1,
+	grass_item = 2,
+	stone_item = 3,
+	glass_item = 4, 
+
+	total_item_count,
+};
+
+enum gamemodes {
+	creative_mode,
+	survival_mode,
+};
+
+enum rogue_states {
+	wandering_state,
+	searching_state,
+};
+
+
+static const byte default_gamemode = survival_mode;
+static const byte default_inventory_size = 8;
+
+static const byte max_rogue_health = 16;
+static const byte max_player_health = 12;
+static const byte initial_player_health = 12;
+
+static const nat rogue_spawn_attempts = 100;
+static const nat player_spawn_attempts = 1000;
+
+static const nat astar_cost_limit = 50;
+static const nat rogue_dormant_radius = 50;
+
+static const nat rogues_attack_speed_modulus = 2;
+static const nat rogue_spawn_modulus = 256;
+static const nat maximum_rogue_count = 2;
+
+static const char* visualize_player = " ¶";
+static const char* visualize_rogue_debug = " R";
+static const char* visualize_rogue = " ▼";
+static const char* visualize_rogue_path = " ☐";
+
+static const char* visualize_block[total_block_count] =             {"  ", "██", "██", "██", "██", }; 	// ▦
+static const nat visualize_block_color[total_block_count] =         {0,     136,  64,  240,  250,  };
+
+static const char* visualize_item[total_item_count] =               {" ",     "d",   "G",  "s",  ":", };
+static const nat visualize_item_color[total_item_count] =           {249,     136,  64,  240,  250,  };
+
+
+/// ---------------------- structures -----------------------
+
+
+struct slot {
+	byte item;
+	byte count;
+};
+
+struct point {
+	nat x;
+	nat y;
+};
+
+struct node {
+	struct node* parent;
+	struct point point;
+	nat f;
+	nat g;
+	nat h;
+};
+
+
+struct point_list {
+	struct point* list;
+	nat count;
+};
+
+
+struct node_list {
+	struct node* list;
+	nat count;
+};
+
+struct player {
+	struct slot* inventory;
+	struct point location;
+	uint32_t _reserved0;
+	byte health;
+	byte selected;
+	byte gamemode;
+	byte _reserved1;
+};
+
+struct rogue {
+	struct slot* inventory;
+
+	struct point_list path;   // preallocated!!! 
+	struct point location;
+	struct point target;
+
+	nat lifetime;
+	uint32_t reserved0;
+
+	byte health;
+	byte strength;
+	byte target_valid;
+	byte state;
+};
+
+struct universe {
+
+	byte* state;
+	nat count;
+
+	nat side;
+
+	nat inventory_size;
+
+	struct player* players; 	// only 1 element, for now.
+	nat player_count;		// todo: support multi-player, make this server-client based.
+
+	struct rogue* rogues;
+	nat rogue_count;
+};
+
+
+/// ---------------------- globals -----------------------
+
+
+static nat window_rows = 0;
+static nat window_columns = 0;
+
+static char* screen = NULL;
+static char message[4096] = {0};
+
+static struct universe universe = {0};
+
+static bool debug_mode = true;
+
+
+/// ---------------------- helpers -----------------------
+
+
+#define  pathfinding_failure  (struct point_list) {0};
+
+static inline nat min(nat a, nat b) {
+	return a < b ? a : b;
+}
+
+static inline bool points_equal(struct point a, struct point b) {
+	return a.x == b.x and a.y == b.y;
+}
+
+
+static inline void push_node(struct node_list* list, struct node node) {
+	list->list = realloc(list->list, sizeof(struct node) * (list->count + 1));
+	list->list[list->count++] = node;
+}
+
+static inline void push_point(struct point_list* list, struct point point) {
+	list->list = realloc(list->list, sizeof(struct point) * (list->count + 1));
+	list->list[list->count++] = point;	
+}
+
+static inline bool node_is_not_in_list(struct node_list list, struct node element) {
+	for (nat i = 0; i < list.count; i++) {
+		if (points_equal(list.list[i].point, element.point)) return false;
 	}
-	else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
-	{
-		printf("\033[0;33mValidation Layer: Warning\033[m: %s: %s\n", layer_prefix, message);
+	return true;
+}
+
+static inline bool point_is_not_in_list(struct point_list list, struct point element) {
+	for (nat i = 0; i < list.count; i++) {
+		if (points_equal(list.list[i], element)) return false;
 	}
-	else if (flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
-	{
-		printf("\033[0;35mValidation Layer: Performance warning\033[m: %s: %s\n", layer_prefix, message);
-	}
-	else
-	{
-		printf("\033[0;36mValidation Layer: Information\033[m: %s: %s\n", layer_prefix, message);
-	}
-	return VK_FALSE;
+	return true;
+}
+
+// static inline nat at_x_y(nat x, nat y) {
+// 	return universe.side * x + y;
+// }
+
+static inline nat at_point(struct point p) {
+	return universe.side * p.x + p.y;
+}
+
+static inline nat at_player(integer x_offset, integer y_offset) {
+	const nat S = universe.side;
+	return  
+		S * ((universe.players[0].location.x + (nat)(x_offset + (integer)S)) % S)
+		+ (universe.players[0].location.y + (nat)(y_offset + (integer)S)) % S;
+}
+
+static inline size_t at_position(nat origin_x, nat origin_y, integer x_offset, integer y_offset) {
+	const nat S = universe.side;
+	return  
+		S * ((origin_x + (nat)(x_offset + (integer)S)) % S)
+		+ (origin_y + (nat)(y_offset + (integer)S)) % S;
+}
+
+static inline nat distance(struct point a, struct point b) { 
+	const nat S = universe.side;
+	return (nat)
+	(min (
+		(nat)labs((integer)a.x - (integer)b.x), 
+		S - (nat)labs((integer)b.x - (integer)a.x)
+	) + min (
+		(nat)labs((integer)a.y - (integer)b.y), 
+		S - (nat)labs((integer)b.y - (integer)a.y)
+	));
 }
 
 
 
-#define get(name) PFN_##name name = (PFN_##name) glfwGetInstanceProcAddress(NULL, #name)
 
-noreturn static inline void vk_error(const char* function) {
-	printf("vulkan:  %s  : error\n", function);
-	exit(1);
+
+
+
+
+
+
+
+static inline struct termios configure_terminal() {
+	struct termios terminal = {0};
+	tcgetattr(0, &terminal);
+	struct termios raw = terminal;
+	raw.c_oflag &= ~( (unsigned long)OPOST );
+	raw.c_iflag &= ~( (unsigned long)BRKINT 
+			| (unsigned long)ICRNL 
+			| (unsigned long)INPCK 
+			| (unsigned long)IXON );	
+	raw.c_lflag &= ~( (unsigned long)ECHO 
+			| (unsigned long)ICANON 
+			| (unsigned long)IEXTEN );
+
+	raw.c_cc[VMIN] = 0;
+  	raw.c_cc[VTIME] = 1;
+
+	tcsetattr(0, TCSAFLUSH, &raw);
+	return terminal;
 }
 
-noreturn static inline int fail(const char* message) {
-	const char* error_string = NULL;
-	glfwGetError(&error_string);
-	printf("%s : %s\n", message, error_string);
-	glfwTerminate(); 
-	exit(1);
+static inline void adjust_window_size() {
+	struct winsize window = {0};
+	ioctl(1, TIOCGWINSZ, &window);
+
+	if (window.ws_row == 0 or window.ws_col == 0) { window.ws_row = 20; window.ws_col = 40; }
+
+	if (window.ws_row != window_rows or window.ws_col != window_columns) {
+		window_rows = window.ws_row;
+		window_columns = window.ws_col;
+		screen = realloc(screen, sizeof(char) * (size_t) (4 * window_rows * (window_columns * 4 + 16)));
+	}
 }
 
-static inline void mouse_position_callback(GLFWwindow* window, double xpos, double ypos) {
-	printf("mouse moved to %lf, %lf\n", xpos, ypos);
+static inline void display() {
+	nat length = 3; 
+	memcpy(screen, "\033[H", 3);
+
+	const integer height = (integer)window_rows / 2;     
+	const integer width = (integer)window_columns / 4;   // divide by 2 from each block being two chars, and 
+		   				    // also another for the fact that we go from -height to +height.
+	for (integer x = -height + 1; x < height; x++) {
+		for (integer y = -width; y < width; y++) {
+
+			nat ap = at_player(x,y);
+			byte block = universe.state[ap];
+
+			nat shade_of_red = 59L;
+
+			bool at_rogue = false, at_other_player = false, in_rogue_path = false;
+
+			for (nat i = 0; i < universe.rogue_count; i++) {
+				if (ap == at_point(universe.rogues[i].location)) {
+
+					nat gradient[] = {0, 52, 88, 124, 160, 196};
+
+					struct point player = universe.players[0].location;
+					struct point rogue = universe.rogues[i].location;
+
+					if (distance(rogue, player) < 3) shade_of_red = gradient[5];
+					else if (distance(rogue, player) < 5) shade_of_red = gradient[4];
+					else if (distance(rogue, player) < 8) shade_of_red = gradient[3];
+					else if (distance(rogue, player) < 12) shade_of_red = gradient[2];
+					else if (distance(rogue, player) < 30) shade_of_red = gradient[1];
+					else shade_of_red = gradient[0];
+
+					at_rogue = true;
+					break;
+				}
+				for (nat p = 0; p < universe.rogues[i].path.count; p++) {
+					if (ap == at_point(universe.rogues[i].path.list[p])) {
+						in_rogue_path = true;
+						goto double_break;
+					}
+				}
+			}
+			
+			for (nat i = 1; i < universe.player_count; i++) {
+				if (ap == at_point(universe.players[i].location)) {
+					at_other_player = true;
+					break;
+				}
+			}
+
+			double_break:
+
+			if (not x and not y) {
+				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 27L, visualize_player);
+
+			} else if (at_rogue and debug_mode) {			
+				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 9L, visualize_rogue_debug);
+
+			} else if (at_rogue and not debug_mode) {
+
+				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", shade_of_red, visualize_rogue);
+
+			} else if (at_other_player) {
+				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 235L, visualize_player);
+
+			} else if (in_rogue_path and debug_mode) {
+				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 231L, visualize_rogue_path);
+			
+			} else if (block == air_block) {
+				length += (nat)sprintf(screen + length, "  ");
+			} else {
+				length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 
+							visualize_block_color[block], visualize_block[block]); 
+			}
+		}
+		screen[length++] = '\033'; 		// (print new line)
+		screen[length++] = '[';
+		screen[length++] = 'K';
+		screen[length++] = '\r';
+		screen[length++] = '\n';
+	}
+
+	const struct player player = universe.players[0];
+	nat status_length = 0, status_visual_length = 0;
+
+	nat _y = (nat)sprintf(screen + length + status_length, " (%lu, %lu)     \033[38;5;%lum", player.location.x, player.location.y, 9L);
+	status_length += _y;
+	status_visual_length += _y;
+
+	for (nat i = 0; i < max_player_health; i++) {
+		status_length += (nat)sprintf(screen + length + status_length, i < player.health ? "♥ " : "♡ ");
+		status_visual_length += 2;
+	}
+	status_length += (nat)sprintf(screen + length + status_length, "\033[m  ");
+	status_visual_length += 3;
+
+	for (nat i = 0; i < universe.inventory_size; i++) {
+
+		nat _l = (nat)sprintf(screen + length + status_length, i == player.selected ? "(" : " ");
+		status_length += _l;
+		status_visual_length += _l;
+
+		if (player.inventory[i].count) {
+			nat _k = (nat)sprintf(screen + length + status_length, "\033[38;5;%lum%s\033[m(%2d)", 
+
+				visualize_item_color[player.inventory[i].item],
+				visualize_item[player.inventory[i].item], 
+				player.inventory[i].count);
+
+			status_length += _k;
+			status_visual_length += _k;
+		} else {
+			nat _k = (nat)sprintf(screen + length + status_length, "\033[38;5;%lum%s\033[m", 
+
+				visualize_item_color[player.inventory[i].item],
+				visualize_item[player.inventory[i].item]);
+
+			status_length += _k;
+			status_visual_length += _k;
+		}
+	
+		nat _ll = (nat)sprintf(screen + length + status_length, i == player.selected ? ")" : " ");
+		status_length += _ll;
+		status_visual_length += _ll;
+	}
+
+	nat _h = (nat)sprintf(screen + length + status_length, "%s", message);
+	status_length += _h;
+	status_visual_length += _h;
+
+	length += status_length;
+
+	for (nat i = status_visual_length; i < window_columns; i++)
+		screen[length++] = ' ';
+
+	screen[length++] = '\033';
+	screen[length++] = '[';
+	screen[length++] = 'm';
+
+	write(1, screen, (size_t) length);
 }
 
-static inline void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) printf("mouse left button pressed!\n");
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) printf("mouse right button pressed!\n");
+static inline void generate_universe() {
+	for (nat i = 0; i < universe.count; i++) {
+		universe.state[i] = (rand() % total_block_count) * (rand() % 2);
+	}
 }
 
-static inline void keyboard_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	if (key == GLFW_KEY_Q and action == GLFW_PRESS) glfwSetWindowShouldClose(window, GLFW_TRUE);
+static inline void spawn_rogue() {
+
+	if (universe.rogue_count >= maximum_rogue_count) return;
+
+	nat x = 0, y = 0;
+	for (nat i = 0; i < rogue_spawn_attempts; i++) {
+		x = (nat)rand() % universe.side;
+		y = (nat)rand() % universe.side;
+		if (
+			universe.state[at_position(x, y, 1, 1)] or 
+			universe.state[at_position(x, y, 1, -1)] or 
+			universe.state[at_position(x, y, -1, 1)] or 
+			universe.state[at_position(x, y, -1, -1)] or 
+
+			universe.state[at_position(x, y, 0, -1)] or 
+			universe.state[at_position(x, y, -1, 0)] or 
+			universe.state[at_position(x, y, 1, 0)] or 
+			universe.state[at_position(x, y, 0, 1)] or 
+
+			universe.state[at_position(x, y, 0, 0)] 
+		) continue; else {
+
+			struct rogue new = {
+				.inventory = calloc(sizeof(struct slot), universe.inventory_size),
+				.path = (struct point_list) {0},
+
+				.location = (struct point){.x = x, .y = y},
+				.target = (struct point){0},
+
+				.lifetime = 256,
+
+				.health = (byte) rand() % max_rogue_health,
+				.strength = (byte) rand() % max_rogue_health,
+				.target_valid = false,
+
+				.state = 0,
+			};
+
+			universe.rogues = realloc(universe.rogues, sizeof(struct rogue) * (universe.rogue_count + 1));
+			universe.rogues[universe.rogue_count++] = new;
+			return;
+		}
+	}
+	strcpy(message, "debug: rogue spawn attempt failed");
 }
 
+static inline void spawn_player() {
+	nat x = 0, y = 0;
+	for (nat i = 0; i < player_spawn_attempts; i++) {
+		x = (nat)rand() % universe.side;
+		y = (nat)rand() % universe.side;
+		if (
+			universe.state[at_position(x, y, 1, 1)] or 
+			universe.state[at_position(x, y, 1, -1)] or 
+			universe.state[at_position(x, y, -1, 1)] or 
+			universe.state[at_position(x, y, -1, -1)] or 
 
-static inline void* open_file(const char* filename, size_t* out_length) {
-	struct stat file_data = {0};
-	int file = open(filename, O_RDONLY);
-	if (file < 0 or stat(filename, &file_data) < 0) { perror("open"); exit(3); }
-	size_t length = (size_t) file_data.st_size;
-	void* input = not length ? 0 : mmap(0, length, PROT_READ, MAP_SHARED, file, 0);
-	if (input == MAP_FAILED) { perror("mmap"); exit(4); }
-	close(file);
-	*out_length = length;
-	return input;
+			universe.state[at_position(x, y, 0, -1)] or 
+			universe.state[at_position(x, y, -1, 0)] or 
+			universe.state[at_position(x, y, 1, 0)] or 
+			universe.state[at_position(x, y, 0, 1)] or 
+
+			universe.state[at_position(x, y, 0, 0)] 
+		) continue; else {
+
+			struct player new = {
+				.inventory = calloc(sizeof(struct slot), universe.inventory_size),
+				.location = (struct point){.x = x, .y = y},
+				.health = initial_player_health,
+				.selected = 0,
+				.gamemode = default_gamemode,
+			};
+
+			universe.players = realloc(universe.players, sizeof(struct player) * (universe.player_count + 1));
+			universe.players[universe.player_count++] = new;
+			return;
+		}
+	}
+	printf("could not spawn player after %lu attempts, aborting...\n", player_spawn_attempts);
+	abort();
 }
 
+static inline void create_universe(nat size) {
+	universe.side = size;
+	universe.count = universe.side * universe.side;
+	universe.inventory_size = default_inventory_size;
 
-int main(const int argc, const char** argv) {
-
-	printf("initilaizing glfw...\n");
-	if (not glfwInit()) fail("glfw initialization");
-
-	printf("checking for vulkan support...\n");
-	if (not glfwVulkanSupported()) fail("vulkan not supported");
+	universe.state = malloc(universe.count);
+	generate_universe();
 	
-	printf("creating the window...\n");
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	GLFWwindow* window = glfwCreateWindow(window_width, window_height, window_title, NULL, NULL);
-	if (not window) fail("window");
-
-	glfwSetKeyCallback(window, keyboard_callback);
-	glfwSetCursorPosCallback(window, mouse_position_callback);
-	glfwSetMouseButtonCallback(window, mouse_button_callback);
-
-	printf("loading vulkan bingings...\n");
-	get(vkCreateInstance);
-	get(vkEnumeratePhysicalDevices);
-	get(vkGetPhysicalDeviceQueueFamilyProperties);
-	get(vkCreateDevice);
-	get(vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
-	get(vkGetPhysicalDeviceSurfaceFormatsKHR);
-	get(vkGetPhysicalDeviceSurfaceSupportKHR);
-	get(vkCreateSwapchainKHR);
-	get(vkGetSwapchainImagesKHR);
-	get(vkCreateFence);
-	get(vkCreateCommandPool);
-	get(vkAllocateCommandBuffers);
-	get(vkCreateImageView);
-	get(vkCreateRenderPass);
-	get(vkCreateShaderModule);
-	get(vkCreatePipelineLayout);
-	get(vkCreateGraphicsPipelines);
-	get(vkDestroyShaderModule);
-
-	const char* instance_extensions[] = {
-		VK_KHR_SURFACE_EXTENSION_NAME, 
-		"VK_EXT_metal_surface", 
-		"VK_EXT_validation_features", 
-		"VK_KHR_get_physical_device_properties2"
-	};
-	const uint32_t instance_extension_count = 4;
-
-	const char* device_extensions[] = {
-		"VK_KHR_portability_subset", 
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
-	};
-	const uint32_t device_extension_count = 2;
-
-	const char* validation_layers[] = {"VK_LAYER_KHRONOS_validation"};
-	const uint32_t validation_layer_count = 1;
-
-
-	VkValidationFeatureEnableEXT enables[] = {VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT};
-	uint32_t enabled_validation_feature_count = 1;
-
-	VkApplicationInfo application = {
-		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-		.pApplicationName = "My Cool Game Application",
-		.pEngineName      = "Game Engine Name Here",
-		.apiVersion       = VK_MAKE_VERSION(1, 0, 0)
-	};
-
-	VkDebugReportCallbackCreateInfoEXT debug_report_info = {
-		.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT,
-		.flags = 
-			VK_DEBUG_REPORT_ERROR_BIT_EXT | 
-			VK_DEBUG_REPORT_INFORMATION_BIT_EXT | 
-			VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | 
-			VK_DEBUG_REPORT_WARNING_BIT_EXT,
-		.pfnCallback = debug_callback
-	};
+	universe.rogue_count = 0;
+	universe.player_count = 0;
+	universe.players = NULL;
+	universe.rogues = NULL;
 	
-	VkValidationFeaturesEXT features = {
-		.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
-		.pNext = &debug_report_info,
- 		.enabledValidationFeatureCount = enabled_validation_feature_count,
-		.pEnabledValidationFeatures = enables
-	};
+	spawn_player();
+	spawn_rogue();
+}
 
-	VkInstanceCreateInfo instance_info = {
-		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-		.pNext = &features,
-		.pApplicationInfo = &application,
-		.enabledExtensionCount = instance_extension_count, 
-		.ppEnabledExtensionNames = instance_extensions,
-		.enabledLayerCount = validation_layer_count,
-		.ppEnabledLayerNames = validation_layers
-	};
+static inline void load_universe(const char* filename) {
 
-	printf("debug: creating instance...\n");
-	VkInstance instance;
-	if (vkCreateInstance(&instance_info, NULL, &instance) != VK_SUCCESS) 
-		vk_error("create instance");
+	FILE* file = fopen(filename, "r");
 
-
-	printf("debug: creating window surface...\n");
-	VkSurfaceKHR surface;
-	VkResult err = glfwCreateWindowSurface(instance, window, NULL, &surface);
-	if (err) fail("window surface");
-
-
-	printf("debug: enumerating the physical devices...\n");
-	uint32_t physical_device_count = 0;
-	vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL);
-	VkPhysicalDevice* physical_devices = calloc(physical_device_count, sizeof(VkPhysicalDevice));
-	vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_devices);
-	printf("debug: ---> found %d physical devices.\n", physical_device_count);
-
-
-	if (not physical_device_count) vk_error("no suitable GPU physical device found");
-	VkPhysicalDevice physical_device = physical_devices[0];
-
-
-	printf("debug: getting the queues...\n");
-	uint32_t queue_family_count = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, NULL);
-	VkQueueFamilyProperties* queue_family_properties = calloc(queue_family_count,  sizeof(VkQueueFamilyProperties));
-	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_family_properties);
-	printf("debug: ---> got %d queues.\n", queue_family_count);
-
-
-	printf("debug: finding queue family index...\n");
-	uint32_t queue_index = 0;
-	for (; queue_index < queue_family_count; queue_index++) {
-		if (glfwGetPhysicalDevicePresentationSupport(instance, physical_device, queue_index)) 
-			break;
+	if (not file) { 
+		perror("open"); 
+		exit(3); 
 	}
 
-	if (queue_index == queue_family_count) 
-		vk_error("no suitable queue family index found for the device");
+	uint side = 0, player_count = 0, rogue_count = 0, inv_size = 0;
+	fread(&side, sizeof(uint), 1, file);
+	fread(&player_count, sizeof(uint), 1, file);
+	fread(&rogue_count, sizeof(uint), 1, file);
+	fread(&inv_size, sizeof(uint), 1, file);
 	
-	printf("debug: ---> using queue_family_index = %d    (out of %d)\n", queue_index, queue_family_count);
+	universe.side = side;
+	universe.count = universe.side * universe.side;
+	universe.state = malloc(universe.count);
 
-	VkBool32 supported;
-	vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, queue_index, surface, &supported);
-	if (supported == VK_FALSE) abort();
-	
+	universe.player_count = player_count;
+	universe.rogue_count = rogue_count;
+	universe.inventory_size = inv_size;
 
-	float queue_priority = 1.0;
-	VkDeviceQueueCreateInfo queue_info = {
-		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-		.queueFamilyIndex = queue_index,
-		.queueCount       = 1,
-		.pQueuePriorities = &queue_priority,
-	};
+	universe.players = malloc(player_count * sizeof(struct player));
+	universe.rogues = malloc(rogue_count * sizeof(struct rogue));
 
-	VkDeviceCreateInfo device_info = {
-		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		.queueCreateInfoCount = 1,
-		.pQueueCreateInfos = &queue_info,
-		.enabledExtensionCount = device_extension_count,
-		.ppEnabledExtensionNames = device_extensions,
-	};
+	for (nat i = 0; i < player_count; i++) {
 
-	printf("debug: creating the device...\n");
-	VkDevice device;
-	if (vkCreateDevice(physical_device, &device_info, NULL, &device) != VK_SUCCESS) 
-		vk_error("create device");
+		uint x = 0, y = 0;
+		byte h = 0, s = 0;
 
-	printf("debug: getting the queue...\n");
-	VkQueue queue;
-	vkGetDeviceQueue(device, queue_index, 0, &queue);
+		fread(&x, sizeof(uint), 1, file);
+		fread(&y, sizeof(uint), 1, file);
 
-
-	printf("debug: getting physical device surface capabilities...\n");
-	VkSurfaceCapabilitiesKHR surface_properties;
-	if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &surface_properties) != VK_SUCCESS)
-		vk_error("vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
-
-
-	printf("debug: getting physical device surface formats...\n");
-	uint32_t format_count = 0;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count, NULL);
-	VkSurfaceFormatKHR* formats = calloc(format_count,  sizeof(VkSurfaceFormatKHR));
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count, formats);
-
-	printf("debug: ---> got %d surface formats.\n", format_count);
-
-	printf("debug: printing formats:\n");
-	for (uint32_t i = 0; i < format_count; i++) {
-		printf("\t- format #%d : %d\n", i, formats[i].format);
-	}
-	printf(".\n");
-
-	printf("debug: picking a format....\n");
-	VkSurfaceFormatKHR format;
-	format.format = VK_FORMAT_UNDEFINED;
-
-	for (uint32_t i = 0; i < format_count; i++) {
-		if (	formats[i].format == VK_FORMAT_R8G8B8A8_UNORM or 
-			formats[i].format == VK_FORMAT_B8G8R8A8_UNORM or
-			formats[i].format == VK_FORMAT_A8B8G8R8_UNORM_PACK32
-		) { format = formats[i]; break; }
-	}
-
-	if (format.format == VK_FORMAT_UNDEFINED) {
-		format = formats[0];
-	}
-	printf("debug: ---> picked format: %d.\n", format.format);
-	
-	VkExtent2D swapchain_size = surface_properties.currentExtent;
-
-	printf("debug: ---> found swap_chain size: [width=%d, height=%d]\n", swapchain_size.width, swapchain_size.height);
-	
-	VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR; // or mailbox for triple buffering?...
-
-	uint32_t desired_swapchain_images = surface_properties.minImageCount + 1;
-	if ((surface_properties.maxImageCount > 0) && (desired_swapchain_images > surface_properties.maxImageCount))
-	{
-		desired_swapchain_images = surface_properties.maxImageCount;
-	}
-
-	VkSurfaceTransformFlagBitsKHR pre_transform;
-	if (surface_properties.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
-	{
-		pre_transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-	} else {
-		pre_transform = surface_properties.currentTransform;
-	}
-
-
-	VkCompositeAlphaFlagBitsKHR composite = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	if (surface_properties.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
-	{
-		composite = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	}
-	else if (surface_properties.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR)
-	{
-		composite = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
-	}
-	else if (surface_properties.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR)
-	{
-		composite = VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR;
-	}
-	else if (surface_properties.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR)
-	{
-		composite = VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR;
-	}
-
-	VkSwapchainCreateInfoKHR swapchain_info = {
-		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-		.surface = surface,
-		.minImageCount = desired_swapchain_images,
-		.imageFormat = format.format,
-		.imageColorSpace = format.colorSpace,
-		.imageExtent.width = swapchain_size.width,
-		.imageExtent.height = swapchain_size.height,
-		.imageArrayLayers = 1,
-		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-		.preTransform = pre_transform,
-		.compositeAlpha = composite,
-		.presentMode = swapchain_present_mode,
-		.clipped = true,
-		.oldSwapchain = NULL
-	};
-
-	printf("debug: creating swapchain...\n");
-
-	VkSwapchainKHR swapchain;
-	if (vkCreateSwapchainKHR(device, &swapchain_info, NULL, &swapchain) != VK_SUCCESS) 
-		vk_error("create swapchain");
-	
-
-	printf("debug: getting swapchain images...\n");
-	uint32_t image_count = 0;
-	vkGetSwapchainImagesKHR(device, swapchain, &image_count, NULL);
-	VkImage* swapchain_images = calloc(image_count,  sizeof(VkImage));
-	vkGetSwapchainImagesKHR(device, swapchain, &image_count, swapchain_images);
-	printf("debug: found %d swapchain images.\n", image_count);
-
-
-	VkFence* queue_submit_fence = calloc(image_count, sizeof(VkFence));
-	VkCommandPool* primary_command_pool = calloc(image_count, sizeof(VkCommandPool));
-	VkCommandBuffer* primary_command_buffer = calloc(image_count, sizeof(VkCommandBuffer));
-	VkImageView* swapchain_image_views = calloc(image_count, sizeof(VkImageView)); 
-	
-	for (uint32_t i = 0; i < image_count; i++) {
-
-		VkFenceCreateInfo info = {
-			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-			.flags = VK_FENCE_CREATE_SIGNALED_BIT,
-		};
+		fread(&h, sizeof(byte), 1, file);
+		fread(&s, sizeof(byte), 1, file);
 		
-		printf("debug: \t - image #%d: creating fence...\n", i);
-		if (vkCreateFence(device, &info, NULL, queue_submit_fence + i) != VK_SUCCESS) 
-			vk_error("create fence");
-
-
-		VkCommandPoolCreateInfo cmd_pool_info = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-			.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-			.queueFamilyIndex = queue_index,
+		struct player player = {
+			.inventory = malloc(universe.inventory_size * sizeof(struct slot)),
+			.location = (struct point) {.x = x, .y = y}, .health = h, .selected = s,
 		};
 
-		printf("debug: \t - image #%d: creating command pool...\n", i);
-		if (vkCreateCommandPool(device, &cmd_pool_info, NULL, primary_command_pool + i) != VK_SUCCESS)
-			vk_error("create command pool");
+		for (nat j = 0; j < universe.inventory_size; j++) {
+			byte item = 0, count = 0;
+			fread(&item, sizeof(byte), 1, file);
+			fread(&count, sizeof(byte), 1, file);
+			player.inventory[j].item = item;
+			player.inventory[j].count = count;
+		}
+		universe.players[i] = player;
+	}
 
+	for (nat i = 0; i < rogue_count; i++) {
 
-		VkCommandBufferAllocateInfo cmd_buf_info = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-			.commandPool        = primary_command_pool[i],
-			.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			.commandBufferCount = 1,
-		};
+		uint x = 0, y = 0;     ///TODO: 
+		byte h = 0, s = 0;
 
-		printf("debug: \t - image #%d: allocating command buffer...\n", i);
-		if (vkAllocateCommandBuffers(device, &cmd_buf_info, primary_command_buffer + i) != VK_SUCCESS) 
-			vk_error("allocate command buffers");
+		fread(&x, sizeof(uint), 1, file);
+		fread(&y, sizeof(uint), 1, file);
+
+		fread(&h, sizeof(byte), 1, file);
+		fread(&s, sizeof(byte), 1, file);
 	
-		VkImageViewCreateInfo view_info = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			.viewType                    = VK_IMAGE_VIEW_TYPE_2D,
-			.format                      = format.format,
-			.image                       = swapchain_images[i],
-			.subresourceRange.levelCount = 1,
-			.subresourceRange.layerCount = 1, 
-			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.components.r                = VK_COMPONENT_SWIZZLE_IDENTITY,
-			.components.g                = VK_COMPONENT_SWIZZLE_IDENTITY,
-			.components.b                = VK_COMPONENT_SWIZZLE_IDENTITY,
-			.components.a                = VK_COMPONENT_SWIZZLE_IDENTITY,
+
+		struct rogue rogue = {
+			.inventory = calloc(sizeof(struct slot), universe.inventory_size),
+			.path = (struct point_list) {0},
+
+			.location = (struct point){.x = x, .y = y},
+			.target = (struct point){0},
+
+			.lifetime = 256,
+
+			.health = (byte) rand() % max_rogue_health,
+			.strength = (byte) rand() % max_rogue_health,
+			.target_valid = false,
+
+			.state = 0,
 		};
 
-		printf("debug: \t - image #%d: creating image view...\n", i);		
 
-		if (vkCreateImageView(device, &view_info, NULL, swapchain_image_views + i) != VK_SUCCESS) 
-			vk_error("create image view");
+
+		for (nat j = 0; j < universe.inventory_size; j++) {
+			byte item = 0, count = 0;
+
+			fread(&item, sizeof(byte), 1, file);
+			fread(&count, sizeof(byte), 1, file);
+			
+			rogue.inventory[j].item = item;
+			rogue.inventory[j].count = count;
+		}
+		universe.rogues[i] = rogue;
 	}
 
 
-
-	///---------------------------- create render pass -----------------------------------
-
-
-
-	VkAttachmentDescription attachment = {
-		.format = format.format,
-		.samples = VK_SAMPLE_COUNT_1_BIT, 
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, 
-		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-	};
-
-	VkAttachmentReference color_ref = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-
-	VkSubpassDescription subpass = {
-		.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS,
-		.colorAttachmentCount = 1,
-		.pColorAttachments    = &color_ref,
-	};
-
-	VkSubpassDependency dependency = {
-		.srcSubpass          = VK_SUBPASS_EXTERNAL,
-		.dstSubpass          = 0,
-
-		.srcStageMask        = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		.dstStageMask        = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-
-		.srcAccessMask = 0,
-		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-	};
-
-	VkRenderPassCreateInfo rp_info = {
-		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-		.attachmentCount        = 1,
-		.pAttachments           = &attachment,
-		.subpassCount           = 1,
-		.pSubpasses             = &subpass,
-		.dependencyCount        = 1,
-		.pDependencies          = &dependency,
-	};
+	fread(universe.state, sizeof(byte), universe.count, file);
+	fclose(file);
+}
 
 
-	printf("debug: creating render pass...\n");
-
-	VkRenderPass render_pass;
-	if (vkCreateRenderPass(device, &rp_info, NULL, &render_pass) != VK_SUCCESS) 
-		vk_error("create render pass");
-	
 
 
- 	// ------------------------- init frame buffers --------------------------
+static inline void save_universe(const char* destination) {
 
+	FILE* file = fopen(destination, "w");
 
-	VkFramebuffer* swapchain_framebuffers = calloc(image_count, sizeof(VkFramebuffer));
-
-
-	for (uint32_t i = 0; i < image_count; i++) {
-		
-		VkFramebufferCreateInfo framebuffer_info = {
-			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-			.renderPass      = render_pass,
-			.attachmentCount = 1,
-			.pAttachments    = swapchain_image_views + i,
-			.width           = swapchain_size.width,
-			.height          = swapchain_size.height,
-			.layers          = 1,
-		};
-
-		printf("debug: \t - image #%d: creating frame buffer...\n", i);	
-	
-		if (vkCreateFramebuffer(device, &framebuffer_info, NULL, swapchain_framebuffers + i) != VK_SUCCESS) 
-			vk_error("create frame buffer");
-
+	if (not file) { 
+		perror("open"); 
+		exit(3); 
 	}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	//--------------  load shader modules: ----------------
-	
-
-	size_t code_length = 0;
-	printf("debug: reading in shader vertex spir-v file...\n");
-	unsigned int* code = open_file("shaders/shader.vert.spv", &code_length);
-
-	VkShaderModuleCreateInfo vertex_module_info = {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.codeSize = code_length,
-		.pCode    = code,
-	};
-
-	printf("debug: creating vertex shader module from %lu bytes...\n", code_length);
-	VkShaderModule vertex_shader_module;
-	if (vkCreateShaderModule(device, &vertex_module_info, NULL, &vertex_shader_module) != VK_SUCCESS)
-		vk_error("create vertex shader module");
-	
-	munmap(code, code_length);
-	
-
-	printf("debug: reading in shader fragment spir-v file...\n");
-	code = open_file("shaders/shader.frag.spv", &code_length);
-
-	VkShaderModuleCreateInfo fragment_module_info = {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.codeSize = code_length,
-		.pCode    = code,
-	};
-
-	printf("debug: creating fragment shader module from %lu bytes...\n", code_length);
-	VkShaderModule fragment_shader_module;
-	if (vkCreateShaderModule(device, &fragment_module_info, NULL, &fragment_shader_module) != VK_SUCCESS)
-		vk_error("create fragment shader module");
-	
-	munmap(code, code_length);
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	VkPipelineVertexInputStateCreateInfo vertex_input = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
-	};
-
-	VkPipelineInputAssemblyStateCreateInfo input_assembly = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-	};
-
-	VkPipelineRasterizationStateCreateInfo raster = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		.cullMode = VK_CULL_MODE_BACK_BIT,
-		.frontFace = VK_FRONT_FACE_CLOCKWISE,
-		.lineWidth = 1.0f,
-	};
-
-	VkPipelineColorBlendAttachmentState blend_attachment = {
-		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-	};
-
-	VkPipelineColorBlendStateCreateInfo blend = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,	
-		.attachmentCount = 1,
-		.pAttachments    = &blend_attachment
-	};
-
-	VkPipelineViewportStateCreateInfo viewport = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		.viewportCount = 1,
-		.scissorCount  = 1,
-	};
-
-	VkPipelineDepthStencilStateCreateInfo depth_stencil = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-	};
-
-	VkPipelineMultisampleStateCreateInfo multisample = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-	};
-
-	VkDynamicState dynamics[2] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-
-	VkPipelineDynamicStateCreateInfo dynamic = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-		.pDynamicStates    = dynamics,
-		.dynamicStateCount = 2,
-	};
-	
-	VkPipelineShaderStageCreateInfo shader_stages[2] = {
-		(VkPipelineShaderStageCreateInfo) {
-			.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage  = VK_SHADER_STAGE_VERTEX_BIT,
-			.module = vertex_shader_module,
-			.pName  = "main",
-		},
-		(VkPipelineShaderStageCreateInfo) {
-			.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			.stage  = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.module = fragment_shader_module,
-			.pName  = "main",
-		},
-	};
-
-
-	VkPipelineLayoutCreateInfo layout_info = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
-	};
-	
-	printf("debug: creating pipeline layout...\n");
-	VkPipelineLayout pipeline_layout;
-	if (vkCreatePipelineLayout(device, &layout_info, NULL, &pipeline_layout) != VK_SUCCESS) 
-		vk_error("create pipeline layout");	
-
-	VkGraphicsPipelineCreateInfo pipeline_info = {
-		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-		.stageCount = 2,
-		.pStages = shader_stages,
-		.pVertexInputState = &vertex_input,
-		.pInputAssemblyState = &input_assembly,
-		.pRasterizationState = &raster,
-		.pColorBlendState = &blend,
-		.pMultisampleState = &multisample,
-		.pViewportState = &viewport,
-		.pDepthStencilState = &depth_stencil,
-		.pDynamicState = &dynamic,
-		.renderPass = render_pass,
-		.layout = pipeline_layout,
-	};
-
-	printf("debug: creating graphics pipeline...\n");
-
-	VkPipeline pipeline;
-	if (vkCreateGraphicsPipelines(device, NULL, 1, &pipeline_info, NULL, &pipeline) != VK_SUCCESS)
-		vk_error("create graphics pipeline");
-
-	printf("debug: destroying left over shader modules...\n");
-
-	vkDestroyShaderModule(device, vertex_shader_module, NULL);
-	vkDestroyShaderModule(device, fragment_shader_module, NULL);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	while (not glfwWindowShouldClose(window)) {
-
-   		glfwSwapBuffers(window);
-    		glfwPollEvents();
-
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) printf("W key was pressed!\n");
-		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) printf("S key was pressed!\n");
-
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) printf("A key was pressed!\n");
-		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) printf("D key was pressed!\n");
-
-		if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) printf("LSHIFT key was pressed!\n");
-		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) printf("SPACE key was pressed!\n");
-
-		usleep(10000);
+	uint 
+		side = (uint) universe.side, 
+		player_count = (uint) universe.player_count, 
+		rogue_count = (uint) universe.rogue_count, 
+		inv_size = (uint) universe.inventory_size;
+
+	fwrite(&side, sizeof(uint), 1, file);
+	fwrite(&player_count, sizeof(uint), 1, file);
+	fwrite(&rogue_count, sizeof(uint), 1, file);
+	fwrite(&inv_size, sizeof(uint), 1, file);
+
+	for (nat i = 0; i < player_count; i++) {
+
+		uint 
+			x = (uint) universe.players[i].location.x, 
+			y = (uint) universe.players[i].location.y, 
+			h = (uint) universe.players[i].health, 
+			s = (uint) universe.players[i].selected;
+
+		fwrite (&x, sizeof(uint), 1, file);
+		fwrite(&y, sizeof(uint), 1, file);
+		fwrite(&h, sizeof(uint), 1, file);
+		fwrite(&s, sizeof(uint), 1, file);
+
+		for (nat j = 0; j < universe.inventory_size; j++) {
+
+			byte 
+				item = universe.players[i].inventory[j].item, 
+				count = universe.players[i].inventory[j].count;
+
+			fwrite(&item, sizeof(byte), 1, file);
+			fwrite(&count, sizeof(byte), 1, file);
+		}
 	}
 
-	glfwTerminate();
+	for (nat i = 0; i < rogue_count; i++) {
+
+		uint 
+			x = (uint) universe.rogues[i].location.x, 
+			y = (uint) universe.rogues[i].location.y;
+
+		byte
+			h = (byte) universe.rogues[i].health, 
+			s = (byte) universe.rogues[i].strength;
+
+		fwrite(&x, sizeof(uint), 1, file);
+		fwrite(&y, sizeof(uint), 1, file);
+		fwrite(&h, sizeof(byte), 1, file);
+		fwrite(&s, sizeof(byte), 1, file);
+
+		for (nat j = 0; j < universe.inventory_size; j++) {
+
+			byte 
+				item = universe.rogues[i].inventory[j].item, 
+				count = universe.rogues[i].inventory[j].count;
+
+			fwrite(&item, sizeof(byte), 1, file);
+			fwrite(&count, sizeof(byte), 1, file);
+		}
+	}
+
+	fwrite(universe.state, sizeof(byte), universe.count, file);
+
+	fclose(file);
+}
+
+
+static inline void break_block(nat at) {
+
+	byte block = universe.state[at];
+
+	if (block != air_block) {
+	
+		for (nat i = 0; i < universe.inventory_size; i++) {
+			if (universe.players[0].inventory[i].item == block) {
+				universe.players[0].inventory[i].count++;
+				universe.state[at] = air_block;
+				return;
+
+			} else if (universe.players[0].inventory[i].item == no_item) {
+				universe.players[0].inventory[i].item = block;
+				universe.players[0].inventory[i].count = 1;
+				universe.state[at] = air_block;
+				return;
+			}
+		}		
+	} 
+}
+
+static inline void place_block(nat at) {
+	if (universe.players[0].inventory[universe.players[0].selected].count 
+		and universe.state[at] == air_block) {
+		universe.state[at] = universe.players[0].inventory[universe.players[0].selected].item;
+		universe.players[0].inventory[universe.players[0].selected].count--;
+	}
 }
 
 
@@ -743,76 +812,349 @@ int main(const int argc, const char** argv) {
 
 
 
+// ------------------------ pathfinding -------------------------------
 
 
+// static inline struct node* deep_copy(struct node this) {
+// 	struct node* copy = malloc(sizeof(struct node));
+// 	*copy = this;
+// 	if (this.parent) copy->parent = deep_copy(*this.parent);
+// 	return copy;
+// }
 
+static inline struct node_list get_valid_path_neighbors(struct node origin, nat g) {
 
+	const nat S = universe.side;
 
+	struct node* successors = malloc(9 * sizeof(struct node));
+	nat successors_count = 0;
 
+	for (integer i = -1; i <= 1; i++) {
+		for (integer j = -1; j <= 1; j++) {
 
+			// struct node* copy = deep_copy(origin);
 
+			struct node* copy = malloc(sizeof(struct node));
+			*copy = origin;
 
+			struct node p = {
+				.parent = copy,
+				.point = (struct point){(origin.point.x + (nat)(i + (integer)S)) % S, 
+							(origin.point.y + (nat)(j + (integer)S)) % S},
+				.f = 0, .g = g + 1, .h = 0,
+			};
 
+			if (((i and not j) or (not i and j)) and not universe.state[at_point(p.point)]) {
+				successors[successors_count++] = p;
+			}
+		}
+	}
 
+	return (struct node_list) {.list = successors, .count = successors_count};
+}
 
+static inline struct point_list construct_path(struct node current_initial) {
 
+	struct point_list path = {0};
+	struct point_list stack = {0};
+	struct node current = current_initial;
 
+	while (current.parent) {
+		push_point(&stack, current.point);
+		current = *current.parent;
+	}
 
+	for (nat i = stack.count; i--;) {
+		push_point(&path, stack.list[i]);
+	}
 
+	return path;
+}
 
+static inline int compare_nodes(const void* a_raw, const void* b_raw) {
+	const struct node* a_node = a_raw;
+	const struct node* b_node = b_raw;
+	return (int)b_node->f - (int)a_node->f;
+}
 
+static inline struct point_list astar(struct point start, struct point goal) {
 
+	struct node_list open = {0};
+	struct point_list closed = {0};
 
+	const nat h = distance(start, goal);
 
+	push_node(&open, (struct node) {
+		.parent = NULL, 
+		.point = start, 
+		.f = h, 
+		.g = 0, 
+		.h = h
+	});
 
+	while (open.count) {
+		qsort(open.list, open.count, sizeof(struct node), compare_nodes);
+		struct node current = open.list[--open.count];
 
+		if (current.g > astar_cost_limit) return pathfinding_failure;
 
+		struct node_list goal_neighbors = get_valid_path_neighbors((struct node) {.point = goal}, 0);
 
+		for (nat i = 0; i < goal_neighbors.count; i++) {
+			if (points_equal(current.point, goal_neighbors.list[i].point)) return construct_path(current);
+		}
 
+		push_point(&closed, current.point);
 
+		struct node_list neighbors = get_valid_path_neighbors(current, current.g);
 
+		for (nat i = 0; i < neighbors.count; i++) {
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	// printf("printing physical devices available:\n");
-	// for (uint32_t i = 0; i < physical_device_count; i++) {
-
-	// 	printf("physical device #%d : %p\n", i, (void*) physical_devices[i]);
-
-	// 	VkPhysicalDeviceProperties properties = {0};
-	// 	vkGetPhysicalDeviceProperties(physical_devices[i], &properties);
+			struct node neighbor = neighbors.list[i];
 		
-	// 	printf("\tname : %s       api=%d . driver=%d . v_id=%d . d_id=%d \n", 
-	// 		properties.deviceName, 
-	// 		properties.apiVersion,
-	// 		properties.driverVersion,
-	// 		properties.vendorID,	
-	// 		properties.deviceID
-	// 	);
+			neighbor.g = current.g + 1;
+    			neighbor.h = distance(neighbor.point, goal);
+    			neighbor.f = neighbor.g + neighbor.h;
+
+			if (point_is_not_in_list(closed, neighbor.point) and 
+			    node_is_not_in_list(open, neighbor)) 
+				push_node(&open, neighbor);
+
+			else {
+				struct point_list points = {0};
+				for (nat n = 0; n < open.count; n++) {
+					if (open.list[n].g > neighbor.g) push_point(&points, open.list[n].point);
+				}
+
+				if (not point_is_not_in_list(points, neighbor.point)) {
+
+					for (nat n = 0; n < open.count; n++) {
+						if (open.list[n].g > neighbor.g and 
+						    points_equal(open.list[n].point, neighbor.point)) {
+							open.list[n] = neighbor;
+							break;
+						}
+					}	
+				}
+			}
+		}
+	}
+	return pathfinding_failure;
+}
+
+
+static inline void find_targets() {
+
+	for (nat r = 0; r < universe.rogue_count; r++) {
+
+		nat closest_distance = rogue_dormant_radius + 1;
+		integer best_target = -1;
+
+		for (nat p = 0; p < universe.player_count; p++) {
+			if (universe.players[p].gamemode != survival_mode) continue;
+		
+			const nat this_players_distance = 
+				distance(universe.rogues[r].location, 
+					 universe.players[p].location);
+
+			if (closest_distance > this_players_distance) {
+				closest_distance = this_players_distance;
+				best_target = (integer) p;
+			}
+		}
+		if (best_target != -1) {
+			universe.rogues[r].target = universe.players[best_target].location;
+			universe.rogues[r].state = searching_state;
+			universe.rogues[r].target_valid = true;
+		}
+	}
+}
+
+static inline void move_rogues() {
+
+	for (nat r = 0; r < universe.rogue_count; r++) {
+
+		struct rogue rogue = universe.rogues[r];
+		bool still = false;
+		bool visible = distance(rogue.location, rogue.target) < rogue_dormant_radius;
+
+		if (rogue.target_valid and rogue.path.count and visible) {
+			universe.rogues[r].location = rogue.path.list[0];
+		}
+
+		else if (not rogue.path.count) {
+			universe.rogues[r].target_valid = false;
+			still = true;
+		}
+
+		find_targets();
+
+		if (visible) {
+			free(universe.rogues[r].path.list);
+			universe.rogues[r].path = astar(rogue.location, rogue.target);
+		}
+		else still = true;
+
+		// if (still and rogue.lifetime > 0) universe.rogues[r].lifetime--;
+		// if (rogue.lifetime == 0) at(rogue.location) = 0;
+	}
+}
+
+static inline void make_rogues_attack() {
+
+	for (nat p = 0; p < universe.player_count; p++) { 
+
+		for (nat r = 0; r < universe.rogue_count; r++) {
+
+			if (distance(universe.players[p].location, universe.rogues[r].location) < 2) {
+				if ((nat) rand() % rogues_attack_speed_modulus == 0) 
+					universe.players[p].health--;
+			}
+		}
+	}
+}
+
+static inline void compute() {
+
+	// for (size_t i = 0; i < universe.count; i++) {
+	// 	if (rand() % 128 == 0 and universe.state[i]) {
+	// 		universe.state[i]--;
+	// 	}
 	// }
-	// printf(".\n");
+
+	if ((nat) rand() % rogue_spawn_modulus == 0) {
+		spawn_rogue();
+	}
+
+	move_rogues();
+	make_rogues_attack();
+
+	if (universe.players[0].health == 0) {
+		universe.player_count--; // remove player from list!
+
+		strcpy(message, "you died!");
+		spawn_player();
+	}
+
+}
+
+
+int main(int argc, const char** argv) {
+
+	srand((unsigned)time(0));
+
+	if (argc <= 1) usage: exit(puts( "usage: \n"
+			"\t./universe create <new_filename: string> <size: nat>\n"
+			"\t./universe load <existing_filename: string>\n"
+			));
+	
+	else if (not strcmp(argv[1], "create")) create_universe((nat)atol(argv[3]));
+	else if (not strcmp(argv[1], "load")) load_universe(argv[2]);
+	else goto usage;
+
+	struct termios terminal = configure_terminal();
+	write(1, "\033[?1049h\033[?1000l", 16); // use alternate screen, then disable mouse
+	write(1, "\033[?25l", 6); // hide cursor.
+	adjust_window_size();
+
+	char c = 0;
+	bool quit = false;
+	while (not quit) {
+
+		compute();
+		adjust_window_size();
+		display();
+		ssize_t n = read(0, &c, 1);
+
+		if (n == 0) c = 0;
+
+		if (c == 9) {
+			save_universe(argv[2]);
+			quit = true; 			// tab to save and then quit.
+
+		} else if (c == 127) quit = true;  	// delete to quit without saving.
+		
+		else if (c == 'w' or c == 'W') {
+			if (not universe.state[at_player(-1,0)]) {
+				universe.players[0].location.x = (universe.players[0].location.x + universe.side - 1) % universe.side;
+			}
+			
+		} else if (c == 's' or c == 'S') {
+			if (not universe.state[at_player(1,0)]) {
+				universe.players[0].location.x = (universe.players[0].location.x + 1) % universe.side;
+			}
+
+		} else if (c == 'a' or c == 'A') {
+			if (not universe.state[at_player(0,-1)]) {
+				universe.players[0].location.y = (universe.players[0].location.y + universe.side - 1) % universe.side;
+			}
+
+		} else if (c == 'd' or c == 'D') {
+			if (not universe.state[at_player(0,1)]) {
+				universe.players[0].location.y = (universe.players[0].location.y + 1) % universe.side;
+			}
+		} 
+
+		else if (c == 'i') break_block(at_player(-1, 0));
+		else if (c == 'k') break_block(at_player(1, 0));
+		else if (c == 'j') break_block(at_player(0, -1));
+		else if (c == 'l') break_block(at_player(0, 1));
+
+		else if (c == 'I') place_block(at_player(-1, 0));
+		else if (c == 'K') place_block(at_player(1, 0));
+		else if (c == 'J') place_block(at_player(0, -1));
+		else if (c == 'L') place_block(at_player(0, 1));
+
+		else if (c == '<') {
+			if (universe.players[0].selected) universe.players[0].selected--;
+		} else if (c == '>') {
+			if (universe.players[0].selected < universe.inventory_size - 1) universe.players[0].selected++;
+		} else if (c == '`') {
+			
+			sprintf(message, "[debug=%s] : %lu rogues, %lu players side=%lu:count=%lu:inv=%lu  ", 
+				debug_mode ? "DEBUG_MODE" : "normal mode",
+				universe.rogue_count, universe.player_count, 
+				universe.side, universe.count, universe.inventory_size); 
+
+			debug_mode = !debug_mode;
+	
+
+		} else if (c == ';') {
+			universe.players[0].gamemode = !universe.players[0].gamemode;
+		}
+
+		if (not universe.players[0].inventory[universe.players[0].selected].count) 
+			universe.players[0].inventory[universe.players[0].selected].item = no_item;
+		usleep(1000);
+	}
+
+	write(1, "\033[?1049l\033[?1000l", 16);	  // goto main screen, then keep mouse disabled.
+	write(1, "\033[?25h", 6); // show cursor again.
+	tcsetattr(0, TCSAFLUSH, &terminal);
+
+}
+
+
+
+
+
+// static inline std::vector<point> get_path_neighbors(const point& me) {
+//     std::vector<point> successors = {};
+//     for (int i = -1; i <= 1; i++) {
+//         for (int j = -1; j <= 1; j++) {
+            
+//             point p {
+//                 (me.x + i + game.size) % game.size,
+//                 (me.y + j + game.size) % game.size
+//             };
+            
+//             if (((i and not j) or (not i and j))) {
+//                 successors.push_back(p);
+//             }
+//         }
+//     }
+//     return successors;
+// }
 
 
 
@@ -824,75 +1166,20 @@ int main(const int argc, const char** argv) {
 
 
 
-	// uint32_t device_ext_count = 10;
-	// VkExtensionProperties device_exts[10] = {0};
 
-	// vkEnumerateDeviceExtensionProperties(physical_device, NULL, &device_ext_count, device_exts);
-
-
-
-
-// VkDebugReportCallbackEXT debug_report;
-	// if (vkCreateDebugReportCallbackEXT(instance, &debug_report_info, NULL, &debug_report) != VK_SUCCESS) 
-	// 	vk_error("create debug report call back");
-
-	// printf("debug: set call back.\n");
-
-
-// uint32_t property_count = 100;
-	// VkExtensionProperties properties[100] = {0};
-	// if (vkEnumerateDeviceExtensionProperties(physical_device, NULL, &property_count, properties) != VK_SUCCESS) 
-	// 	vk_error("enumerate device extension properties");
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	// uint32_t image_count = swapChainSupport.capabilities.minImageCount + 1;
-
- //        VkSwapchainCreateInfoKHR createInfo = {
- //        	.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
- //        	.surface = surface,
- //        	.minImageCount = image_count,
- //        	.imageFormat = VK_FORMAT_B8G8R8A8_SRGB,
- //        	.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
- //        	.imageExtent = extent,
- //        	.imageArrayLayers = 1,
- //        	.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-	// 	.preTransform = swapChainSupport.capabilities.currentTransform,
- //        	.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
- //        	.presentMode = VK_PRESENT_MODE_MAILBOX_KHR, // VK_PRESENT_MODE_FIFO_KHR, if not supported.
- //        	.clipped = VK_TRUE,
- //        	.oldSwapchain = NULL,
-	// 	.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-	// };
-
-        
-	// if (vkCreateSwapchainKHR(device, &createInfo, NULL, &swapChain) != VK_SUCCESS) 
-	// 	vk_error("create swapchain");
-        
-
-	// VkImage images[100] = {0};
-	// vkGetSwapchainImagesKHR(device, swapChain, &image_count, images);
-       
-
- //        vkimageformat swapChainImageFormat = VK_FORMAT_B8G8R8A8_SRGB;
- //        extent;
-
-
-
-
+		// if (std::find(points.begin(), points.end(), neighbor.point) != points.end()) {
+  //                   std::vector<point> points = {};
+  //                   std::vector<nat> indicies = {};
+  //                   nat i = 0;
+  //                   for (auto& node : open) {
+  //                       if (node.g > neighbor.g and node.point == neighbor.point) {
+  //                           points.push_back(node.point);
+  //                           indicies.push_back(i);
+  //                       }
+  //                       i++;
+  //                   }
+  //                   open[indicies.front()] = neighbor;
+  //               }
 
 
 

@@ -1,18 +1,14 @@
 #!/bin/zsh
 
 if [ "release" = "$1" ]; then
-	clang -Ofast main.c -o client -lglfw
+	clang -Ofast -Weverything -Wno-poison-system-directories game.c -o universe
 
 elif [ "clean" = "$1" ]; then
-	rm -rf client
-	rm -rf client.dSYM
+	rm -rf universe
+	rm -rf universe.dSYM
 
 elif [ "" = "$1" ]; then 
-	clang -g -O0 -Weverything -Wno-documentation -Wno-unused-parameter -Wno-padded -Wno-documentation-unknown-command -Wno-poison-system-directories -fsanitize=address,undefined main.c -o client -lglfw -lMoltenVK
-
-elif [ "shaders" = "$1" ]; then
-	/usr/local/bin/glslc shader.vert -o shader.vert.spv
-	/usr/local/bin/glslc shader.frag -o shader.frag.spv
+	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined game.c -o universe -ferror-limit=4
 else 
 	echo "build: unknown target: $1"
 fi
