@@ -1,3 +1,5 @@
+
+
 #include <SDL2/SDL.h>
 
 #include <iso646.h>
@@ -20,22 +22,37 @@ int main() {
 		exit(1);
 	}
 
-	SDL_Window *window = SDL_CreateWindow("Client for my game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_RESIZABLE);
+	SDL_Window *window = SDL_CreateWindow("SDL2 Client for my game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_RESIZABLE);
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 
 	bool quit = false;
+	SDL_Event event;
 
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    	SDL_RenderClear(renderer);
+
+	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+    	// for (int i = 0; i < window_height; ++i)
+     //    	SDL_RenderDrawPoint(renderer, i, i);
+
+	for (int i = 0; i < 10000; i++) {
+		SDL_RenderDrawPoint(renderer, rand() % window_width , rand() % window_height);
+	}
+
+
+
+
+
+    	SDL_RenderPresent(renderer);
+	
 	while (not quit) {
 
-		
-
-		// const uint8_t* key = SDL_GetKeyboardState(0);
-		SDL_Event e;
-		while (SDL_PollEvent(&e)) {
+		while (SDL_PollEvent(&event)) {
 			const Uint8* key = SDL_GetKeyboardState(0);
-			if (e.type == SDL_QUIT) quit = true;
+			if (event.type == SDL_QUIT) quit = true;
 	
-			if (e.type == SDL_KEYDOWN) {
+			if (event.type == SDL_KEYDOWN) {
 				if (key[SDL_SCANCODE_0]) {
 					printf("pressed 0\n");
 				}
@@ -49,13 +66,11 @@ int main() {
 			if (key[SDL_SCANCODE_D]) { SDL_Log("D\n"); }
 		}
 
-		for (int i = 0; i < 100; i++) {
-			SDL_RenderDrawPoint(renderer, rand() % window_width , rand() % window_height);
-		}
+		
 
-		SDL_RenderPresent(renderer);
+		// SDL_RenderPresent(renderer);
 
-		usleep(10000);
+		// usleep(10000);
 	}
 
 	SDL_DestroyRenderer(renderer);
@@ -66,14 +81,40 @@ int main() {
 
 
 
+/*
 
 
+#include <stdlib.h>
+
+#include <SDL2/SDL.h>
+
+#define WINDOW_WIDTH 600
+
+int main(void) {
+    SDL_Event event;
+    SDL_Renderer *renderer;
+    SDL_Window *window;
+    int i;
+
+    SDL_Init(SDL_INIT_VIDEO);
+    SDL_CreateWindowAndRenderer(WINDOW_WIDTH, WINDOW_WIDTH, 0, &window, &renderer);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    for (i = 0; i < WINDOW_WIDTH; ++i)
+        SDL_RenderDrawPoint(renderer, i, i);
+    SDL_RenderPresent(renderer);
+    while (1) {
+        if (SDL_PollEvent(&event) && event.type == SDL_QUIT)
+            break;
+    }
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+}
 
 
-
-
-
-
+*/
 
 
 
