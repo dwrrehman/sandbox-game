@@ -11,14 +11,17 @@ elif [ "clean" = "$1" ]; then
 	rm -rf server.dSYM
 
 elif [ "" = "$1" ]; then 
-	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined client.c -o client
-	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined server.c -o server
+	clang -g -O0 -fsanitize=address,undefined client.c -o client -lSDL2
+
+	# clang -g -O0 -fsanitize=address,undefined server.c -o server
+	echo unimplemented.
 
 elif [ "client" = "$1" ]; then 
-	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined client.c -o client
+	clang -g -O0 -Wall -fsanitize=address,undefined client.c -o client -lSDL2
 	
 elif [ "server" = "$1" ]; then 
-	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined server.c -o server
+	# clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined server.c -o server
+	echo unimplemented.
 
 else 
 	echo "build: unknown target: $1"

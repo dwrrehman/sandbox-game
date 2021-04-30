@@ -1,126 +1,66 @@
-// client for the universe sandbox game. 
+#include <SDL2/SDL.h>
 
 #include <iso646.h>
-#include <stdbool.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdlib.h>
+#include <time.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <time.h>
-#include <math.h>
-#include <string.h>
-#include <termios.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
 
-typedef  uint8_t byte;
-typedef uint32_t uint;
-typedef uint64_t nat;
+const int window_height = 600;
+const int window_width = 900;
 
+int main() {
 
+	srand((unsigned)time(0));
 
-static nat window_rows = 0;
-static nat window_columns = 0;
-
-static bool debug_mode = true;
-static char* screen = NULL;
-static char message[4096] = {0};
-
-
-// static byte u[32][32] = {0};
-static nat size = 32;
-
-
-static nat px = 0, py = 0;
-
-
-
-
-
-
-static inline struct termios configure_terminal() {
-	struct termios terminal = {0};
-	tcgetattr(0, &terminal);
-	struct termios raw = terminal;
-	raw.c_oflag &= ~( (unsigned long)OPOST );
-	raw.c_iflag &= ~( (unsigned long)BRKINT 
-			| (unsigned long)ICRNL 
-			| (unsigned long)INPCK 
-			| (unsigned long)IXON );	
-	raw.c_lflag &= ~( (unsigned long)ECHO 
-			| (unsigned long)ICANON 
-			| (unsigned long)IEXTEN );
-
-	raw.c_cc[VMIN] = 0;
-  	raw.c_cc[VTIME] = 1;
-
-	tcsetattr(0, TCSAFLUSH, &raw);
-	return terminal;
-}
-
-static inline void adjust_window_size() {
-	struct winsize window = {0};
-	ioctl(1, TIOCGWINSZ, &window);
-
-	if (window.ws_row == 0 or window.ws_col == 0) { window.ws_row = 20; window.ws_col = 40; }
-
-	if (window.ws_row != window_rows or window.ws_col != window_columns) {
-		window_rows = window.ws_row;
-		window_columns = window.ws_col;
-		screen = realloc(screen, sizeof(char) * (size_t) (4 * window_rows * (window_columns * 4 + 16)));
+	if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+		printf("SDL_Init failed: %s\n", SDL_GetError());
+		exit(1);
 	}
-}
 
-static inline void display() {
-	nat length = 3; 
-	memcpy(screen, "\033[H", 3);
+	SDL_Window *window = SDL_CreateWindow("Client for my game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_RESIZABLE);
+	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 
-	for (nat i = 0; i < size; i++) {
-		for (nat j = 0; j < size; j++) {
-			if (i == py and j == px) length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 27L, "x ");
-			else length += (nat)sprintf(screen + length, "  ");
-		}
-		screen[length++] = '\033';
-		screen[length++] = '[';
-		screen[length++] = 'K';
-		screen[length++] = '\r';
-		screen[length++] = '\n';
-	}
-	length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 37L, message);
-	write(1, screen, (size_t) length);
-}
-
-int main(const int argc, const char** argv) {
-	
-	struct termios terminal = configure_terminal();
-	write(1, "\033[?1049h\033[?1000l", 16); // use alternate screen, then disable mouse
-	write(1, "\033[?25l", 6); // hide cursor.
-	adjust_window_size();
-
-	char c = 0;
 	bool quit = false;
+
 	while (not quit) {
-		display();
-		ssize_t n = read(0, &c, 1);
-		if (n == 0) c = 0;
-		if (c == 9) quit = true;
-		if (c == 'a') adjust_window_size();
-		if (c == 'h') strcpy(message, "hello there from space.");
-		if (c == 'c') strcpy(message, "");
-		if (c == 'j') { if (px) px--; }
-		if (c == 'l') { if (px < size) px++; }
-		if (c == 'i') { if (py) py--; }
-		if (c == 'k') { if (py < size) py++; }
+
+		
+
+		// const uint8_t* key = SDL_GetKeyboardState(0);
+		SDL_Event e;
+		while (SDL_PollEvent(&e)) {
+			const Uint8* key = SDL_GetKeyboardState(0);
+			if (e.type == SDL_QUIT) quit = true;
+	
+			if (e.type == SDL_KEYDOWN) {
+				if (key[SDL_SCANCODE_0]) {
+					printf("pressed 0\n");
+				}
+			}
+
+			if (key[SDL_SCANCODE_ESCAPE]) quit = true;
+			if (key[SDL_SCANCODE_Q]) quit = true;
+			if (key[SDL_SCANCODE_W]) { SDL_Log("W\n"); }
+			if (key[SDL_SCANCODE_S]) { SDL_Log("S\n"); }
+			if (key[SDL_SCANCODE_A]) { SDL_Log("A\n"); }
+			if (key[SDL_SCANCODE_D]) { SDL_Log("D\n"); }
+		}
+
+		for (int i = 0; i < 100; i++) {
+			SDL_RenderDrawPoint(renderer, rand() % window_width , rand() % window_height);
+		}
+
+		SDL_RenderPresent(renderer);
+
 		usleep(10000);
 	}
 
-	write(1, "\033[?1049l\033[?1000l", 16);	  // goto main screen, then keep mouse disabled.
-	write(1, "\033[?25h", 6); // show cursor again.
-	tcsetattr(0, TCSAFLUSH, &terminal);
-	
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
 }
 
 
@@ -144,64 +84,69 @@ int main(const int argc, const char** argv) {
 
 
 
+// static inline void window_changed(camera& camera, SDL_Window *window) {
+//     int w = 0, h = 0;
+//     SDL_GetWindowSize(window, &w, &h);
+//     window_width = w;
+//     window_height = h;
+// }
+
+// static inline void handle_input(SDL_Window* window, camera& camera, float delta) {
+
+//     const Uint8* key = SDL_GetKeyboardState(nullptr);
+//     const float power = (delta * (key[SDL_SCANCODE_LCTRL] ? 0.0016f : camera_acceleration));
+
+//     bool rotation_mode = !!key[SDL_SCANCODE_C];
+//     bool tab = !!key[SDL_SCANCODE_TAB];
+//     bool escape = !!key[SDL_SCANCODE_ESCAPE];
+    
+//     if (key[SDL_SCANCODE_SPACE]) camera.velocity += power * camera.upward;
+//     if (key[SDL_SCANCODE_LSHIFT]) camera.velocity -= power * camera.upward;
+//     if (key[SDL_SCANCODE_W]) camera.velocity += power * camera.forward;
+//     if (key[SDL_SCANCODE_W]) camera.velocity += power * camera.forward;
+//     if (key[SDL_SCANCODE_S]) camera.velocity -= power * camera.forward;
+//     if (key[SDL_SCANCODE_A]) camera.velocity -= power * glm::normalize(glm::cross(camera.forward, camera.upward));
+//     if (key[SDL_SCANCODE_D]) camera.velocity += power * glm::normalize(glm::cross(camera.forward, camera.upward));
+//     if (key[SDL_SCANCODE_X]) camera.upward = glm::vec3(0,1,0);
+
+//     if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+//         SDL_Log("Mouse Button 1 (left) is pressed.");
+//     }
+
+//     if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
+//         SDL_Log("Mouse Button 2 (right) is pressed.");
+//     }
+
+//     SDL_Event e;
+//     while (SDL_PollEvent(&e)) {
+// 	const Uint8* key = SDL_GetKeyboardState(nullptr);
+
+//         if (e.window.type == SDL_WINDOWEVENT_RESIZED) window_changed(camera, window);
+//         if (e.type == SDL_QUIT) gamemode = 0;
+
+//         }
+//         if (e.type == SDL_KEYDOWN) {
+
+//             if (key[SDL_SCANCODE_GRAVE]) {
+//                 if (escape) {} else if (tab) gamemode = 0;
+
+                
+//             } else if (key[SDL_SCANCODE_3]) {
+//                 if (escape) debugmode = !debugmode; else if (tab) gamemode = 3;
+
+//             } else if (key[SDL_SCANCODE_4]) {
+//                 if (escape) {} else if (tab) gamemode = 4;
+           
+// 	    } else if (key[SDL_SCANCODE_5]) {
+//                 if (escape) rendermode = GL_FILL; else if (tab) gamemode = 5;
+
+//             } else if (key[SDL_SCANCODE_6]) {
+//                 if (escape) rendermode = GL_LINES; else if (tab) gamemode = 6;
+//             }
+//         }
+//     }
+// }
 
 
-
-
-
-
-	// const integer height = (integer)window_rows / 2;     
-	// const integer width = (integer)window_columns / 4;  
-
-	// for (integer x = -height + 1; x < height; x++) {
-	// 	for (integer y = -width; y < width; y++) {
-
-	// 		nat ap = at_player(x,y);
-	// 		byte block = universe.state[ap];
-
-	// 		double_break:
-
-	// 		if (not x and not y) {
-				
-
-	// 		} else if (in_rogue_path and debug_mode) {
-	// 			length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 231L, visualize_rogue_path);
-			
-	// 		} else if (block == air_block) {
-	// 			length += (nat)sprintf(screen + length, "  ");
-	// 		} else {
-	// 			length += (nat)sprintf(screen + length, "\033[38;5;%lum%s\033[m", 
-	// 						visualize_block_color[block], visualize_block[block]); 
-	// 		}
-	// 	}
-		
-	// }
-
-	// const struct player player = universe.players[0];
-	// nat status_length = 0, status_visual_length = 0;
-
-	// nat _y = (nat)sprintf(screen + length + status_length, " (%lu, %lu)     \033[38;5;%lum", player.location.x, player.location.y, 9L);
-	// status_length += _y;
-	// status_visual_length += _y;
-
-	// for (nat i = 0; i < max_player_health; i++) {
-	// 	status_length += (nat)sprintf(screen + length + status_length, i < player.health ? "♥ " : "♡ ");
-	// 	status_visual_length += 2;
-	// }
-	// status_length += (nat)sprintf(screen + length + status_length, "\033[m  ");
-	// status_visual_length += 3;
-
-	// nat _h = (nat)sprintf(screen + length + status_length, "%s", message);
-	// status_length += _h;
-	// status_visual_length += _h;
-
-	// length += status_length;
-
-	// for (nat i = status_visual_length; i < window_columns; i++)
-	// 	screen[length++] = ' ';
-
-	// screen[length++] = '\033';
-	// screen[length++] = '[';
-	// screen[length++] = 'm';
 
 
