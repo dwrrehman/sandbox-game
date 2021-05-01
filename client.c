@@ -9,6 +9,8 @@
 #include <time.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
+
 
 const char* window_title = "universe client";
 int window_height = 800, window_width = 1200;
@@ -30,18 +32,34 @@ static inline void toggle_fullscreen(SDL_Window* window, SDL_Renderer* renderer)
 	
 }
 
-static inline void display_pixels(int count, int* array, SDL_Renderer* renderer) {
+static inline void display_pixels(size_t count, uint16_t* array, SDL_Renderer* renderer) {
 	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     	SDL_RenderClear(renderer);
 	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-	for (int i = 0; i < count; i += 2) 
+	for (size_t i = 0; i < count; i += 2) 
 		SDL_RenderDrawPoint(renderer, array[i], array[i + 1]);
     	SDL_RenderPresent(renderer);
 }
 
+static inline int connect_to_server(const char* ip_address, int port) {
+	return 0;
+	
+}
 int main(const int argc, const char** argv) {
 
+	if (argc != 3) exit(puts("usage: ./client <server address: n.n.n.n> <port: n>"));
+
 	if (SDL_Init(SDL_INIT_EVERYTHING)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
+
+	
+	int error = connect_to_server(argv[1], atoi(argv[2]));
+	if (error) {
+		exit(printf("error: could not connect to server: %s\n", strerror(error)));
+	}
+
+
+
+
 
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
@@ -52,16 +70,17 @@ int main(const int argc, const char** argv) {
 	SDL_ShowCursor(0);
 	srand((unsigned)time(0));
 
-	int count = 10000 * 2;
-	int* array = malloc(count * sizeof(int));
+	size_t count = 10000 * 2;
+	uint16_t* array = malloc(count * sizeof(uint16_t));
 
 	bool quit = false;
 	SDL_Event event;
 
 	while (not quit) {
+		int start = SDL_GetTicks();
 
 		// get array data from server.
-		for (int i = 0; i < count; i += 2) {
+		for (size_t i = 0; i < count; i += 2) {
 			array[i + 0] = rand() % window_width;
 			array[i + 1] = rand() % window_height;
 		}
@@ -82,7 +101,17 @@ int main(const int argc, const char** argv) {
 			if (key[SDL_SCANCODE_A]) { SDL_Log("A\n"); }
 			if (key[SDL_SCANCODE_D]) { SDL_Log("D\n"); }
 		}
-		usleep(10000);
+
+		int time = SDL_GetTicks() - start;
+		if (time < 0) continue;
+		int sleep = 16 - time; // for 60 fps.
+		if (sleep > 0) SDL_Delay(sleep);
+	
+		if (!(SDL_GetTicks() & 255)) {
+			char string[128];
+			double fps = 1 / ((double) (SDL_GetTicks() - start) / 1000.0);
+			printf("fps = %.5lf\n", fps);
+		}
 	}
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
