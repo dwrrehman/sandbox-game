@@ -67,7 +67,6 @@
 	which specifies a unique cell, and the function returns its neighborhood, as a byte.
 	
 	
-	
 
 -----------------------------------------------------------------------------------------*/
 
@@ -239,9 +238,6 @@ static inline void iterate
 
 int main(const int argc, const char** argv) {
 	
-
-	
-
 
 	if (argc < 3) exit(puts( "usage: \n\t./server <size: nat> <filename: string>\n"));
 	byte n = (byte) atoi(argv[1]);
