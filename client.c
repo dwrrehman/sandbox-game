@@ -106,7 +106,13 @@ int main(const int argc, const char** argv) {
 	if (response != 1) not_acked();
 
 	const u8 ack = 1;
+
 	write(connection, &window_width, 2);
+	n = read(connection, &response, sizeof response);
+	if (n == 0) { printf("{SERVER DISCONNECTED}\n"); return 1; }
+	else if (n < 0) { read_error(); return 1; }
+	if (response != 1) not_acked();
+
 	write(connection, &window_height, 2);
 	n = read(connection, &response, sizeof response);
 	if (n == 0) { printf("{SERVER DISCONNECTED}\n"); return 1; }
@@ -134,17 +140,6 @@ int main(const int argc, const char** argv) {
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
 
-		u8 command = display;
-		write(connection, &command, 1);
-
-		n = read(connection, &screen_block_count, 4);
-		if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
-		else if (n < 0) { read_error(); break; }
-
-		n = read(connection, screen, screen_block_count * 2);
-		if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
-		else if (n < 0) { read_error(); break; }
-
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     		SDL_RenderClear(renderer);
 
@@ -167,7 +162,7 @@ int main(const int argc, const char** argv) {
 			if (event.type == SDL_KEYDOWN) {
 				 if (key[SDL_SCANCODE_H]) {
 					SDL_Log("H : halting!\n"); 
-					command = halt;
+					u8 command = halt;
 					write(connection, &command, 1);
 					n = read(connection, &response, sizeof response);
 					if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
@@ -175,9 +170,22 @@ int main(const int argc, const char** argv) {
 					if (response != 1) not_acked();
 					quit = true; continue;
 				}
+
+				if (key[SDL_SCANCODE_G]) {
+					SDL_Log("G : send display packet\n"); 
+					u8 command = display;
+					write(connection, &command, 1);
+
+					n = read(connection, &screen_block_count, 4);
+					if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+					else if (n < 0) { read_error(); break; }
+
+					n = read(connection, screen, screen_block_count * 2);
+					if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+					else if (n < 0) { read_error(); break; }
+				}
 			}
 			if (key[SDL_SCANCODE_ESCAPE]) quit = true;
-
 			if (key[SDL_SCANCODE_Q]) quit = true;
 
 			if (key[SDL_SCANCODE_W]) { SDL_Log("W\n"); }
@@ -185,9 +193,8 @@ int main(const int argc, const char** argv) {
 			if (key[SDL_SCANCODE_A]) { SDL_Log("A\n"); }
 
 			if (key[SDL_SCANCODE_D]) { 
-
 				SDL_Log("D : move right\n"); 
-				command = move_right;
+				u8 command = move_right;
 				write(connection, &command, 1);
 				n = read(connection, &response, 1);
 				if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
@@ -198,7 +205,7 @@ int main(const int argc, const char** argv) {
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = 1000 - (int32_t) time; //16, for 60 fps.
+		int32_t sleep = 16 - (int32_t) time; //16, for 60 fps.
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 	
 		if (!(SDL_GetTicks() & 511)) {

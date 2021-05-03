@@ -258,7 +258,6 @@ static void* client_handler(void* raw) {
 			halt_server();
 			continue;
 
-
 		} else if (command == move_right) {
 
 			write(client, &ack, 1);
@@ -278,7 +277,7 @@ static void* client_handler(void* raw) {
 			
 		} else printf("error: command not recognized:  %d\n", (int) command);
 
-		usleep(200000);
+		usleep(2000);
 	}
 	player->active = false;
 leave:
