@@ -150,6 +150,19 @@ int main(const int argc, const char** argv) {
 
 	printf("%s is connecting to UDP server %s : %d...\n", player_name, ip, port + 1);
         
+
+
+	printf("note: about to send ackUDP!!...\n");
+	sleep(1);
+
+	printf("sending ACK to server for UDP con\n");
+	u8 ack = 1;
+	sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
+	printf("DONE sending ACK to server for UDP con\n");
+
+
+
+
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
 			window_width, window_height, 
@@ -157,9 +170,6 @@ int main(const int argc, const char** argv) {
 
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 	SDL_ShowCursor(0);
-
-	u8 ack = 1;
-	sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
 	
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
@@ -202,14 +212,23 @@ int main(const int argc, const char** argv) {
 				}
 
 				if (key[SDL_SCANCODE_G]) {
+					printf("pressed G! sending display request....\n");
 
+					printf("receiving block count first...\n");
 					n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
+	
+					printf("sending ACK for bc...\n");
 					sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
 					
+					printf("receiving %d blocks...\n", screen_block_count);
 					n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
+
+					printf("sending ACK for block array...\n");
 					sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
+
+					printf("all done!!\n");
 				}
 
 			}
@@ -231,7 +250,7 @@ int main(const int argc, const char** argv) {
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = 16 - (int32_t) time; //16, for 60 fps.
+		int32_t sleep = 32 - (int32_t) time; //16, for 60 fps.
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 	
 		if (!(SDL_GetTicks() & 511)) {

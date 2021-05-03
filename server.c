@@ -260,13 +260,17 @@ static void* display_client_handler(void* raw) {
 		
 		printf("debug: sending DP with %d blocks...\n", screen_block_count);
 
+		printf("sending block count...\n");
 		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
 
+		printf("waiting for udp dp ack!\n");
 		n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
 		check(n); if (response != 1) not_acked();
 
+		printf("sending blocks...\n");
 		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
 
+		printf("waiting for udp dp ack!\n");
 		n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
 		check(n); if (response != 1) not_acked();
 
@@ -324,6 +328,8 @@ static void* client_handler(void* raw) {
 	printf("server: screen size: w=%d, h=%d\n", player->width, player->height);
 	if (not player->height or not player->width) abort();
 
+
+	printf("starting up display hanler thread\n");
 	pthread_t display_handler_thread;
 	pthread_create(&display_handler_thread, NULL, display_client_handler, &parameters);
 
