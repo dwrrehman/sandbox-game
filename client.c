@@ -159,7 +159,7 @@ int main(const int argc, const char** argv) {
 	SDL_ShowCursor(0);
 
 	u8 ack = 1;
-	sendto(connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
+	sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
 	
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
@@ -205,11 +205,11 @@ int main(const int argc, const char** argv) {
 
 					n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
-					sendto(connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
+					sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
 					
 					n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
-					sendto(connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
+					sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
 				}
 
 			}
