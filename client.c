@@ -141,6 +141,81 @@ int main(const int argc, const char** argv) {
 
 	printf("CLIENT[%s:%d]: running...\n", ip, port);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	// const char* playername, const char* ip, unsigned int port
+
+
+    int udp_connection = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udp_connection < 0) { perror("socket"); exit(1); }
+    
+    struct sockaddr_in udp_servaddr;
+    memset(&udp_servaddr, 0, sizeof(udp_servaddr));
+    udp_servaddr.sin_addr.s_addr = inet_addr(ip);
+    udp_servaddr.sin_port = htons(port);
+    udp_servaddr.sin_family = AF_INET;
+    socklen_t len = sizeof(udp_servaddr);
+    
+    // printf("%s is connecting to UDP server...\n", playername);
+        
+    // char buffer[1024] = {0};
+
+    // while (1) {
+        // printf("UDP CLIENT[%s:%d]:> ", ip, port);
+        // fgets(buffer, sizeof buffer, stdin);
+        // if (!strcmp(buffer, "quit\n")) break;
+
+
+
+
+
+//        sendto(udp_connection, buffer, sizeof buffer, 0, (struct sockaddr*) &servaddr, len);
+
+
+
+
+
+
+        // memset(buffer, 0, sizeof buffer);
+//        ssize_t n = recvfrom(udp_connection, buffer, sizeof buffer, 0, (struct sockaddr*) &servaddr, &len);
+        // if (n == 0) {
+        //     printf("UDP client:read disconnected.\n");
+        //     printf("{UDP SERVER DISCONNECTED}\n");
+        //     break;
+        // }
+        // printf("UDP server says: %s\n", buffer);
+    // }
+    
+// }
+// */
+
+
+
+
+
+
+
+
+
+
+
+
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
 			window_width, window_height, 
@@ -157,16 +232,18 @@ int main(const int argc, const char** argv) {
 		u8 command = display;
 		write(connection, &command, 1);
 
-		n = read(connection, &screen_block_count, 4);
+		//n = read(connection, &screen_block_count, 4);
+		n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
 		if (n == 0) { disconnected(); }
 		else if (n < 0) { read_error(); }
 
-		n = read(connection, screen, screen_block_count * 2);
+		//n = read(connection, screen, screen_block_count * 2);
+		n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
 		if (n == 0) { disconnected(); }
 		else if (n < 0) { read_error(); }
 
-
-
+		// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*)&cliaddr, len);
+		
 
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     		SDL_RenderClear(renderer);
@@ -186,7 +263,6 @@ int main(const int argc, const char** argv) {
                 		if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
 
 					window_changed(window, renderer);
-
 
 					command = window_resized;
 					write(connection, &command, 1);
@@ -218,19 +294,19 @@ int main(const int argc, const char** argv) {
 					quit = true; continue;
 				}
 
-				if (key[SDL_SCANCODE_G]) {
-					SDL_Log("G : send display packet\n"); 
-					command = display;
-					write(connection, &command, 1);
+				// if (key[SDL_SCANCODE_G]) {
+				// 	SDL_Log("G : send display packet\n"); 
+				// 	command = display;
+				// 	write(connection, &command, 1);
 
-					n = read(connection, &screen_block_count, 4);
-					if (n == 0) { disconnected(); }
-					else if (n < 0) { read_error(); }
+				// 	n = read(connection, &screen_block_count, 4);
+				// 	if (n == 0) { disconnected(); }
+				// 	else if (n < 0) { read_error(); }
 
-					n = read(connection, screen, screen_block_count * 2);
-					if (n == 0) { disconnected(); }
-					else if (n < 0) { read_error(); }
-				}
+				// 	n = read(connection, screen, screen_block_count * 2);
+				// 	if (n == 0) { disconnected(); }
+				// 	else if (n < 0) { read_error(); }
+				// }
 			}
 			if (key[SDL_SCANCODE_ESCAPE]) quit = true;
 			if (key[SDL_SCANCODE_Q]) quit = true;
@@ -262,6 +338,7 @@ int main(const int argc, const char** argv) {
 	}
 
 	close(connection);
+	close(udp_connection);
 
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);

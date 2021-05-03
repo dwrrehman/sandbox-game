@@ -200,6 +200,42 @@ static inline void spawn_player(u32 p) {
 }
 
 static void* client_handler(void* raw) {
+
+	unsigned int port = 9090;
+
+	int udp_connection = socket(AF_INET, SOCK_DGRAM, 0);
+	if (!udp_connection) { perror("socket"); abort(); }
+
+	struct sockaddr_in servaddr, cliaddr;
+	memset(&servaddr, 0, sizeof(servaddr));
+	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	servaddr.sin_port = htons(port);
+	servaddr.sin_family = AF_INET;
+	socklen_t len = sizeof(cliaddr);
+	bind(udp_connection, (struct sockaddr*) &servaddr, sizeof(servaddr));
+	printf("setup udp server.\n");
+
+
+	// while (server_running) {
+
+//		ssize_t n = recvfrom(udp_connection, buffer, sizeof buffer, 0, (struct sockaddr*)&cliaddr, &len);
+		// if (n == 0) { disconnected(); }
+
+		// printf("UDP client says: %s\n", buffer);
+
+		// if (!strcmp(buffer, "halt\n")) {
+		// 	printf("halting UDP server...\n");
+		// 	halt_server(); continue;
+		// }
+
+		// printf("UDPSERVER:> ");
+		// fgets(buffer, sizeof buffer, stdin);
+		// if (!strcmp(buffer, "quit\n")) break;
+
+//		sendto(udp_connection, buffer, strlen(buffer), 0, (struct sockaddr*)&cliaddr, len);
+	// }
+
+
 	struct client parameters = *(struct client*)raw;
 	int client = parameters.connection;
 	const char* ip = parameters.ip;
@@ -298,8 +334,11 @@ static void* client_handler(void* raw) {
 				screen[i + 1] = rand() % player->height;
 			}
 			
-			write(client, &screen_block_count, 4);
-			write(client, screen, screen_block_count * 2);
+			// write(client, &screen_block_count, 4);
+			sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
+
+			// write(client, screen, screen_block_count * 2);
+			sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
 			
 		} else printf("error: command not recognized:  %d\n", (int) command);
 
@@ -308,6 +347,8 @@ static void* client_handler(void* raw) {
 	player->active = false;
 leave:
 	close(client); 
+	close(udp_connection);
+
 	free(raw);
 	free(screen);
 	return 0;
