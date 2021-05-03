@@ -201,10 +201,14 @@ int main(const int argc, const char** argv) {
 
 					n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
+
+					u8 ack = 1;
+					sendto(connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
+					
 					n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
 
-					u8 ack = 1;
+					ack = 1;
 					sendto(connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
 				}
 

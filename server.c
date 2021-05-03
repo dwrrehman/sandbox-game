@@ -257,6 +257,10 @@ static void* display_client_handler(void* raw) {
 		printf("debug: sending DP with %d blocks...\n", screen_block_count);
 
 		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
+
+		n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
+		check(n); if (response != 1) not_acked();
+
 		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
 
 		n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
