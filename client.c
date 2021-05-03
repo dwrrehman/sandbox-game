@@ -2,18 +2,63 @@
 //        Written by Daniel Warren Riaz Rehman 
 //               on 2104305.171454
 #include <SDL2/SDL.h>
+
 #include <iso646.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdnoreturn.h>
+#include <stdint.h>
 #include <stdlib.h>
-#include <time.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <errno.h>
+#include <string.h>
+#include <pthread.h>
+#include <math.h>
+#include <time.h>
+#include <pwd.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef int8_t i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
+
+static const u8 colors[] = {
+	0,0,0,   // 0
+	255,255,255,    // 1
+	255,0,100,   // 2
+	34,34,34,   // 3
+};
+
+enum commands {	
+	null_command = 0,
+	ping = 5, 
+	display = 9, 
+	chat = 13, 
+	halt = 255, 
+};
 
 static const char* window_title = "universe client";
 static int window_height = 800, window_width = 1200;
+
+static inline noreturn void not_acked() {
+	printf("debug: error: command not acknowledged from server\n");
+	abort();
+}
+
+static inline void read_error() {
+	printf("debug: client: read error! (n < 0)\n");
+	return;
+}
 
 static inline void window_changed(SDL_Window* window, SDL_Renderer* renderer) {
 	int w = 0, h = 0;
@@ -29,40 +74,96 @@ static inline void toggle_fullscreen(SDL_Window* window, SDL_Renderer* renderer)
 	full = !full;
 	SDL_SetWindowFullscreen(window, full ? SDL_WINDOW_FULLSCREEN : 0);
 	window_changed(window, renderer);
-	
-}
-
-static inline void display_pixels(size_t count, uint16_t* array, SDL_Renderer* renderer) {
-	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
-    	SDL_RenderClear(renderer);
-	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-	for (size_t i = 0; i < count; i += 2) 
-		SDL_RenderDrawPoint(renderer, array[i], array[i + 1]);
-    	SDL_RenderPresent(renderer);
-}
-
-static inline int connect_to_server(const char* address, int port, int* connection) {
-	printf("info: connecting to \"%s:%d\"...\n", address, port);
-
-	*connection = 0;
-
-
-
-
-
-	return 0;
-	
 }
 
 int main(const int argc, const char** argv) {
-
-	if (argc != 3) exit(puts("usage: ./client <server address: n.n.n.n> <port: n>"));
-
+	if (argc != 3) exit(puts("usage: ./client <ip> <port>"));
 	if (SDL_Init(SDL_INIT_EVERYTHING)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
+	srand((unsigned)time(0));
 
-	int connection = 0;
-	int error = connect_to_server(argv[1], atoi(argv[2]), &connection);
-	if (error) exit(printf("error: could not connect to server: %s\n", strerror(error)));
+	const char* ip = argv[1];
+	i16 port = (i16) atoi(argv[2]);
+
+	int connection = socket(AF_INET, SOCK_STREAM, 0);
+	if (connection < 0) { perror("socket"); exit(1); }
+	struct sockaddr_in servaddr;
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = inet_addr(ip);
+	servaddr.sin_port = htons(port);
+	printf("connecting to %s:%d ...\n", ip, port);
+	int result = connect(connection, (struct sockaddr*) &servaddr, sizeof servaddr);
+	if (result < 0) { perror("connect"); exit(1); }
+
+	printf("\n\n\t CONNECTED TO SERVER!\n\n");
+
+	bool quit = false;
+	char buffer[256] = {0};
+	u8 response = 0;
+	size_t max_block_count = 10000 * 2;
+	uint16_t* array = malloc(max_block_count * sizeof(uint16_t));
+	
+	while (1) {
+
+		printf("CLIENT[%s:%d]:> ", ip, port);
+		fgets(buffer, sizeof buffer, stdin);
+
+		if (not strcmp(buffer, "quit\n")) break;
+
+		else if (not strcmp(buffer, "ping\n")) {
+
+			u8 command = ping;
+			write(connection, &command, 1);
+			ssize_t n = read(connection, &response, 1);
+			if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+			else if (n < 0) { read_error(); break; }
+			if (response != 1) not_acked();
+			
+		} else if (not strcmp(buffer, "display\n")) {
+
+			u8 command = display;
+			write(connection, &command, 1);
+			memset(buffer, 0, sizeof buffer);
+			ssize_t n = read(connection, buffer, sizeof buffer);
+			if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+			else if (n < 0) { read_error(); break; }
+			printf("server: \n%s\n", buffer);
+
+		} else if (not strcmp(buffer, "chat\n")) {
+
+			u8 command = chat;
+			write(connection, &command, 1);
+			printf("message: ");
+			fgets(buffer, sizeof buffer, stdin);
+			write(connection, buffer, strlen(buffer) + 1);
+			ssize_t n = read(connection, &response, sizeof response);
+			if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+			else if (n < 0) { read_error(); break; }
+			if (response != 1) not_acked();
+
+		} else if (!strcmp(buffer, "halt\n")) {
+
+			u8 command = halt;
+			write(connection, &command, 1);
+			ssize_t n = read(connection, &response, sizeof response);
+			if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+			else if (n < 0) { read_error(); break; }
+			if (response != 1) not_acked();
+			break;
+
+		} else printf("error: unknown command. "
+				"can either be:\n\t"
+				"halt\n\t"
+				"ping\n\t"
+				"display\n\t"
+				"chat\n\t"
+				"quit\n\t"
+				"\n");
+	
+		usleep(1000);
+	}
+
+	close(connection);
+
 
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
@@ -71,25 +172,25 @@ int main(const int argc, const char** argv) {
 
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 	SDL_ShowCursor(0);
-	srand((unsigned)time(0));
-
-	size_t count = 10000 * 2;
-	uint16_t* array = malloc(count * sizeof(uint16_t));
-
-	bool quit = false;
-	SDL_Event event;
-
+	
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
 
-		// get array data from server.
-		for (size_t i = 0; i < count; i += 2) {
-			array[i + 0] = (uint16_t) (rand() % window_width);
-			array[i + 1] = (uint16_t) (rand() % window_height);
+		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    		SDL_RenderClear(renderer);
+
+		// we receive a bloock type, (which determined the block color, and then a count, of that many locations.
+		// we do that, for each block type present in the image.
+
+		SDL_SetRenderDrawColor(renderer, colors[4], colors[5], colors[6], 255);
+		u32 count = 0;
+		
+		for (u32 i = 0; i < count; i += 2) {
+			SDL_RenderDrawPoint(renderer, array[i], array[i + 1]);
 		}
+	    	SDL_RenderPresent(renderer);
 
-		display_pixels(count, array, renderer);
-
+		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			const Uint8* key = SDL_GetKeyboardState(0);
 			if (event.type == SDL_QUIT) quit = true;
@@ -120,4 +221,94 @@ int main(const int argc, const char** argv) {
 	SDL_Quit();
 	free(array);
 }
+
+
+
+
+
+
+
+
+
+
+
+// ---------------------------------- dead code -------------------------------------------------------------------------
+
+
+
+
+
+
+
+//if (argc <= 3) return fprintf(stderr, "usage:\n\t ./u <playername> <ipaddress> <port>\n\n");
+	// TCP_connect_to_server(argv[1], argv[2], atoi(argv[3]));
+
+
+
+// static inline int connect_to_server(const char* address, int port, int* connection) {
+// 	printf("info: connecting to \"%s:%d\"...\n", address, port);
+// 	*connection = 0;
+// 	return 0;
+	
+// }
+
+
+
+
+
+
+
+
+
+
+
+/*
+static inline void UDP_connect_to_server(const char* playername, const char* ip, unsigned int port) {
+    int connection = socket(AF_INET, SOCK_DGRAM, 0);
+    if (connection < 0) { perror("socket"); exit(1); }
+    
+    struct sockaddr_in servaddr;
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_addr.s_addr = inet_addr(ip);
+    servaddr.sin_port = htons(port);
+    servaddr.sin_family = AF_INET;
+    socklen_t len = sizeof(servaddr);
+    
+    printf("%s is connecting to UDP server...\n", playername);
+        
+    char buffer[1024] = {0};
+
+    while (1) {
+        printf("UDP CLIENT[%s:%d]:> ", ip, port);
+        fgets(buffer, sizeof buffer, stdin);
+        if (!strcmp(buffer, "quit\n")) break;
+        sendto(connection, buffer, sizeof buffer, 0, (struct sockaddr*) &servaddr, len);
+
+        memset(buffer, 0, sizeof buffer);
+        ssize_t n = recvfrom(connection, buffer, sizeof buffer, 0, (struct sockaddr*) &servaddr, &len);
+        if (n == 0) {
+            printf("UDP client:read disconnected.\n");
+            printf("{UDP SERVER DISCONNECTED}\n");
+            break;
+        }
+        printf("UDP server says: %s\n", buffer);
+    }
+    close(connection);
+}
+*/
+
+
+
+
+
+
+
+
+
+// for (size_t i = 0; i < count; i += 2) {
+		// 	array[i + 0] = (uint16_t) (rand() % window_width);
+		// 	array[i + 1] = (uint16_t) (rand() % window_height);
+		// }
+
+
 
