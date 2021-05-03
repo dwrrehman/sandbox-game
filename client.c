@@ -144,11 +144,11 @@ int main(const int argc, const char** argv) {
 	struct sockaddr_in udp_servaddr;
 	memset(&udp_servaddr, 0, sizeof(udp_servaddr));
 	udp_servaddr.sin_addr.s_addr = inet_addr(ip);
-	udp_servaddr.sin_port = htons(port);
+	udp_servaddr.sin_port = htons(port + 1);
 	udp_servaddr.sin_family = AF_INET;
 	socklen_t len = sizeof(udp_servaddr);
 
-	printf("%s is connecting to UDP server %s : %d...\n", player_name, ip, port);
+	printf("%s is connecting to UDP server %s : %d...\n", player_name, ip, port + 1);
         
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 

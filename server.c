@@ -238,12 +238,12 @@ static void* display_client_handler(void* raw) {
 	struct sockaddr_in servaddr, cliaddr;
 	memset(&servaddr, 0, sizeof(servaddr));
 	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servaddr.sin_port = htons(port);
+	servaddr.sin_port = htons(port + 1);
 	servaddr.sin_family = AF_INET;
 	socklen_t len = sizeof(cliaddr);
 	bind(udp_connection, (struct sockaddr*) &servaddr, sizeof(servaddr));
 
-	printf("display client handler: setup udp server on port %hd\n", port);
+	printf("display client handler: setup udp server on port %hd\n", port + 1);
 
 	while (player->active) {
 		
@@ -253,7 +253,7 @@ static void* display_client_handler(void* raw) {
 			screen[i] = rand() % player->width;
 			screen[i + 1] = rand() % player->height;
 		}
-
+		
 		printf("debug: sending DP with %d blocks...\n", screen_block_count);
 
 		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
