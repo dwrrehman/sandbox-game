@@ -106,8 +106,6 @@ static inline void check(ssize_t n) {
 	else if (n < 0) { read_error(); }
 }
 
-
-
 static inline void show() {
 	printf("\nstate:  s = %llu, count = %llu\n\n", s, count);
 	printf("{ \n");
@@ -274,6 +272,7 @@ static void* display_client_handler(void* raw) {
 		n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
 		check(n); if (response != 1) not_acked();
 
+		printf("GOT ACK! done with dp.!\n");
 	}
 	close(udp_connection);
 	free(screen);
@@ -374,8 +373,8 @@ leave:
 static void* compute(void* __attribute__((unused)) unused) {
 	printf("computing world thread...\n");
 	while (server_running) {
-		printf("universe ticked\n");
-		sleep(10);
+		// printf("universe ticked\n");
+		sleep(1);
 	}
 	return 0;
 }

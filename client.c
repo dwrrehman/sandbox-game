@@ -141,8 +141,7 @@ int main(const int argc, const char** argv) {
 	int udp_connection = socket(AF_INET, SOCK_DGRAM, 0);
 	if (udp_connection < 0) { perror("socket"); exit(1); }
 
-	struct sockaddr_in udp_servaddr;
-	memset(&udp_servaddr, 0, sizeof(udp_servaddr));
+	struct sockaddr_in udp_servaddr = {0};
 	udp_servaddr.sin_addr.s_addr = inet_addr(ip);
 	udp_servaddr.sin_port = htons(port + 1);
 	udp_servaddr.sin_family = AF_INET;
@@ -157,10 +156,16 @@ int main(const int argc, const char** argv) {
 
 	printf("sending ACK to server for UDP con\n");
 	u8 ack = 1;
-	sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
+	if (sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len) < 0) {
+	  	printf("Unable to send message\n");
+		abort();
+    	}
 	printf("DONE sending ACK to server for UDP con\n");
 
 
+
+
+	// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*)&server_addr, server_struct_length)
 
 
 	SDL_Window *window = SDL_CreateWindow(window_title, 
@@ -219,14 +224,14 @@ int main(const int argc, const char** argv) {
 					check(n);
 	
 					printf("sending ACK for bc...\n");
-					sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
+					sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
 					
 					printf("receiving %d blocks...\n", screen_block_count);
 					n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
 
 					printf("sending ACK for block array...\n");
-					sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
+					sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
 
 					printf("all done!!\n");
 				}
