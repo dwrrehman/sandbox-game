@@ -163,8 +163,6 @@ int main(const int argc, const char** argv) {
 	printf("DONE sending ACK to server for UDP con\n");
 
 
-
-
 	// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*)&server_addr, server_struct_length)
 
 
@@ -178,6 +176,26 @@ int main(const int argc, const char** argv) {
 	
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
+
+
+		// printf("pressed G! sending display request....\n");
+
+		printf("receiving block count first...\n");
+		n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
+		// check(n);
+
+		printf("sending ACK for bc...\n");
+		sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+		
+		printf("receiving %d blocks...\n", screen_block_count);
+		n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
+		// check(n);
+
+		printf("sending ACK for block array...\n");
+		sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+
+		printf("all done!! rendering...\n");
+
 
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     		SDL_RenderClear(renderer);
@@ -219,19 +237,19 @@ int main(const int argc, const char** argv) {
 				if (key[SDL_SCANCODE_G]) {
 					printf("pressed G! sending display request....\n");
 
-					printf("receiving block count first...\n");
-					n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
-					check(n);
+					// printf("receiving block count first...\n");
+					// n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
+					// check(n);
 	
-					printf("sending ACK for bc...\n");
-					sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+					// printf("sending ACK for bc...\n");
+					// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
 					
-					printf("receiving %d blocks...\n", screen_block_count);
-					n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
-					check(n);
+					// printf("receiving %d blocks...\n", screen_block_count);
+					// n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
+					// check(n);
 
-					printf("sending ACK for block array...\n");
-					sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+					// printf("sending ACK for block array...\n");
+					// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
 
 					printf("all done!!\n");
 				}
