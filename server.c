@@ -36,6 +36,13 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
+
+static const u32 max_player_count = 32;
+static const u32 attempt_count = 10000;
+
+static const u32 max_block_count = 1 << 8;
+
+
 enum commands {	
 	null_command = 0,
 	display = 9, 
@@ -51,6 +58,8 @@ struct client {
 
 struct player {
 	u64 x, y;
+	u16 width, height;
+	u32 padding;
 	u8 hand; 
 	i8 active;
 	char name[30];
@@ -63,7 +72,6 @@ static u64 s = 0;
 static u64 count = 0;
 static u8* universe = NULL;
 
-static u32 max_player_count = 32;
 static u32 player_count = 0;
 static struct player* players = NULL;
 
@@ -79,6 +87,12 @@ static inline u64 square_root(u64 op) {
         one >>= 2;
     }
     return res;
+}
+
+static inline u8 at(u64 x, u64 y, i64 x_off, i64 y_off) {
+	u64 yo = (u64)((i64)y + y_off + (i64)s) % s;
+	u64 xo = (u64)((i64)x + x_off + (i64)s) % s;
+	return universe[xo * s + yo];
 }
 
 static inline void save_state(const char* destination) {
@@ -145,9 +159,38 @@ static inline void halt_server() {
 	close(server);
 }
 
-static inline void read_error() {
-	printf("debug: server: read error! (n < 0)\n");
-	return;
+#define read_error() \
+	{do { \
+		printf("debug: server: read error! (n < 0) file:%s line:%d func:%s\n", __FILE__, __LINE__, __func__); \
+		abort(); \
+	} while(0);} \
+
+
+#define not_acked() \
+	{do { \
+		printf("debug: error: command not acknowledged from client file:%s line:%d func:%s \n", __FILE__, __LINE__, __func__); \
+		abort(); \
+	} while(0);} \
+
+
+static inline void spawn_player(u32 p) {
+	u32 x = 0, y = 0;
+	
+	for (u32 t = 0; t < attempt_count; t++) {
+		x = (u32)rand() % (u32)s;
+		y = (u32)rand() % (u32)s;
+		for (i64 i = -2; i <= 2; i++) {
+			for (i64 j = -2; j <= 2; j++) {
+				if (at(x,y,i,j)) goto next;
+			}
+		}
+		players[p].x = x;
+		players[p].y = y;
+		return; next: continue;
+	}
+	printf("error: could not spawn player after %d attempts, spawning at 0,0...\n", attempt_count);
+	players[p].x = 0;
+	players[p].y = 0;
 }
 
 static void* client_handler(void* raw) {
@@ -155,6 +198,9 @@ static void* client_handler(void* raw) {
 	int client = parameters.connection;
 	const char* ip = parameters.ip;
 	const u8 ack = 1;
+
+	u32 screen_block_count = 0;
+	u16* screen = NULL;
 
 	char player_name[32] = {0};
 	ssize_t n = read(client, &player_name, 29);
@@ -174,8 +220,7 @@ static void* client_handler(void* raw) {
 
 	if (p == player_count) {
 		strncpy(players[p].name ,player_name, 30);
-		players[p].x = rand() % 10;
-		players[p].y = rand() % 10;
+		spawn_player(p);
 		players[p].hand = 0;
 		players[p].active = 1;
 		player_count++;
@@ -185,11 +230,25 @@ static void* client_handler(void* raw) {
 	 
 	printf("server: connected to IP = %s  :  player name = \"%s\"\n", ip, player->name);
 
-	// char buffer[256] = {0};
+	n = read(client, &player->width, 2);
+	if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); goto leave; } 
+	else if (n < 0) { read_error(); goto leave; }
+	write(client, &ack, 1); 
+
+	n = read(client, &player->height, 2);
+	if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); goto leave; } 
+	else if (n < 0) { read_error(); goto leave; }
+	write(client, &ack, 1); 
+
+
+	printf("server: screen size: w=%d, h=%d\n", player->width, player->height);
+	if (not player->height or not player->width) abort();
+
+	screen = malloc(max_block_count * 2);
 
 	while (server_running) {
 
-		u8 command = 0;
+		u8 command = 0, response = 0;
 		n = read(client, &command, 1);
 		if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
 		else if (n < 0) { read_error(); break; }
@@ -199,20 +258,6 @@ static void* client_handler(void* raw) {
 			halt_server();
 			continue;
 
-		// } else if (command == ping) {
-		// 	printf("SERVER WAS PINGED!!!\n");
-		// 	write(client, &ack, 1);
-
-		// } else if (command == chat) {
-
-		// 	memset(buffer, 0, sizeof buffer);
-		// 	n = read(client, buffer, sizeof buffer);
-		// 	if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
-		// 	else if (n < 0) { read_error(); break; }
-		// 	printf("client said chat message: %s\n", buffer);
-		// 	strcat(transcript, buffer);
-		// 	write(client, &ack, 1);
-
 
 		} else if (command == move_right) {
 
@@ -221,19 +266,25 @@ static void* client_handler(void* raw) {
 
 		} else if (command == display) {
 
-			u32 data_count = 16;
-			u16 data[] = {  3,3,  4,6,  5,7,   10,3  };
-
-			write(client, &data_count, 4);
-			write(client, data, data_count);
+			screen_block_count = (rand() % 10) * 2;
+		
+			for (u32 i = 0; i < screen_block_count; i += 2) {
+				screen[i] = rand() % player->width;
+				screen[i + 1] = rand() % player->height;
+			}
+			
+			write(client, &screen_block_count, 4);
+			write(client, screen, screen_block_count * 2);
 			
 		} else printf("error: command not recognized:  %d\n", (int) command);
-		usleep(2000);
+
+		usleep(200000);
 	}
 	player->active = false;
 leave:
 	close(client); 
 	free(raw);
+	free(screen);
 	return 0;
 }
 
@@ -249,6 +300,8 @@ static void* compute(void* __attribute__((unused)) unused) {
 
 int main(const int argc, const char** argv) {
 	if (argc < 4) exit(puts( "usage: \n\t./server <s> <port> <universe>\n"));
+	srand((unsigned)time(0));
+
 	s = (u64) atoll(argv[1]);
 	i16 port = (i16) atoi(argv[2]);
 
@@ -480,4 +533,35 @@ int main(const int argc, const char** argv) {
 // 	printf("debug: error: command not acknowledged from client\n");
 // 	abort();
 // }
+
+
+
+
+		// } else if (command == ping) {
+		// 	printf("SERVER WAS PINGED!!!\n");
+		// 	write(client, &ack, 1);
+
+		// } else if (command == chat) {
+
+		// 	memset(buffer, 0, sizeof buffer);
+		// 	n = read(client, buffer, sizeof buffer);
+		// 	if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
+		// 	else if (n < 0) { read_error(); break; }
+		// 	printf("client said chat message: %s\n", buffer);
+		// 	strcat(transcript, buffer);
+		// 	write(client, &ack, 1);
+
+
+
+
+
+
+
+
+
+// n = read(client, &response, 1);
+			// if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
+			// else if (n < 0) { read_error(); break; }
+			// if (response != 1) not_acked();
+
 

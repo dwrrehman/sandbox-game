@@ -32,6 +32,9 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
+
+static const u32 max_block_count = 1 << 8;
+
 static const u8 colors[] = {
 	0,0,0,   // 0
 	255,255,255,    // 1
@@ -78,7 +81,7 @@ static inline void toggle_fullscreen(SDL_Window* window, SDL_Renderer* renderer)
 int main(const int argc, const char** argv) {
 	if (argc != 4) exit(puts("usage: ./client <ip> <port> <playername>"));
 	if (SDL_Init(SDL_INIT_EVERYTHING)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
-	srand((unsigned)time(0));
+	
 
 	const char* ip = argv[1];
 	i16 port = (i16) atoi(argv[2]);
@@ -97,8 +100,15 @@ int main(const int argc, const char** argv) {
 	char player_name[30] = {0};
 	strncpy(player_name, argv[3], sizeof player_name);
 	write(connection, player_name, 29);
-
 	ssize_t n = read(connection, &response, sizeof response);
+	if (n == 0) { printf("{SERVER DISCONNECTED}\n"); return 1; }
+	else if (n < 0) { read_error(); return 1; }
+	if (response != 1) not_acked();
+
+	const u8 ack = 1;
+	write(connection, &window_width, 2);
+	write(connection, &window_height, 2);
+	n = read(connection, &response, sizeof response);
 	if (n == 0) { printf("{SERVER DISCONNECTED}\n"); return 1; }
 	else if (n < 0) { read_error(); return 1; }
 	if (response != 1) not_acked();
@@ -107,14 +117,11 @@ int main(const int argc, const char** argv) {
 	printf("\n\n\t %s CONNECTED TO SERVER!\n\n", player_name);
 
 	bool quit = false;
-	// char buffer[256] = {0};
 	
-	u32 max_block_count = 10000 * 2;
-	u32 array_count = 0;
-	u16* array = malloc(max_block_count * sizeof(uint16_t));
+	u32 screen_block_count = 0;
+	u16* screen = malloc(max_block_count * 2);
 
-	printf("CLIENT[%s:%d]:> ", ip, port);
-
+	printf("CLIENT[%s:%d]: running...\n", ip, port);
 
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
@@ -130,11 +137,11 @@ int main(const int argc, const char** argv) {
 		u8 command = display;
 		write(connection, &command, 1);
 
-		n = read(connection, &array_count, 4);
+		n = read(connection, &screen_block_count, 4);
 		if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
 		else if (n < 0) { read_error(); break; }
 
-		n = read(connection, array, array_count);
+		n = read(connection, screen, screen_block_count * 2);
 		if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
 		else if (n < 0) { read_error(); break; }
 
@@ -142,9 +149,9 @@ int main(const int argc, const char** argv) {
     		SDL_RenderClear(renderer);
 
 		SDL_SetRenderDrawColor(renderer, colors[4], colors[5], colors[6], 255);
-		
-		for (u32 i = 0; i < array_count; i += 2) {
-			SDL_RenderDrawPoint(renderer, array[i], array[i + 1]);
+
+		for (u32 i = 0; i < screen_block_count; i += 2) {
+			SDL_RenderDrawPoint(renderer, screen[i], screen[i + 1]);
 		}
 	    	SDL_RenderPresent(renderer);
 
@@ -191,7 +198,7 @@ int main(const int argc, const char** argv) {
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = 16 - (int32_t) time; //16, for 60 fps.
+		int32_t sleep = 1000 - (int32_t) time; //16, for 60 fps.
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 	
 		if (!(SDL_GetTicks() & 511)) {
@@ -205,8 +212,23 @@ int main(const int argc, const char** argv) {
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
-	free(array);
+	free(screen);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
