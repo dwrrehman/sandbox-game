@@ -257,6 +257,8 @@ static void* display_client_handler(void* raw) {
 		printf("debug: sending DP with %d blocks...\n", screen_block_count);
 		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
 		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
+
+		usleep(16000);
 	}
 	close(udp_connection);
 	free(screen);

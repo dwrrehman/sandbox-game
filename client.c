@@ -151,7 +151,6 @@ int main(const int argc, const char** argv) {
 
 	printf("%s is connecting to UDP server %s : %d...\n", player_name, ip, port);
         
-   
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
 			window_width, window_height, 
@@ -163,14 +162,6 @@ int main(const int argc, const char** argv) {
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
 
-
-		n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
-		check(n);
-
-		n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
-		check(n);
-
-		
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     		SDL_RenderClear(renderer);
 
@@ -206,6 +197,12 @@ int main(const int argc, const char** argv) {
 					n = read(connection, &response, sizeof response);
 					check(n); if (response != 1) not_acked();
 					quit = true; continue;
+				}
+				if (key[SDL_SCANCODE_G]) {
+					n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
+					check(n);
+					n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
+					check(n);
 				}
 
 			}
