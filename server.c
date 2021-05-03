@@ -42,6 +42,7 @@ static const u32 attempt_count = 10000;
 
 static const u32 max_block_count = 1 << 16;
 
+static const u8 ack = 1;
 
 enum commands {	
 	null_command = 0,
@@ -54,7 +55,10 @@ enum commands {
 struct client {
 	const char* ip;
 	int connection;
-	int padding;
+	u32 player;
+	u16 port;
+	u16 padding;
+	u32 padding1;
 };
 
 struct player {
@@ -83,13 +87,27 @@ static struct player* players = NULL;
 		abort(); \
 	} while(0);} \
 
-
+/*
 #define not_acked() \
 	{do { \
 		printf("debug: error: command not acknowledged from client file:%s line:%d func:%s \n", __FILE__, __LINE__, __func__); \
 		abort(); \
 	} while(0);} \
+*/
 
+
+#define disconnected() \
+	{do { \
+		printf("debug: error: disconnected:%s line:%d func:%s \n", __FILE__, __LINE__, __func__); \
+		abort(); \
+	} while(0);} \
+
+
+
+static inline void check(ssize_t n) {
+	if (n == 0) { disconnected(); }
+	else if (n < 0) { read_error(); }
+}
 
 
 
@@ -199,9 +217,20 @@ static inline void spawn_player(u32 p) {
 	players[p].y = 0;
 }
 
-static void* client_handler(void* raw) {
 
-	unsigned int port = 9090;
+
+static void* display_client_handler(void* raw) {
+
+	struct client parameters = *(struct client*)raw;
+
+	struct player* player = players + parameters.player;
+	const char* ip = parameters.ip;
+	u16 port = parameters.port;
+
+	printf("DISPLAY HANDLER: connected to  %s : %d,   player # %d.\n", ip, port, parameters.player);
+	
+	u32 screen_block_count = 0;
+	u16* screen = malloc(max_block_count * 2);
 
 	int udp_connection = socket(AF_INET, SOCK_DGRAM, 0);
 	if (!udp_connection) { perror("socket"); abort(); }
@@ -213,50 +242,36 @@ static void* client_handler(void* raw) {
 	servaddr.sin_family = AF_INET;
 	socklen_t len = sizeof(cliaddr);
 	bind(udp_connection, (struct sockaddr*) &servaddr, sizeof(servaddr));
-	printf("setup udp server.\n");
+
+	printf("display client handler: setup udp server on port %hd\n", port);
+
+	while (player->active) {
+		
+		screen_block_count = (rand() % 30) * 2;
+
+		for (u32 i = 0; i < screen_block_count; i += 2) {
+			screen[i] = rand() % player->width;
+			screen[i + 1] = rand() % player->height;
+		}
+
+		printf("debug: sending DP with %d blocks...\n", screen_block_count);
+		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
+		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
+	}
+	close(udp_connection);
+	free(screen);
+	return 0;
+}
 
 
-	// while (server_running) {
-
-//		ssize_t n = recvfrom(udp_connection, buffer, sizeof buffer, 0, (struct sockaddr*)&cliaddr, &len);
-		// if (n == 0) { disconnected(); }
-
-		// printf("UDP client says: %s\n", buffer);
-
-		// if (!strcmp(buffer, "halt\n")) {
-		// 	printf("halting UDP server...\n");
-		// 	halt_server(); continue;
-		// }
-
-		// printf("UDPSERVER:> ");
-		// fgets(buffer, sizeof buffer, stdin);
-		// if (!strcmp(buffer, "quit\n")) break;
-
-//		sendto(udp_connection, buffer, strlen(buffer), 0, (struct sockaddr*)&cliaddr, len);
-	// }
-
-
-	struct client parameters = *(struct client*)raw;
-	int client = parameters.connection;
-	const char* ip = parameters.ip;
-	const u8 ack = 1;
-
-	u32 screen_block_count = 0;
-	u16* screen = NULL;
-
-	char player_name[32] = {0};
-	ssize_t n = read(client, &player_name, 29);
-	if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); goto leave; } 
-	else if (n < 0) { read_error(); goto leave; }
-	if (n == 29) write(client, &ack, 1); else goto leave;
-	
+static inline u32 find_player(const char* player_name) {
 	u32 p = 0;
 	for (; p < player_count; p++) {
 		if (not strcmp(players[p].name, player_name)) {
 			if (not players[p].active) {
 				players[p].active = true;
 				break;
-			} else goto leave;
+			} else check(0);
 		}
 	}
 
@@ -267,33 +282,43 @@ static void* client_handler(void* raw) {
 		players[p].active = 1;
 		player_count++;
 	}
+	return p;
+}
 
-	struct player* player = p + players;
-	 
-	printf("server: connected to IP = %s  :  player name = \"%s\"\n", ip, player->name);
+static void* client_handler(void* raw) {
 
-	n = read(client, &player->width, 2);
-	if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); goto leave; } 
-	else if (n < 0) { read_error(); goto leave; }
+	ssize_t n = 0;
+	u8 command = 0;
+	char player_name[32] = {0};
+
+	struct client parameters = *(struct client*)raw;
+	int client = parameters.connection;
+	const char* ip = parameters.ip;
+	u16 port = parameters.port;
+
+	n = read(client, &player_name, 29);
+	check(n); if (n == 29) write(client, &ack, 1); else goto leave;
+
+	parameters.player = find_player(player_name);
+	struct player* player = players + parameters.player;
+
+	printf("server: connected to IP = %s:%d :  player name = \"%s\"\n", ip, port, player->name);
+
+	n = read(client, &player->width, 2); check(n); 	
+	n = read(client, &player->height, 2); check(n);
 	write(client, &ack, 1); 
-
-	n = read(client, &player->height, 2);
-	if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); goto leave; } 
-	else if (n < 0) { read_error(); goto leave; }
-	write(client, &ack, 1); 
-
 
 	printf("server: screen size: w=%d, h=%d\n", player->width, player->height);
 	if (not player->height or not player->width) abort();
 
-	screen = malloc(max_block_count * 2);
+	pthread_t display_handler_thread;
+	pthread_create(&display_handler_thread, NULL, display_client_handler, &parameters);
 
 	while (server_running) {
 
-		u8 command = 0, response = 0;
 		n = read(client, &command, 1);
 		if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
-		else if (n < 0) { read_error(); break; }
+		check(n);
 
 		if (command == halt) {
 			write(client, &ack, 1);
@@ -308,49 +333,21 @@ static void* client_handler(void* raw) {
 
 		} else if (command == window_resized) {
 			
-			n = read(client, &player->width, 2);
-			if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); goto leave; } 
-			else if (n < 0) { read_error(); goto leave; }
+			n = read(client, &player->width, 2); check(n);
+			n = read(client, &player->height, 2); check(n); 
 			write(client, &ack, 1); 
-
-			n = read(client, &player->height, 2);
-			if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); goto leave; } 
-			else if (n < 0) { read_error(); goto leave; }
-			write(client, &ack, 1); 
-
-			printf("server: player %s screen resized to: w=%d, h=%d\n", player->name, player->width, player->height);
+			printf("server: screen resized: w=%d, h=%d\n", player->width, player->height);
 			if (not player->height or not player->width) abort();
 
-
-		} else if (command == display) {
-
-			
-			screen_block_count = (rand() % 1000) * 2;
-
-			printf("debug: sending DP with %d blocks...\n", screen_block_count);
-
-			for (u32 i = 0; i < screen_block_count; i += 2) {
-				screen[i] = rand() % player->width;
-				screen[i + 1] = rand() % player->height;
-			}
-			
-			// write(client, &screen_block_count, 4);
-			sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
-
-			// write(client, screen, screen_block_count * 2);
-			sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
-			
 		} else printf("error: command not recognized:  %d\n", (int) command);
 
-		usleep(10);
 	}
 	player->active = false;
+	pthread_join(display_handler_thread, NULL);
+
 leave:
 	close(client); 
-	close(udp_connection);
-
 	free(raw);
-	free(screen);
 	return 0;
 }
 
@@ -369,7 +366,7 @@ int main(const int argc, const char** argv) {
 	srand((unsigned)time(0));
 
 	s = (u64) atoll(argv[1]);
-	i16 port = (i16) atoi(argv[2]);
+	u16 port = (u16) atoi(argv[2]);
 
 	char players_file[128] = {0};
 	strncpy(players_file, argv[3], 127);
@@ -406,6 +403,7 @@ int main(const int argc, const char** argv) {
 		struct client* client = malloc(sizeof(struct client));
 		client->connection = connection;
 		client->ip = inet_ntoa(client_address.sin_addr);
+		client->port = (u16)port;
 		pthread_t handler_thread;
 		pthread_create(&handler_thread, NULL, client_handler, client);
 		pthread_detach(handler_thread);
@@ -629,5 +627,28 @@ int main(const int argc, const char** argv) {
 			// if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
 			// else if (n < 0) { read_error(); break; }
 			// if (response != 1) not_acked();
+
+
+
+
+	// while (server_running) {
+
+//		ssize_t n = recvfrom(udp_connection, buffer, sizeof buffer, 0, (struct sockaddr*)&cliaddr, &len);
+		// if (n == 0) { disconnected(); }
+
+		// printf("UDP client says: %s\n", buffer);
+
+		// if (!strcmp(buffer, "halt\n")) {
+		// 	printf("halting UDP server...\n");
+		// 	halt_server(); continue;
+		// }
+
+		// printf("UDPSERVER:> ");
+		// fgets(buffer, sizeof buffer, stdin);
+		// if (!strcmp(buffer, "quit\n")) break;
+
+//		sendto(udp_connection, buffer, strlen(buffer), 0, (struct sockaddr*)&cliaddr, len);
+	// }
+
 
 
