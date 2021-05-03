@@ -41,9 +41,8 @@ static const u8 colors[] = {
 
 enum commands {	
 	null_command = 0,
-	ping = 5, 
 	display = 9, 
-	chat = 13, 
+	move_right = 13,
 	halt = 255, 
 };
 
@@ -77,7 +76,7 @@ static inline void toggle_fullscreen(SDL_Window* window, SDL_Renderer* renderer)
 }
 
 int main(const int argc, const char** argv) {
-	if (argc != 3) exit(puts("usage: ./client <ip> <port>"));
+	if (argc != 4) exit(puts("usage: ./client <ip> <port> <playername>"));
 	if (SDL_Init(SDL_INIT_EVERYTHING)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
 	srand((unsigned)time(0));
 
@@ -94,75 +93,27 @@ int main(const int argc, const char** argv) {
 	int result = connect(connection, (struct sockaddr*) &servaddr, sizeof servaddr);
 	if (result < 0) { perror("connect"); exit(1); }
 
-	printf("\n\n\t CONNECTED TO SERVER!\n\n");
+	u8 response = 0;
+	char player_name[30] = {0};
+	strncpy(player_name, argv[3], sizeof player_name);
+	write(connection, player_name, 29);
+
+	ssize_t n = read(connection, &response, sizeof response);
+	if (n == 0) { printf("{SERVER DISCONNECTED}\n"); return 1; }
+	else if (n < 0) { read_error(); return 1; }
+	if (response != 1) not_acked();
+
+
+	printf("\n\n\t %s CONNECTED TO SERVER!\n\n", player_name);
 
 	bool quit = false;
-	char buffer[256] = {0};
-	u8 response = 0;
-	size_t max_block_count = 10000 * 2;
-	uint16_t* array = malloc(max_block_count * sizeof(uint16_t));
+	// char buffer[256] = {0};
 	
-	while (1) {
+	u32 max_block_count = 10000 * 2;
+	u32 array_count = 0;
+	u16* array = malloc(max_block_count * sizeof(uint16_t));
 
-		printf("CLIENT[%s:%d]:> ", ip, port);
-		fgets(buffer, sizeof buffer, stdin);
-
-		if (not strcmp(buffer, "quit\n")) break;
-
-		else if (not strcmp(buffer, "ping\n")) {
-
-			u8 command = ping;
-			write(connection, &command, 1);
-			ssize_t n = read(connection, &response, 1);
-			if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
-			else if (n < 0) { read_error(); break; }
-			if (response != 1) not_acked();
-			
-		} else if (not strcmp(buffer, "display\n")) {
-
-			u8 command = display;
-			write(connection, &command, 1);
-			memset(buffer, 0, sizeof buffer);
-			ssize_t n = read(connection, buffer, sizeof buffer);
-			if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
-			else if (n < 0) { read_error(); break; }
-			printf("server: \n%s\n", buffer);
-
-		} else if (not strcmp(buffer, "chat\n")) {
-
-			u8 command = chat;
-			write(connection, &command, 1);
-			printf("message: ");
-			fgets(buffer, sizeof buffer, stdin);
-			write(connection, buffer, strlen(buffer) + 1);
-			ssize_t n = read(connection, &response, sizeof response);
-			if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
-			else if (n < 0) { read_error(); break; }
-			if (response != 1) not_acked();
-
-		} else if (!strcmp(buffer, "halt\n")) {
-
-			u8 command = halt;
-			write(connection, &command, 1);
-			ssize_t n = read(connection, &response, sizeof response);
-			if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
-			else if (n < 0) { read_error(); break; }
-			if (response != 1) not_acked();
-			break;
-
-		} else printf("error: unknown command. "
-				"can either be:\n\t"
-				"halt\n\t"
-				"ping\n\t"
-				"display\n\t"
-				"chat\n\t"
-				"quit\n\t"
-				"\n");
-	
-		usleep(1000);
-	}
-
-	close(connection);
+	printf("CLIENT[%s:%d]:> ", ip, port);
 
 
 	SDL_Window *window = SDL_CreateWindow(window_title, 
@@ -176,16 +127,23 @@ int main(const int argc, const char** argv) {
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
 
+		u8 command = display;
+		write(connection, &command, 1);
+
+		n = read(connection, &array_count, 4);
+		if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+		else if (n < 0) { read_error(); break; }
+
+		n = read(connection, array, array_count);
+		if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+		else if (n < 0) { read_error(); break; }
+
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     		SDL_RenderClear(renderer);
 
-		// we receive a bloock type, (which determined the block color, and then a count, of that many locations.
-		// we do that, for each block type present in the image.
-
 		SDL_SetRenderDrawColor(renderer, colors[4], colors[5], colors[6], 255);
-		u32 count = 0;
 		
-		for (u32 i = 0; i < count; i += 2) {
+		for (u32 i = 0; i < array_count; i += 2) {
 			SDL_RenderDrawPoint(renderer, array[i], array[i + 1]);
 		}
 	    	SDL_RenderPresent(renderer);
@@ -198,12 +156,37 @@ int main(const int argc, const char** argv) {
                 		if (event.window.event == SDL_WINDOWEVENT_RESIZED) window_changed(window, renderer);
 			}
 			if (event.type == SDL_KEYDOWN) { if (key[SDL_SCANCODE_GRAVE]) toggle_fullscreen(window, renderer); }
+
+			if (event.type == SDL_KEYDOWN) {
+				 if (key[SDL_SCANCODE_H]) {
+					SDL_Log("H : halting!\n"); 
+					command = halt;
+					write(connection, &command, 1);
+					n = read(connection, &response, sizeof response);
+					if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+					else if (n < 0) { read_error(); break; }
+					if (response != 1) not_acked();
+					quit = true; continue;
+				}
+			}
 			if (key[SDL_SCANCODE_ESCAPE]) quit = true;
+
 			if (key[SDL_SCANCODE_Q]) quit = true;
+
 			if (key[SDL_SCANCODE_W]) { SDL_Log("W\n"); }
 			if (key[SDL_SCANCODE_S]) { SDL_Log("S\n"); }
 			if (key[SDL_SCANCODE_A]) { SDL_Log("A\n"); }
-			if (key[SDL_SCANCODE_D]) { SDL_Log("D\n"); }
+
+			if (key[SDL_SCANCODE_D]) { 
+
+				SDL_Log("D : move right\n"); 
+				command = move_right;
+				write(connection, &command, 1);
+				n = read(connection, &response, 1);
+				if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+				else if (n < 0) { read_error(); break; }
+				if (response != 1) not_acked();
+			}
 		}
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
@@ -216,6 +199,9 @@ int main(const int argc, const char** argv) {
 			printf("fps = %.5lf\n", fps);
 		}
 	}
+
+	close(connection);
+
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
@@ -310,5 +296,46 @@ static inline void UDP_connect_to_server(const char* playername, const char* ip,
 		// 	array[i + 1] = (uint16_t) (rand() % window_height);
 		// }
 
+
+
+
+
+
+		// } else if (not strcmp(buffer, "chat\n")) {
+
+		// 	u8 command = chat;
+		// 	write(connection, &command, 1);
+		// 	printf("message: ");
+		// 	fgets(buffer, sizeof buffer, stdin);
+		// 	write(connection, buffer, strlen(buffer) + 1);
+		// 	ssize_t n = read(connection, &response, sizeof response);
+		// 	if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
+		// 	else if (n < 0) { read_error(); break; }
+			// if (response != 1) not_acked();
+
+
+
+// we receive a bloock type, (which determined the block color, and then a count, of that many locations.
+		// we do that, for each block type present in the image.
+
+
+
+
+
+				// else printf("error: unknown command. "
+				// "can either be:\n\t"
+				// "halt\n\t"
+				// "ping\n\t"
+				// "display\n\t"
+				// "chat\n\t"
+				// "quit\n\t"
+				// "\n");
+
+
+
+
+
+
+// fgets(buffer, sizeof buffer, stdin);
 
 

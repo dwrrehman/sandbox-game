@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -37,25 +38,34 @@ typedef int64_t i64;
 
 enum commands {	
 	null_command = 0,
-	ping = 5, 
 	display = 9, 
-	chat = 13, 
+	move_right = 13,
 	halt = 255, 
 };
 
 struct client {
 	const char* ip;
 	int connection;
-	int _padding0;
+	int padding;
+};
+
+struct player {
+	u64 x, y;
+	u8 hand; 
+	i8 active;
+	char name[30];
 };
 
 static bool server_running = true;
 static int server = 0;
-static char transcript[256] = {0}; // temp
 
 static u64 s = 0;
 static u64 count = 0;
 static u8* universe = NULL;
+
+static u32 max_player_count = 32;
+static u32 player_count = 0;
+static struct player* players = NULL;
 
 static inline u64 square_root(u64 op) {
     u64 res = 0, one = 0x4000000000000000; 
@@ -71,14 +81,22 @@ static inline u64 square_root(u64 op) {
     return res;
 }
 
-static inline void save(const char* destination) {
+static inline void save_state(const char* destination) {
 	FILE* file = fopen(destination, "w");
 	if (not file) { perror("open"); exit(3); }
 	fwrite(universe, 1, count, file);
 	fclose(file);
 }
 
-static inline void load(const char* source) {
+static inline void save_players(const char* destination) {
+	FILE* file = fopen(destination, "w");
+	if (not file) { perror("open"); exit(3); }
+	fwrite(&player_count, 4, 1, file);
+	fwrite(players, sizeof(struct player), player_count, file);
+	fclose(file);
+}
+
+static inline void load_state(const char* source) {
 	FILE* file = fopen(source, "r");
 	if (not file) { perror("fopen"); exit(3); }
 	fseek(file, 0, SEEK_END);
@@ -87,6 +105,14 @@ static inline void load(const char* source) {
 	fseek(file, 0, SEEK_SET);
 	universe = malloc(count);	
 	fread(universe, 1, count, file);
+	fclose(file);
+}
+
+static inline void load_players(const char* source) {
+	FILE* file = fopen(source, "r");
+	if (not file) { perror("fopen"); exit(3); }
+	fread(&player_count, 4, 1, file);
+	fread(players, sizeof (struct player), player_count, file);
 	fclose(file);
 }
 
@@ -100,7 +126,7 @@ static inline void show() {
 	printf("}\n");
 }
 
-static inline void generate() {
+static inline void generate(const char* base) {
 	count = s * s;
 	universe = malloc(count);
 	printf("debug: generating universe of %llu bytes ...\n", count);
@@ -108,6 +134,8 @@ static inline void generate() {
 	for (u64 i = 0; i < count; i++) universe[i] = 0;
 	universe[2] = 5;
 
+
+	mkdir(base, 0700);
 }
 
 static inline void halt_server() {
@@ -116,7 +144,6 @@ static inline void halt_server() {
 	shutdown(server, SHUT_RDWR);
 	close(server);
 }
-
 
 static inline void read_error() {
 	printf("debug: server: read error! (n < 0)\n");
@@ -128,13 +155,42 @@ static void* client_handler(void* raw) {
 	int client = parameters.connection;
 	const char* ip = parameters.ip;
 	const u8 ack = 1;
-	printf("server: connected to IP = %s\n", ip);
 
-	char buffer[256] = {0};
+	char player_name[32] = {0};
+	ssize_t n = read(client, &player_name, 29);
+	if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); goto leave; } 
+	else if (n < 0) { read_error(); goto leave; }
+	if (n == 29) write(client, &ack, 1); else goto leave;
+	
+	u32 p = 0;
+	for (; p < player_count; p++) {
+		if (not strcmp(players[p].name, player_name)) {
+			if (not players[p].active) {
+				players[p].active = true;
+				break;
+			} else goto leave;
+		}
+	}
+
+	if (p == player_count) {
+		strncpy(players[p].name ,player_name, 30);
+		players[p].x = rand() % 10;
+		players[p].y = rand() % 10;
+		players[p].hand = 0;
+		players[p].active = 1;
+		player_count++;
+	}
+
+	struct player* player = p + players;
+	 
+	printf("server: connected to IP = %s  :  player name = \"%s\"\n", ip, player->name);
+
+	// char buffer[256] = {0};
+
 	while (server_running) {
 
 		u8 command = 0;
-		ssize_t n = read(client, &command, 1);
+		n = read(client, &command, 1);
 		if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
 		else if (n < 0) { read_error(); break; }
 
@@ -143,25 +199,39 @@ static void* client_handler(void* raw) {
 			halt_server();
 			continue;
 
-		} else if (command == ping) {
-			printf("SERVER WAS PINGED!!!\n");
+		// } else if (command == ping) {
+		// 	printf("SERVER WAS PINGED!!!\n");
+		// 	write(client, &ack, 1);
+
+		// } else if (command == chat) {
+
+		// 	memset(buffer, 0, sizeof buffer);
+		// 	n = read(client, buffer, sizeof buffer);
+		// 	if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
+		// 	else if (n < 0) { read_error(); break; }
+		// 	printf("client said chat message: %s\n", buffer);
+		// 	strcat(transcript, buffer);
+		// 	write(client, &ack, 1);
+
+
+		} else if (command == move_right) {
+
 			write(client, &ack, 1);
+			player->x++;
 
-		} else if (command == chat) {
+		} else if (command == display) {
 
-			memset(buffer, 0, sizeof buffer);
-			n = read(client, buffer, sizeof buffer);
-			if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
-			else if (n < 0) { read_error(); break; }
-			printf("client said chat message: %s\n", buffer);
-			strcat(transcript, buffer);
-			write(client, &ack, 1);
+			u32 data_count = 16;
+			u16 data[] = {  3,3,  4,6,  5,7,   10,3  };
 
-		} else if (command == display) write(client, transcript, sizeof transcript);
-
-		else printf("error: command not recognized:  %d\n", (int) command);
+			write(client, &data_count, 4);
+			write(client, data, data_count);
+			
+		} else printf("error: command not recognized:  %d\n", (int) command);
 		usleep(2000);
 	}
+	player->active = false;
+leave:
 	close(client); 
 	free(raw);
 	return 0;
@@ -178,10 +248,20 @@ static void* compute(void* __attribute__((unused)) unused) {
 
 
 int main(const int argc, const char** argv) {
-	if (argc < 4) exit(puts( "usage: \n\t./server <s> <port> <file>\n"));
+	if (argc < 4) exit(puts( "usage: \n\t./server <s> <port> <universe>\n"));
 	s = (u64) atoll(argv[1]);
 	i16 port = (i16) atoi(argv[2]);
-	if (s) generate(); else load(argv[3]);
+
+	char players_file[128] = {0};
+	strncpy(players_file, argv[3], 127);
+	strncat(players_file, "/players.blob", 127);
+
+	char state_file[128] = {0};
+	strncpy(state_file, argv[3], 127);
+	strncat(state_file, "/state.blob", 127);
+
+	players = malloc(max_player_count * sizeof(struct player));
+	if (s) generate(argv[3]); else { load_state(state_file); load_players(players_file); }
 	show();
 
 	pthread_t thread;
@@ -215,7 +295,8 @@ int main(const int argc, const char** argv) {
 
 	pthread_join(thread, NULL);
 	printf("saving universe...\n");
-	save(argv[3]);
+	save_state(state_file);
+	save_players(players_file);
 }
 
 
