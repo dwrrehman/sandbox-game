@@ -227,7 +227,7 @@ static void* display_client_handler(void* raw) {
 	const char* ip = parameters.ip;
 	u16 port = parameters.port;
 
-	printf("DISPLAY HANDLER: connected to  %s : %d,   player # %d.\n", ip, port, parameters.player);
+	printf("DISPLAY HANDLER: connected to  %s : %d,   player # %d.\n", ip, port + 1, parameters.player);
 	
 	u32 screen_block_count = 0;
 	u16* screen = malloc(max_block_count * 2);
@@ -243,7 +243,7 @@ static void* display_client_handler(void* raw) {
 	socklen_t len = sizeof(cliaddr);
 	bind(udp_connection, (struct sockaddr*) &servaddr, sizeof(servaddr));
 
-	printf("display client handler: setup udp server on port %hd\n", port + 1);
+	printf("debug: display client handler: setup udp server on port %d\n", port + 1);
 
 	while (player->active) {
 		
