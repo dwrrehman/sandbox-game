@@ -45,6 +45,7 @@ static const u8 colors[] = {
 enum commands {	
 	null_command = 0,
 	display = 9, 
+	window_resized = 6,
 	move_right = 13,
 	halt = 255, 
 };
@@ -52,15 +53,26 @@ enum commands {
 static const char* window_title = "universe client";
 static int window_height = 800, window_width = 1200;
 
-static inline noreturn void not_acked() {
-	printf("debug: error: command not acknowledged from server\n");
-	abort();
-}
 
-static inline void read_error() {
-	printf("debug: client: read error! (n < 0)\n");
-	return;
-}
+#define read_error() \
+	{do { \
+		printf("debug: read error! (n < 0) file:%s line:%d func:%s\n", __FILE__, __LINE__, __func__); \
+		abort(); \
+	} while(0);} \
+
+
+#define not_acked() \
+	{do { \
+		printf("debug: error: command not acknowledged from client file:%s line:%d func:%s \n", __FILE__, __LINE__, __func__); \
+		abort(); \
+	} while(0);} \
+
+#define disconnected() \
+	{do { \
+		printf("debug: error: disconnected:%s line:%d func:%s \n", __FILE__, __LINE__, __func__); \
+		abort(); \
+	} while(0);} \
+
 
 static inline void window_changed(SDL_Window* window, SDL_Renderer* renderer) {
 	int w = 0, h = 0;
@@ -101,22 +113,22 @@ int main(const int argc, const char** argv) {
 	strncpy(player_name, argv[3], sizeof player_name);
 	write(connection, player_name, 29);
 	ssize_t n = read(connection, &response, sizeof response);
-	if (n == 0) { printf("{SERVER DISCONNECTED}\n"); return 1; }
-	else if (n < 0) { read_error(); return 1; }
+	if (n == 0) { disconnected(); }
+	else if (n < 0) { read_error(); }
 	if (response != 1) not_acked();
 
 	const u8 ack = 1;
 
 	write(connection, &window_width, 2);
 	n = read(connection, &response, sizeof response);
-	if (n == 0) { printf("{SERVER DISCONNECTED}\n"); return 1; }
-	else if (n < 0) { read_error(); return 1; }
+	if (n == 0) { disconnected(); }
+	else if (n < 0) { read_error(); }
 	if (response != 1) not_acked();
 
 	write(connection, &window_height, 2);
 	n = read(connection, &response, sizeof response);
-	if (n == 0) { printf("{SERVER DISCONNECTED}\n"); return 1; }
-	else if (n < 0) { read_error(); return 1; }
+	if (n == 0) { disconnected(); }
+	else if (n < 0) { read_error(); }
 	if (response != 1) not_acked();
 
 
@@ -140,6 +152,22 @@ int main(const int argc, const char** argv) {
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
 
+
+		SDL_Log("G : send display packet\n"); 
+		u8 command = display;
+		write(connection, &command, 1);
+
+		n = read(connection, &screen_block_count, 4);
+		if (n == 0) { disconnected(); }
+		else if (n < 0) { read_error(); }
+
+		n = read(connection, screen, screen_block_count * 2);
+		if (n == 0) { disconnected(); }
+		else if (n < 0) { read_error(); }
+
+
+
+
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     		SDL_RenderClear(renderer);
 
@@ -155,34 +183,53 @@ int main(const int argc, const char** argv) {
 			const Uint8* key = SDL_GetKeyboardState(0);
 			if (event.type == SDL_QUIT) quit = true;
 			if (event.type == SDL_WINDOWEVENT) {
-                		if (event.window.event == SDL_WINDOWEVENT_RESIZED) window_changed(window, renderer);
+                		if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+
+					window_changed(window, renderer);
+
+
+					command = window_resized;
+					write(connection, &command, 1);
+
+					write(connection, &window_width, 2);
+					n = read(connection, &response, sizeof response);
+					if (n == 0) { disconnected(); }
+					else if (n < 0) { read_error(); }
+					if (response != 1) not_acked();
+
+					write(connection, &window_height, 2);
+					n = read(connection, &response, sizeof response);
+					if (n == 0) { disconnected(); }
+					else if (n < 0) { read_error(); }
+					if (response != 1) not_acked();
+				}
 			}
 			if (event.type == SDL_KEYDOWN) { if (key[SDL_SCANCODE_GRAVE]) toggle_fullscreen(window, renderer); }
 
 			if (event.type == SDL_KEYDOWN) {
 				 if (key[SDL_SCANCODE_H]) {
 					SDL_Log("H : halting!\n"); 
-					u8 command = halt;
+					command = halt;
 					write(connection, &command, 1);
 					n = read(connection, &response, sizeof response);
-					if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
-					else if (n < 0) { read_error(); break; }
+					if (n == 0) { disconnected(); }
+					else if (n < 0) { read_error(); }
 					if (response != 1) not_acked();
 					quit = true; continue;
 				}
 
 				if (key[SDL_SCANCODE_G]) {
 					SDL_Log("G : send display packet\n"); 
-					u8 command = display;
+					command = display;
 					write(connection, &command, 1);
 
 					n = read(connection, &screen_block_count, 4);
-					if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
-					else if (n < 0) { read_error(); break; }
+					if (n == 0) { disconnected(); }
+					else if (n < 0) { read_error(); }
 
 					n = read(connection, screen, screen_block_count * 2);
-					if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
-					else if (n < 0) { read_error(); break; }
+					if (n == 0) { disconnected(); }
+					else if (n < 0) { read_error(); }
 				}
 			}
 			if (key[SDL_SCANCODE_ESCAPE]) quit = true;
@@ -194,11 +241,11 @@ int main(const int argc, const char** argv) {
 
 			if (key[SDL_SCANCODE_D]) { 
 				SDL_Log("D : move right\n"); 
-				u8 command = move_right;
+				command = move_right;
 				write(connection, &command, 1);
 				n = read(connection, &response, 1);
-				if (n == 0) { printf("{SERVER DISCONNECTED}\n"); break; }
-				else if (n < 0) { read_error(); break; }
+				if (n == 0) { disconnected(); }
+				else if (n < 0) { read_error(); }
 				if (response != 1) not_acked();
 			}
 		}

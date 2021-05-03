@@ -46,6 +46,7 @@ static const u32 max_block_count = 1 << 16;
 enum commands {	
 	null_command = 0,
 	display = 9, 
+	window_resized = 6,
 	move_right = 13,
 	halt = 255, 
 };
@@ -75,6 +76,40 @@ static u8* universe = NULL;
 static u32 player_count = 0;
 static struct player* players = NULL;
 
+
+#define read_error() \
+	{do { \
+		printf("debug: server: read error! (n < 0) file:%s line:%d func:%s\n", __FILE__, __LINE__, __func__); \
+		abort(); \
+	} while(0);} \
+
+
+#define not_acked() \
+	{do { \
+		printf("debug: error: command not acknowledged from client file:%s line:%d func:%s \n", __FILE__, __LINE__, __func__); \
+		abort(); \
+	} while(0);} \
+
+
+
+
+static inline void show() {
+	printf("\nstate:  s = %llu, count = %llu\n\n", s, count);
+	printf("{ \n");
+	for (u64 i = 0; i < count; i++) {
+		if (i and (i % 8) == 0) puts("");
+		printf("%02hhx ", universe[i]);
+	}
+	printf("}\n");
+}
+
+static inline u8 at(u64 x, u64 y, i64 x_off, i64 y_off) {
+	u64 yo = (u64)((i64)y + y_off + (i64)s) % s;
+	u64 xo = (u64)((i64)x + x_off + (i64)s) % s;
+	return universe[xo * s + yo];
+}
+
+
 static inline u64 square_root(u64 op) {
     u64 res = 0, one = 0x4000000000000000; 
     while (one > op) one >>= 2;
@@ -89,11 +124,6 @@ static inline u64 square_root(u64 op) {
     return res;
 }
 
-static inline u8 at(u64 x, u64 y, i64 x_off, i64 y_off) {
-	u64 yo = (u64)((i64)y + y_off + (i64)s) % s;
-	u64 xo = (u64)((i64)x + x_off + (i64)s) % s;
-	return universe[xo * s + yo];
-}
 
 static inline void save_state(const char* destination) {
 	FILE* file = fopen(destination, "w");
@@ -130,16 +160,6 @@ static inline void load_players(const char* source) {
 	fclose(file);
 }
 
-static inline void show() {
-	printf("\nstate:  s = %llu, count = %llu\n\n", s, count);
-	printf("{ \n");
-	for (u64 i = 0; i < count; i++) {
-		if (i and (i % 8) == 0) puts("");
-		printf("%02hhx ", universe[i]);
-	}
-	printf("}\n");
-}
-
 static inline void generate(const char* base) {
 	count = s * s;
 	universe = malloc(count);
@@ -158,20 +178,6 @@ static inline void halt_server() {
 	shutdown(server, SHUT_RDWR);
 	close(server);
 }
-
-#define read_error() \
-	{do { \
-		printf("debug: server: read error! (n < 0) file:%s line:%d func:%s\n", __FILE__, __LINE__, __func__); \
-		abort(); \
-	} while(0);} \
-
-
-#define not_acked() \
-	{do { \
-		printf("debug: error: command not acknowledged from client file:%s line:%d func:%s \n", __FILE__, __LINE__, __func__); \
-		abort(); \
-	} while(0);} \
-
 
 static inline void spawn_player(u32 p) {
 	u32 x = 0, y = 0;
@@ -259,14 +265,31 @@ static void* client_handler(void* raw) {
 			continue;
 
 		} else if (command == move_right) {
-
+			
 			write(client, &ack, 1);
 			player->x++;
+			printf("debug: moving player to the right... now, at (x=%llu,y=%llu)\n", player->x, player->y);
+
+		} else if (command == window_resized) {
+			
+			n = read(client, &player->width, 2);
+			if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); goto leave; } 
+			else if (n < 0) { read_error(); goto leave; }
+			write(client, &ack, 1); 
+
+			n = read(client, &player->height, 2);
+			if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); goto leave; } 
+			else if (n < 0) { read_error(); goto leave; }
+			write(client, &ack, 1); 
+
+			printf("server: player %s screen resized to: w=%d, h=%d\n", player->name, player->width, player->height);
+			if (not player->height or not player->width) abort();
+
 
 		} else if (command == display) {
 
 			
-			screen_block_count = (rand() % 100) * 2;
+			screen_block_count = (rand() % 1000) * 2;
 
 			printf("debug: sending DP with %d blocks...\n", screen_block_count);
 
@@ -280,7 +303,7 @@ static void* client_handler(void* raw) {
 			
 		} else printf("error: command not recognized:  %d\n", (int) command);
 
-		usleep(2000);
+		usleep(10);
 	}
 	player->active = false;
 leave:
@@ -294,7 +317,7 @@ static void* compute(void* __attribute__((unused)) unused) {
 	printf("computing world thread...\n");
 	while (server_running) {
 		printf("universe ticked\n");
-		sleep(5);
+		sleep(10);
 	}
 	return 0;
 }
