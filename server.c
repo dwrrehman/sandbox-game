@@ -269,11 +269,11 @@ static void* display_client_handler(void* raw) {
 		printf("sending blocks...\n");
 		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
 
-		// printf("waiting for udp dp ack!\n");
-		// n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
-		// // check(n); if (response != 1) not_acked();
+		printf("waiting for udp dp ack!\n");
+		n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
+		// check(n); if (response != 1) not_acked();
 
-		// printf("GOT ACK! done with dp.!\n");
+		printf("GOT ACK! done with dp.!\n");
 
 		usleep(16000);
 	}
@@ -382,9 +382,8 @@ static void* compute(void* __attribute__((unused)) unused) {
 	return 0;
 }
 
-
 int main(const int argc, const char** argv) {
-	if (argc < 4) exit(puts( "usage: \n\t./server <s> <port> <universe>\n"));
+	if (argc < 4) exit(puts( "usage: ./server <s> <port> <universe>"));
 	srand((unsigned)time(0));
 
 	s = (u64) atoll(argv[1]);
