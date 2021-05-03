@@ -87,14 +87,11 @@ static struct player* players = NULL;
 		abort(); \
 	} while(0);} \
 
-/*
 #define not_acked() \
 	{do { \
 		printf("debug: error: command not acknowledged from client file:%s line:%d func:%s \n", __FILE__, __LINE__, __func__); \
 		abort(); \
 	} while(0);} \
-*/
-
 
 #define disconnected() \
 	{do { \
@@ -221,6 +218,9 @@ static inline void spawn_player(u32 p) {
 
 static void* display_client_handler(void* raw) {
 
+	ssize_t n = 0;
+	u8 response = 0;
+
 	struct client parameters = *(struct client*)raw;
 
 	struct player* player = players + parameters.player;
@@ -255,10 +255,13 @@ static void* display_client_handler(void* raw) {
 		}
 
 		printf("debug: sending DP with %d blocks...\n", screen_block_count);
+
 		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
 		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
 
-		usleep(16000);
+		n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
+		check(n); if (response != 1) not_acked();
+
 	}
 	close(udp_connection);
 	free(screen);
@@ -318,6 +321,7 @@ static void* client_handler(void* raw) {
 
 	while (server_running) {
 
+		printf("server: debug: waiting for command...\n");
 		n = read(client, &command, 1);
 		if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
 		check(n);

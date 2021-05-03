@@ -138,7 +138,6 @@ int main(const int argc, const char** argv) {
 
 	printf("CLIENT[%s:%d]: running...\n", ip, port);
 
-
 	int udp_connection = socket(AF_INET, SOCK_DGRAM, 0);
 	if (udp_connection < 0) { perror("socket"); exit(1); }
 
@@ -199,10 +198,14 @@ int main(const int argc, const char** argv) {
 					quit = true; continue;
 				}
 				if (key[SDL_SCANCODE_G]) {
+
 					n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
 					n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
+
+					u8 ack = 1;
+					sendto(connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
 				}
 
 			}
