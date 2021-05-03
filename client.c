@@ -33,7 +33,7 @@ typedef int32_t i32;
 typedef int64_t i64;
 
 
-static const u32 max_block_count = 1 << 8;
+static const u32 max_block_count = 1 << 16;
 
 static const u8 colors[] = {
 	0,0,0,   // 0

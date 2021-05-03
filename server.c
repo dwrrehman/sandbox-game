@@ -40,7 +40,7 @@ typedef int64_t i64;
 static const u32 max_player_count = 32;
 static const u32 attempt_count = 10000;
 
-static const u32 max_block_count = 1 << 8;
+static const u32 max_block_count = 1 << 16;
 
 
 enum commands {	
@@ -265,8 +265,11 @@ static void* client_handler(void* raw) {
 
 		} else if (command == display) {
 
-			screen_block_count = (rand() % 10) * 2;
-		
+			
+			screen_block_count = (rand() % 100) * 2;
+
+			printf("debug: sending DP with %d blocks...\n", screen_block_count);
+
 			for (u32 i = 0; i < screen_block_count; i += 2) {
 				screen[i] = rand() % player->width;
 				screen[i + 1] = rand() % player->height;
