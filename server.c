@@ -261,19 +261,21 @@ static void* display_client_handler(void* raw) {
 		printf("sending block count...\n");
 		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
 
-		printf("waiting for udp dp ack!\n");
-		n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
-		// check(n); 
-		// if (response != 1) not_acked();
+		// printf("waiting for udp dp ack!\n");
+		// n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
+		// // check(n); 
+		// // if (response != 1) not_acked();
 
 		printf("sending blocks...\n");
 		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
 
-		printf("waiting for udp dp ack!\n");
-		n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
-		// check(n); if (response != 1) not_acked();
+		// printf("waiting for udp dp ack!\n");
+		// n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
+		// // check(n); if (response != 1) not_acked();
 
-		printf("GOT ACK! done with dp.!\n");
+		// printf("GOT ACK! done with dp.!\n");
+
+		usleep(16000);
 	}
 	close(udp_connection);
 	free(screen);
