@@ -242,8 +242,12 @@ static void* display_client_handler(void* raw) {
 	servaddr.sin_family = AF_INET;
 	socklen_t len = sizeof(cliaddr);
 	bind(udp_connection, (struct sockaddr*) &servaddr, sizeof(servaddr));
-
 	printf("debug: display client handler: setup udp server on port %d\n", port + 1);
+
+	printf("debug: display client handler: waiting for client to sendto ACK first...\n");
+	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
+	check(n); if (response != 1) not_acked();
+	printf("debug: display client handler: DONE! received.\n");
 
 	while (player->active) {
 		

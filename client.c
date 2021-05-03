@@ -157,6 +157,9 @@ int main(const int argc, const char** argv) {
 
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 	SDL_ShowCursor(0);
+
+	u8 ack = 1;
+	sendto(connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
 	
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
@@ -197,18 +200,15 @@ int main(const int argc, const char** argv) {
 					check(n); if (response != 1) not_acked();
 					quit = true; continue;
 				}
+
 				if (key[SDL_SCANCODE_G]) {
 
 					n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
-
-					u8 ack = 1;
 					sendto(connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
 					
 					n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
 					check(n);
-
-					ack = 1;
 					sendto(connection, &ack, 1, 0, (struct sockaddr*) &servaddr, len);
 				}
 
