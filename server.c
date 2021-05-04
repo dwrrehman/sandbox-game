@@ -244,7 +244,7 @@ static void* display_client_handler(void* raw) {
 
 	// usleep(1000000);
 	
-	printf("debug: display client handler: waiting for client to sendto ACK first...\n");
+	// printf("debug: display client handler: waiting for client to sendto ACK first...\n");
 	
 
 	// bool should_continue = 1;
@@ -261,12 +261,7 @@ static void* display_client_handler(void* raw) {
 	// }
 
 	usleep(100);
-	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); // MSG_DONTWAIT / MSG_WAITALL   MSG_DONTWAIT
-	check(n);
-	usleep(100);
-	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); // MSG_DONTWAIT / MSG_WAITALL   MSG_DONTWAIT
-	check(n);
-	usleep(100);
+	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); 
 
 	// if (n > 0) break;
 
@@ -283,7 +278,7 @@ static void* display_client_handler(void* raw) {
 		// usleep(1000);
 
 
-	printf("debug: display client handler: DONE! received.\n");
+	// printf("debug: display client handler: DONE! received.\n");
 
 	while (player->active) {
 		
@@ -293,6 +288,8 @@ static void* display_client_handler(void* raw) {
 			screen[i] = rand() % player->width;
 			screen[i + 1] = rand() % player->height;
 		}
+
+		// n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); 
 		
 		// printf("debug: sending DP with %d blocks...\n", screen_block_count);
 
@@ -404,8 +401,7 @@ static void* client_handler(void* raw) {
 
 	}
 
-	printf(" waiting on thread...\n");
-	
+	// printf(" waiting on thread...\n");
 	player->active = false;
 	pthread_join(display_handler_thread, NULL);
 

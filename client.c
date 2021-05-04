@@ -182,15 +182,10 @@ int main(const int argc, const char** argv) {
 	// 	if (n > 0) break;
 	// }
 
-	usleep(10);
+	usleep(100);
 	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
-	check(n);
-	usleep(10);
-	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
-	check(n);
-	usleep(10);
-	
-	printf("DONE sending ACK to server for UDP con\n");
+	usleep(100);
+	// printf("DONE sending ACK to server for UDP con\n");
 
 
 	// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*)&server_addr, server_struct_length)
@@ -206,16 +201,18 @@ int main(const int argc, const char** argv) {
 	
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
-
-		printf("receiving block count first...\n");
-		n = recvfrom(udp_connection, &screen_block_count, 4, MSG_DONTWAIT, (struct sockaddr*) &udp_servaddr, &len);
+		
+		// n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+		
+		// printf("receiving block count first...\n");
+		n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
 		// check(n);
 
 		// printf("sending ACK for bc...\n");
 		// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
 		
-		printf("receiving %d blocks...\n", screen_block_count);
-		n = recvfrom(udp_connection, screen, screen_block_count * 2, MSG_DONTWAIT, (struct sockaddr*) &udp_servaddr, &len);
+		// printf("receiving %d blocks...\n", screen_block_count);
+		n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
 		// check(n);
 
 		// printf("sending ACK for block array...\n");
@@ -227,7 +224,7 @@ int main(const int argc, const char** argv) {
     		SDL_RenderClear(renderer);
 
 		SDL_SetRenderDrawColor(renderer, colors[4], colors[5], colors[6], 255);
-
+		
 		for (u32 i = 0; i < screen_block_count; i += 2) {
 			SDL_RenderDrawPoint(renderer, screen[i], screen[i + 1]);
 		}
@@ -299,7 +296,7 @@ int main(const int argc, const char** argv) {
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = 64 - (int32_t) time; //16, for 60 fps.
+		int32_t sleep = 16 - (int32_t) time; //16, for 60 fps.
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 	
 		if (!(SDL_GetTicks() & 511)) {
