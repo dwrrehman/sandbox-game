@@ -42,7 +42,7 @@ static const u32 attempt_count = 10000;
 
 static const u32 max_block_count = 1 << 16;
 
-static const u8 ack = 1;
+
 
 enum commands {	
 	null_command = 0,
@@ -86,12 +86,13 @@ static struct player* players = NULL;
 		printf("debug: server: read error! (n < 0) file:%s line:%d func:%s\n", __FILE__, __LINE__, __func__); \
 		abort(); \
 	} while(0);} \
-
+/*
 #define not_acked() \
 	{do { \
 		printf("debug: error: command not acknowledged from client file:%s line:%d func:%s \n", __FILE__, __LINE__, __func__); \
 		abort(); \
 	} while(0);} \
+*/
 
 #define disconnected() \
 	{do { \
@@ -100,11 +101,10 @@ static struct player* players = NULL;
 	} while(0);} \
 
 
+#define check(n) \
+	if (n == 0) { disconnected(); } \
+	else if (n < 0) { read_error(); } \
 
-static inline void check(ssize_t n) {
-	if (n == 0) { disconnected(); }
-	else if (n < 0) { read_error(); }
-}
 
 static inline void show() {
 	printf("\nstate:  s = %llu, count = %llu\n\n", s, count);
@@ -240,25 +240,63 @@ static void* display_client_handler(void* raw) {
 	servaddr.sin_family = AF_INET;
 	socklen_t len = sizeof(cliaddr);
 	bind(udp_connection, (struct sockaddr*) &servaddr, sizeof(servaddr));
-	printf("debug: display client handler: setup udp server on port %d\n", port + 1);
+	// printf("debug: display client handler: setup udp server on port %d\n", port + 1);
 
+	// usleep(1000000);
+	
 	printf("debug: display client handler: waiting for client to sendto ACK first...\n");
-	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
-	check(n); if (response != 1) not_acked();
+	
+
+	// bool should_continue = 1;
+	// response = 0;
+
+	// while (1) {
+	// 	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); // MSG_DONTWAIT / MSG_WAITALL   MSG_DONTWAIT
+	// 	if (n > 0) break;
+	// }
+
+	// while (1) {
+	// 	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, len);
+	// 	if (n > 0) break;
+	// }
+
+	usleep(100);
+	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); // MSG_DONTWAIT / MSG_WAITALL   MSG_DONTWAIT
+	check(n);
+	usleep(100);
+	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); // MSG_DONTWAIT / MSG_WAITALL   MSG_DONTWAIT
+	check(n);
+	usleep(100);
+
+	// if (n > 0) break;
+
+	//0 or response != 1) {
+		// 	printf("error: failed to receive: n = %zd. trying again....\n", n);
+		// 	should_continue = 0; 
+		// } else should_continue = 1;
+		// printf("SENDing...\n");
+		// u8 ack = 1;
+		// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*)&cliaddr, len);
+		// if (n == 0) printf("sendto n = 0\n");
+		// else if (n < 0) printf("sendto n < 0\n");
+		// if (should_continue) continue; else break;
+		// usleep(1000);
+
+
 	printf("debug: display client handler: DONE! received.\n");
 
 	while (player->active) {
 		
-		screen_block_count = (rand() % 30) * 2 + 2;
+		screen_block_count = (rand() % 100) * 2 + 2;
 
 		for (u32 i = 0; i < screen_block_count; i += 2) {
 			screen[i] = rand() % player->width;
 			screen[i + 1] = rand() % player->height;
 		}
 		
-		printf("debug: sending DP with %d blocks...\n", screen_block_count);
+		// printf("debug: sending DP with %d blocks...\n", screen_block_count);
 
-		printf("sending block count...\n");
+		// printf("sending block count...\n");
 		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
 
 		// printf("waiting for udp dp ack!\n");
@@ -266,17 +304,18 @@ static void* display_client_handler(void* raw) {
 		// // check(n); 
 		// // if (response != 1) not_acked();
 
-		printf("sending blocks...\n");
+		// printf("sending blocks...\n");
 		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
 
-		printf("waiting for udp dp ack!\n");
-		n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
-		// check(n); if (response != 1) not_acked();
+		// printf("waiting for udp dp ack!\n");
+		// n = recvfrom(udp_connection, &response, 1, MSG_DONTWAIT, (struct sockaddr*)&cliaddr, &len);
+		// // check(n); if (response != 1) not_acked();
 
-		printf("GOT ACK! done with dp.!\n");
+		// printf("GOT ACK! done with dp.!\n");
 
-		usleep(16000);
+		usleep(100000);
 	}
+	printf("debug: closing display connection...\n");
 	close(udp_connection);
 	free(screen);
 	return 0;
@@ -307,7 +346,7 @@ static inline u32 find_player(const char* player_name) {
 static void* client_handler(void* raw) {
 
 	ssize_t n = 0;
-	u8 command = 0;
+	u8 command = 0, ack = 1;
 	char player_name[32] = {0};
 
 	struct client parameters = *(struct client*)raw;
@@ -331,13 +370,13 @@ static void* client_handler(void* raw) {
 	if (not player->height or not player->width) abort();
 
 
-	printf("starting up display hanler thread\n");
+	// printf("starting up display hanler thread\n");
 	pthread_t display_handler_thread;
 	pthread_create(&display_handler_thread, NULL, display_client_handler, &parameters);
 
 	while (server_running) {
 
-		printf("server: debug: waiting for command...\n");
+		// printf("server: debug: waiting for command...\n");
 		n = read(client, &command, 1);
 		if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
 		check(n);
@@ -364,10 +403,14 @@ static void* client_handler(void* raw) {
 		} else printf("error: command not recognized:  %d\n", (int) command);
 
 	}
+
+	printf(" waiting on thread...\n");
+	
 	player->active = false;
 	pthread_join(display_handler_thread, NULL);
 
 leave:
+	printf("debug: closing control connection...\n");
 	close(client); 
 	free(raw);
 	return 0;

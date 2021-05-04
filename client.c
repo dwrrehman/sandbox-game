@@ -76,10 +76,10 @@ static int window_height = 800, window_width = 1200;
 	} while(0);} \
 
 
-static inline void check(ssize_t n) {
-	if (n == 0) { disconnected(); }
-	else if (n < 0) { read_error(); }
-}
+#define check(n) \
+	if (n == 0) { disconnected(); } \
+	else if (n < 0) { read_error(); } \
+
 
 static inline void window_changed(SDL_Window* window, SDL_Renderer* renderer) {
 	int w = 0, h = 0;
@@ -149,17 +149,47 @@ int main(const int argc, const char** argv) {
 
 	printf("%s is connecting to UDP server %s : %d...\n", player_name, ip, port + 1);
         
+	// printf("note: about to send ackUDP!!...\n");
+	// usleep(10000);
+
+	// printf("sending ACK to server for UDP con\n");
+
+	// while (1) {
+		
+	// 	if (n == 0) printf("sendto n = 0\n");
+	// 	else if (n < 0) printf("sendto n < 0\n");
+		
+	// 	response = 0;
+	// 	// printf("RECVing...\n");
+	// 	n = recvfrom(udp_connection, &response, 1, MSG_DONTWAIT, (struct sockaddr*) &udp_servaddr, &len);
+	// 	if (n == 0 or n < 0 or response != 1) {
+	// 		printf("error: failed to receive: n = %zd. trying again....\n", n);
+	// 		continue;
+	// 	} else break;
+	// }
+
+	// u8 ack = 1;
+		// printf("SENDing...\n");
 
 
-	printf("note: about to send ackUDP!!...\n");
-	sleep(1);
+	// while (1) {
+	// 	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+	// 	if (n > 0) break;
+	// }
 
-	printf("sending ACK to server for UDP con\n");
-	u8 ack = 1;
-	if (sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len) < 0) {
-	  	printf("Unable to send message\n");
-		abort();
-    	}
+	// while (1) {
+	// 	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, &len);
+	// 	if (n > 0) break;
+	// }
+
+	usleep(10);
+	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+	check(n);
+	usleep(10);
+	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+	check(n);
+	usleep(10);
+	
 	printf("DONE sending ACK to server for UDP con\n");
 
 
@@ -177,23 +207,21 @@ int main(const int argc, const char** argv) {
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
 
-		// printf("pressed G! sending display request....\n");
-
 		printf("receiving block count first...\n");
-		n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
+		n = recvfrom(udp_connection, &screen_block_count, 4, MSG_DONTWAIT, (struct sockaddr*) &udp_servaddr, &len);
 		// check(n);
 
 		// printf("sending ACK for bc...\n");
 		// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
 		
 		printf("receiving %d blocks...\n", screen_block_count);
-		n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
+		n = recvfrom(udp_connection, screen, screen_block_count * 2, MSG_DONTWAIT, (struct sockaddr*) &udp_servaddr, &len);
 		// check(n);
 
-		printf("sending ACK for block array...\n");
-		sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+		// printf("sending ACK for block array...\n");
+		// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
 
-		printf("all done!! rendering...\n");
+		// printf("all done!! rendering...\n");
 
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     		SDL_RenderClear(renderer);
@@ -224,7 +252,7 @@ int main(const int argc, const char** argv) {
 
 			if (event.type == SDL_KEYDOWN) {
 				 if (key[SDL_SCANCODE_H]) {
-					SDL_Log("H : halting!\n"); 
+					// SDL_Log("H : halting!\n"); 
 					command = halt;
 					write(connection, &command, 1);
 					n = read(connection, &response, sizeof response);
@@ -233,7 +261,7 @@ int main(const int argc, const char** argv) {
 				}
 
 				if (key[SDL_SCANCODE_G]) {
-					printf("pressed G! sending display request....\n");
+					// printf("pressed G! sending display request....\n");
 
 					// printf("receiving block count first...\n");
 					// n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
@@ -249,7 +277,7 @@ int main(const int argc, const char** argv) {
 					// printf("sending ACK for block array...\n");
 					// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
 
-					printf("all done!!\n");
+					// printf("all done!!\n");
 				}
 
 			}
@@ -261,7 +289,7 @@ int main(const int argc, const char** argv) {
 			if (key[SDL_SCANCODE_A]) { SDL_Log("A\n"); }
 
 			if (key[SDL_SCANCODE_D]) { 
-				SDL_Log("D : move right\n"); 
+				// SDL_Log("D : move right\n"); 
 				command = move_right;
 				write(connection, &command, 1);
 				n = read(connection, &response, 1);
