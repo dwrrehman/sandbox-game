@@ -53,7 +53,12 @@ enum commands {
 };
 
 static const char* window_title = "universe client";
-static int window_height = 800, window_width = 1200;
+static int window_height = 200, window_width = 400;
+
+static int scaled_height = 200, scaled_width
+
+static int scale = 1;
+
 
 
 #define read_error() \
@@ -80,10 +85,28 @@ static int window_height = 800, window_width = 1200;
 	if (n == 0) { disconnected(); } \
 	else if (n < 0) { read_error(); } \
 
-
 static inline void window_changed(SDL_Window* window, SDL_Renderer* renderer) {
 	int w = 0, h = 0;
 	SDL_GetWindowSize(window, &w, &h);
+	window_width = w;
+	window_height = h;
+	printf("width and height: (%d, %d)\n", window_width, window_height);
+}
+
+static inline void zoom_in(SDL_Renderer* renderer) {
+	// SDL_Window* window, 
+	int w = window_width - 1, h = window_height - 1;
+	if (h < 2 or w < 2) return;
+	SDL_RenderSetLogicalSize(renderer, w, h);
+	window_width = w;
+	window_height = h;
+	printf("width and height: (%d, %d)\n", window_width, window_height);
+}
+
+static inline void zoom_out(SDL_Renderer* renderer) {
+	// SDL_Window* window, 
+	int w = window_width + , h = window_height + 1;
+	//if (h > 10000 or w > 10000) return;
 	SDL_RenderSetLogicalSize(renderer, w, h);
 	window_width = w;
 	window_height = h;
@@ -129,67 +152,13 @@ int main(const int argc, const char** argv) {
 	check(n); if (response != 1) not_acked();
 
 	printf("\n\n\t %s CONNECTED TO SERVER!\n\n", player_name);
+	printf("CLIENT[%s:%d]: running...\n", ip, port);
 
 	bool quit = false;
 	u8 command = 0;
 
 	u32 screen_block_count = 0;
 	u16* screen = malloc(max_block_count * 2);
-
-	printf("CLIENT[%s:%d]: running...\n", ip, port);
-
-	int udp_connection = socket(AF_INET, SOCK_DGRAM, 0);
-	if (udp_connection < 0) { perror("socket"); exit(1); }
-
-	struct sockaddr_in udp_servaddr = {0};
-	udp_servaddr.sin_addr.s_addr = inet_addr(ip);
-	udp_servaddr.sin_port = htons(port + 1);
-	udp_servaddr.sin_family = AF_INET;
-	socklen_t len = sizeof(udp_servaddr);
-
-	printf("%s is connecting to UDP server %s : %d...\n", player_name, ip, port + 1);
-        
-	// printf("note: about to send ackUDP!!...\n");
-	// usleep(10000);
-
-	// printf("sending ACK to server for UDP con\n");
-
-	// while (1) {
-		
-	// 	if (n == 0) printf("sendto n = 0\n");
-	// 	else if (n < 0) printf("sendto n < 0\n");
-		
-	// 	response = 0;
-	// 	// printf("RECVing...\n");
-	// 	n = recvfrom(udp_connection, &response, 1, MSG_DONTWAIT, (struct sockaddr*) &udp_servaddr, &len);
-	// 	if (n == 0 or n < 0 or response != 1) {
-	// 		printf("error: failed to receive: n = %zd. trying again....\n", n);
-	// 		continue;
-	// 	} else break;
-	// }
-
-	// u8 ack = 1;
-		// printf("SENDing...\n");
-
-
-	// while (1) {
-	// 	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
-	// 	if (n > 0) break;
-	// }
-
-	// while (1) {
-	// 	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, &len);
-	// 	if (n > 0) break;
-	// }
-
-	usleep(100);
-	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
-	usleep(100);
-	// printf("DONE sending ACK to server for UDP con\n");
-
-
-	// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*)&server_addr, server_struct_length)
-
 
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
@@ -202,23 +171,12 @@ int main(const int argc, const char** argv) {
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
 		
-		// n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+		command = display;
+		write(connection, &command, 1);
+		n = read(connection, &screen_block_count, sizeof(u32)); check(n);
+		n = read(connection, screen, screen_block_count * sizeof(u16)); check(n);
 		
-		// printf("receiving block count first...\n");
-		n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
-		// check(n);
-
-		// printf("sending ACK for bc...\n");
-		// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
-		
-		// printf("receiving %d blocks...\n", screen_block_count);
-		n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
-		// check(n);
-
-		// printf("sending ACK for block array...\n");
-		// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
-
-		// printf("all done!! rendering...\n");
+		printf("display: received %d blocks, rendering...\n", screen_block_count);
 
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     		SDL_RenderClear(renderer);
@@ -249,7 +207,7 @@ int main(const int argc, const char** argv) {
 
 			if (event.type == SDL_KEYDOWN) {
 				 if (key[SDL_SCANCODE_H]) {
-					// SDL_Log("H : halting!\n"); 
+					SDL_Log("H : halting!\n"); 
 					command = halt;
 					write(connection, &command, 1);
 					n = read(connection, &response, sizeof response);
@@ -257,26 +215,25 @@ int main(const int argc, const char** argv) {
 					quit = true; continue;
 				}
 
-				if (key[SDL_SCANCODE_G]) {
-					// printf("pressed G! sending display request....\n");
-
-					// printf("receiving block count first...\n");
-					// n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
-					// check(n);
-	
-					// printf("sending ACK for bc...\n");
-					// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
-					
-					// printf("receiving %d blocks...\n", screen_block_count);
-					// n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
-					// check(n);
-
-					// printf("sending ACK for block array...\n");
-					// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
-
-					// printf("all done!!\n");
+				if (key[SDL_SCANCODE_O]) {
+					zoom_out(renderer);
+					command = window_resized;
+					write(connection, &command, 1);
+					write(connection, &window_width, 2);
+					write(connection, &window_height, 2);
+					n = read(connection, &response, sizeof response); 
+					check(n); if (response != 1) not_acked();
 				}
 
+				if (key[SDL_SCANCODE_I]) {
+					zoom_in(renderer);
+					command = window_resized;
+					write(connection, &command, 1);
+					write(connection, &window_width, 2);
+					write(connection, &window_height, 2);
+					n = read(connection, &response, sizeof response); 
+					check(n); if (response != 1) not_acked();
+				}
 			}
 			if (key[SDL_SCANCODE_ESCAPE]) quit = true;
 			if (key[SDL_SCANCODE_Q]) quit = true;
@@ -286,7 +243,7 @@ int main(const int argc, const char** argv) {
 			if (key[SDL_SCANCODE_A]) { SDL_Log("A\n"); }
 
 			if (key[SDL_SCANCODE_D]) { 
-				// SDL_Log("D : move right\n"); 
+				SDL_Log("D : move right\n"); 
 				command = move_right;
 				write(connection, &command, 1);
 				n = read(connection, &response, 1);
@@ -306,7 +263,6 @@ int main(const int argc, const char** argv) {
 	}
 
 	close(connection);
-	close(udp_connection);
 
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
@@ -515,5 +471,83 @@ static inline void UDP_connect_to_server(const char* playername, const char* ip,
 // }
 //
 
+
+
+
+
+// int udp_connection = socket(AF_INET, SOCK_DGRAM, 0);
+	// if (udp_connection < 0) { perror("socket"); exit(1); }
+
+	// struct sockaddr_in udp_servaddr = {0};
+	// udp_servaddr.sin_addr.s_addr = inet_addr(ip);
+	// udp_servaddr.sin_port = htons(port + 1);
+	// udp_servaddr.sin_family = AF_INET;
+	// socklen_t len = sizeof(udp_servaddr);
+
+	// printf("%s is connecting to UDP server %s : %d...\n", player_name, ip, port + 1);
+        
+	// printf("note: about to send ackUDP!!...\n");
+	// usleep(10000);
+
+	// printf("sending ACK to server for UDP con\n");
+
+	// while (1) {
+		
+	// 	if (n == 0) printf("sendto n = 0\n");
+	// 	else if (n < 0) printf("sendto n < 0\n");
+		
+	// 	response = 0;
+	// 	// printf("RECVing...\n");
+	// 	n = recvfrom(udp_connection, &response, 1, MSG_DONTWAIT, (struct sockaddr*) &udp_servaddr, &len);
+	// 	if (n == 0 or n < 0 or response != 1) {
+	// 		printf("error: failed to receive: n = %zd. trying again....\n", n);
+	// 		continue;
+	// 	} else break;
+	// }
+
+	// u8 ack = 1;
+		// printf("SENDing...\n");
+
+
+	// while (1) {
+	// 	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+	// 	if (n > 0) break;
+	// }
+
+	// while (1) {
+	// 	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, &len);
+	// 	if (n > 0) break;
+	// }
+
+	// usleep(100);
+	// n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+	// usleep(100);
+	// printf("DONE sending ACK to server for UDP con\n");
+
+
+	// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*)&server_addr, server_struct_length)
+
+
+
+
+
+
+
+// n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+		
+		// printf("receiving block count first...\n");
+		// n = recvfrom(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*) &udp_servaddr, &len);
+		// check(n);
+
+		// printf("sending ACK for bc...\n");
+		// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+		
+		// printf("receiving %d blocks...\n", screen_block_count);
+		// n = recvfrom(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*) &udp_servaddr, &len);
+		// check(n);
+
+		// printf("sending ACK for block array...\n");
+		// response = 1;
+		// sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
 
 

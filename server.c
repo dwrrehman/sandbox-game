@@ -107,7 +107,7 @@ static struct player* players = NULL;
 
 
 static inline void show() {
-	printf("\nstate:  s = %llu, count = %llu\n\n", s, count);
+	printf("\nDEBUG: state:  s = %llu, count = %llu\n\n", s, count);
 	printf("{ \n");
 	for (u64 i = 0; i < count; i++) {
 		if (i and (i % 8) == 0) puts("");
@@ -137,12 +137,13 @@ static inline u64 square_root(u64 op) {
     return res;
 }
 
-
 static inline void save_state(const char* destination) {
 	FILE* file = fopen(destination, "w");
 	if (not file) { perror("open"); exit(3); }
 	fwrite(universe, 1, count, file);
 	fclose(file);
+
+	printf("saved %llu bytes of universe (s=%llu)...\n", count, s);
 }
 
 static inline void save_players(const char* destination) {
@@ -163,6 +164,8 @@ static inline void load_state(const char* source) {
 	universe = malloc(count);	
 	fread(universe, 1, count, file);
 	fclose(file);
+
+	printf("loaded %llu bytes of existing universe (s=%llu)...\n", count, s);
 }
 
 static inline void load_players(const char* source) {
@@ -171,18 +174,16 @@ static inline void load_players(const char* source) {
 	fread(&player_count, 4, 1, file);
 	fread(players, sizeof (struct player), player_count, file);
 	fclose(file);
+	printf("loaded %d player's data.\n", player_count);
 }
 
-static inline void generate(const char* base) {
+static inline void generate() {
 	count = s * s;
 	universe = malloc(count);
 	printf("debug: generating universe of %llu bytes ...\n", count);
 
 	for (u64 i = 0; i < count; i++) universe[i] = 0;
 	universe[2] = 5;
-
-
-	mkdir(base, 0700);
 }
 
 static inline void halt_server() {
@@ -194,7 +195,9 @@ static inline void halt_server() {
 
 static inline void spawn_player(u32 p) {
 	u32 x = 0, y = 0;
-	
+
+	printf("spawning player...\n");
+
 	for (u32 t = 0; t < attempt_count; t++) {
 		x = (u32)rand() % (u32)s;
 		y = (u32)rand() % (u32)s;
@@ -212,111 +215,6 @@ static inline void spawn_player(u32 p) {
 	players[p].y = 0;
 }
 
-
-
-static void* display_client_handler(void* raw) {
-
-	ssize_t n = 0;
-	u8 response = 0;
-
-	struct client parameters = *(struct client*)raw;
-
-	struct player* player = players + parameters.player;
-	const char* ip = parameters.ip;
-	u16 port = parameters.port;
-
-	printf("DISPLAY HANDLER: connected to  %s : %d,   player # %d.\n", ip, port + 1, parameters.player);
-	
-	u32 screen_block_count = 0;
-	u16* screen = malloc(max_block_count * 2);
-
-	int udp_connection = socket(AF_INET, SOCK_DGRAM, 0);
-	if (!udp_connection) { perror("socket"); abort(); }
-
-	struct sockaddr_in servaddr, cliaddr;
-	memset(&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servaddr.sin_port = htons(port + 1);
-	servaddr.sin_family = AF_INET;
-	socklen_t len = sizeof(cliaddr);
-	bind(udp_connection, (struct sockaddr*) &servaddr, sizeof(servaddr));
-	// printf("debug: display client handler: setup udp server on port %d\n", port + 1);
-
-	// usleep(1000000);
-	
-	// printf("debug: display client handler: waiting for client to sendto ACK first...\n");
-	
-
-	// bool should_continue = 1;
-	// response = 0;
-
-	// while (1) {
-	// 	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); // MSG_DONTWAIT / MSG_WAITALL   MSG_DONTWAIT
-	// 	if (n > 0) break;
-	// }
-
-	// while (1) {
-	// 	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, len);
-	// 	if (n > 0) break;
-	// }
-
-	usleep(100);
-	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); 
-
-	// if (n > 0) break;
-
-	//0 or response != 1) {
-		// 	printf("error: failed to receive: n = %zd. trying again....\n", n);
-		// 	should_continue = 0; 
-		// } else should_continue = 1;
-		// printf("SENDing...\n");
-		// u8 ack = 1;
-		// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*)&cliaddr, len);
-		// if (n == 0) printf("sendto n = 0\n");
-		// else if (n < 0) printf("sendto n < 0\n");
-		// if (should_continue) continue; else break;
-		// usleep(1000);
-
-
-	// printf("debug: display client handler: DONE! received.\n");
-
-	while (player->active) {
-		
-		screen_block_count = (rand() % 100) * 2 + 2;
-
-		for (u32 i = 0; i < screen_block_count; i += 2) {
-			screen[i] = rand() % player->width;
-			screen[i + 1] = rand() % player->height;
-		}
-
-		// n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); 
-		
-		// printf("debug: sending DP with %d blocks...\n", screen_block_count);
-
-		// printf("sending block count...\n");
-		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
-
-		// printf("waiting for udp dp ack!\n");
-		// n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
-		// // check(n); 
-		// // if (response != 1) not_acked();
-
-		// printf("sending blocks...\n");
-		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
-
-		// printf("waiting for udp dp ack!\n");
-		// n = recvfrom(udp_connection, &response, 1, MSG_DONTWAIT, (struct sockaddr*)&cliaddr, &len);
-		// // check(n); if (response != 1) not_acked();
-
-		// printf("GOT ACK! done with dp.!\n");
-
-		usleep(100000);
-	}
-	printf("debug: closing display connection...\n");
-	close(udp_connection);
-	free(screen);
-	return 0;
-}
 
 
 static inline u32 find_player(const char* player_name) {
@@ -342,6 +240,8 @@ static inline u32 find_player(const char* player_name) {
 
 static void* client_handler(void* raw) {
 
+	printf("[arrived in client handler function.]\n");
+
 	ssize_t n = 0;
 	u8 command = 0, ack = 1;
 	char player_name[32] = {0};
@@ -366,17 +266,17 @@ static void* client_handler(void* raw) {
 	printf("server: screen size: w=%d, h=%d\n", player->width, player->height);
 	if (not player->height or not player->width) abort();
 
-
-	// printf("starting up display hanler thread\n");
-	pthread_t display_handler_thread;
-	pthread_create(&display_handler_thread, NULL, display_client_handler, &parameters);
+	u32 screen_block_count = 0;
+	u16* screen = malloc(max_block_count * 2);
 
 	while (server_running) {
 
-		// printf("server: debug: waiting for command...\n");
+		printf("server: debug: waiting for command...\n");
 		n = read(client, &command, 1);
 		if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
 		check(n);
+	
+		printf("[received command --> %d]\n", command);
 
 		if (command == halt) {
 			write(client, &ack, 1);
@@ -393,17 +293,55 @@ static void* client_handler(void* raw) {
 			
 			n = read(client, &player->width, 2); check(n);
 			n = read(client, &player->height, 2); check(n); 
-			write(client, &ack, 1); 
+			write(client, &ack, 1);
 			printf("server: screen resized: w=%d, h=%d\n", player->width, player->height);
 			if (not player->height or not player->width) abort();
+
+		} else if (command == display) {
+				
+			screen_block_count = 14;   // must be even. (coord-pairs of u16s)
+
+			// for (u32 i = 0; i < screen_block_count; i += 2) {
+			// 	screen[i] = rand() % player->width;
+			// 	screen[i + 1] = rand() % player->height;
+			// }
+
+
+			screen[0] = 1;
+			screen[1] = 1;
+
+			screen[2] = 2;
+			screen[3] = 2;
+
+			screen[4] = 3;
+			screen[5] = 3;
+
+			screen[6] = 4;
+			screen[7] = 4;
+
+			screen[8] = 5;
+			screen[9] = 5;
+
+			screen[10] = 6;
+			screen[11] = 6;
+
+			screen[12] = 7;
+			screen[13] = 7;
+
+
+
+			printf("sending %d blocks...\n", screen_block_count);
+			write(client, &screen_block_count, sizeof(u32));	
+			write(client, screen, screen_block_count * sizeof(u16));
+	
 
 		} else printf("error: command not recognized:  %d\n", (int) command);
 
 	}
 
-	// printf(" waiting on thread...\n");
+	// printf(" waiting on display thread...\n");
 	player->active = false;
-	pthread_join(display_handler_thread, NULL);
+	// pthread_join(display_handler_thread, NULL);
 
 leave:
 	printf("debug: closing control connection...\n");
@@ -422,11 +360,11 @@ static void* compute(void* __attribute__((unused)) unused) {
 }
 
 int main(const int argc, const char** argv) {
-	if (argc < 4) exit(puts( "usage: ./server <s> <port> <universe>"));
+	if (argc < 4) exit(puts( "usage: ./server <port> <s> <universe>\n[s?generate(s):load(universe)]"));
+	
 	srand((unsigned)time(0));
-
-	s = (u64) atoll(argv[1]);
-	u16 port = (u16) atoi(argv[2]);
+	u16 port = (u16) atoi(argv[1]);
+	s = (u64) atoll(argv[2]);
 
 	char players_file[128] = {0};
 	strncpy(players_file, argv[3], 127);
@@ -435,14 +373,18 @@ int main(const int argc, const char** argv) {
 	char state_file[128] = {0};
 	strncpy(state_file, argv[3], 127);
 	strncat(state_file, "/state.blob", 127);
-
+	
 	players = malloc(max_player_count * sizeof(struct player));
-	if (s) generate(argv[3]); else { load_state(state_file); load_players(players_file); }
-	show();
+
+	if (s) { mkdir(argv[3], 0700); generate(); }
+	else { load_state(state_file); load_players(players_file); }
+
+	show();   // debug
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, compute, NULL);
 	
+	printf("creating socket...\n");
 	server = socket(AF_INET, SOCK_STREAM, 0);
 	if (server < 0) { perror("socket"); exit(1); }
 	setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &(int[]){1}, sizeof(int));
@@ -465,6 +407,7 @@ int main(const int argc, const char** argv) {
 		client->ip = inet_ntoa(client_address.sin_addr);
 		client->port = (u16)port;
 		pthread_t handler_thread;
+		printf("starting handler thread for connection...\n");
 		pthread_create(&handler_thread, NULL, client_handler, client);
 		pthread_detach(handler_thread);
 		usleep(10000);
@@ -709,6 +652,153 @@ int main(const int argc, const char** argv) {
 
 //		sendto(udp_connection, buffer, strlen(buffer), 0, (struct sockaddr*)&cliaddr, len);
 	// }
+
+
+
+
+
+
+// printf("starting up display thread...\n");
+	// pthread_t display_handler_thread;
+	// pthread_create(&display_handler_thread, NULL, display_client_handler, &parameters);
+
+
+
+
+
+// n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); 
+		
+// 		printf("debug: sending DP with %d blocks...\n", screen_block_count);
+
+// 		printf("sending block count...\n");
+// 		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
+
+// 		// printf("waiting for udp dp ack!\n");
+// 		// n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
+// 		// // check(n); 
+// 		// // if (response != 1) not_acked();
+
+// 		printf("sending blocks...\n");
+// 		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
+
+// 		printf("waiting for udp dp ack!\n");
+// 		n = recvfrom(udp_connection, &response, 1, /*MSG_DONTWAIT*/0, (struct sockaddr*)&cliaddr, &len);
+// 		check(n); 
+// 		// if (response != 1) not_acked();
+
+
+
+
+
+
+
+// static void* display_client_handler(void* raw) {
+
+// 	ssize_t n = 0;
+// 	u8 response = 0;
+
+// 	struct client parameters = *(struct client*)raw;
+
+// 	struct player* player = players + parameters.player;
+// 	const char* ip = parameters.ip;
+// 	u16 port = parameters.port;
+
+// 	printf("arrived in DISPLAY HANDLER: connected to  %s : %d,   player # %d.\n", ip, port + 1, parameters.player);
+	
+// 	u32 screen_block_count = 0;
+// 	u16* screen = malloc(max_block_count * 2);
+
+// 	printf("creating display socket...\n");
+// 	int udp_connection = socket(AF_INET, SOCK_DGRAM, 0);
+// 	if (!udp_connection) { perror("socket"); abort(); }
+
+// 	struct sockaddr_in servaddr, cliaddr;
+// 	memset(&servaddr, 0, sizeof(servaddr));
+// 	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+// 	servaddr.sin_port = htons(port + 1);
+// 	servaddr.sin_family = AF_INET;
+// 	socklen_t len = sizeof(cliaddr);
+// 	bind(udp_connection, (struct sockaddr*) &servaddr, sizeof(servaddr));
+// 	printf("debug: display client handler: setup udp server on port %d\n", port + 1);
+
+// 	usleep(1000000);
+	
+// 	printf("debug: display client handler: waiting for client to sendto ACK first...\n");
+	
+// 	// bool should_continue = 1;
+// 	// response = 0;
+
+// 	// while (1) {
+// 	// 	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); // MSG_DONTWAIT / MSG_WAITALL   MSG_DONTWAIT
+// 	// 	if (n > 0) break;
+// 	// }
+
+// 	// while (1) {
+// 	// 	n = sendto(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, len);
+// 	// 	if (n > 0) break;
+// 	// }
+
+// 	printf("debug: in recvfrom, waiting for client to ACK...\n");
+// 	usleep(1000);
+// 	n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); 
+
+// 	// if (n > 0) break;
+
+// 	//0 or response != 1) {
+// 		// 	printf("error: failed to receive: n = %zd. trying again....\n", n);
+// 		// 	should_continue = 0; 
+// 		// } else should_continue = 1;
+// 		// printf("SENDing...\n");
+// 		// u8 ack = 1;
+// 		// sendto(udp_connection, &ack, 1, 0, (struct sockaddr*)&cliaddr, len);
+// 		// if (n == 0) printf("sendto n = 0\n");
+// 		// else if (n < 0) printf("sendto n < 0\n");
+// 		// if (should_continue) continue; else break;
+// 		// usleep(1000);
+
+
+// 	printf("debug: display client handler: DONE! received.\n");
+
+// 	while (player->active) {
+		
+// 		screen_block_count = (rand() % 10000) * 2 + 2;
+
+// 		for (u32 i = 0; i < screen_block_count; i += 2) {
+// 			screen[i] = rand() % player->width;
+// 			screen[i + 1] = rand() % player->height;
+// 		}
+
+// 		// n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len); 
+		
+// 		printf("debug: sending DP with %d blocks...\n", screen_block_count);
+
+// 		printf("sending block count...\n");
+// 		sendto(udp_connection, &screen_block_count, 4, 0, (struct sockaddr*)&cliaddr, len);
+
+// 		// printf("waiting for udp dp ack!\n");
+// 		// n = recvfrom(udp_connection, &response, 1, 0, (struct sockaddr*)&cliaddr, &len);
+// 		// // check(n); 
+// 		// // if (response != 1) not_acked();
+
+// 		printf("sending blocks...\n");
+// 		sendto(udp_connection, screen, screen_block_count * 2, 0, (struct sockaddr*)&cliaddr, len);
+
+// 		printf("waiting for udp dp ack!\n");
+// 		n = recvfrom(udp_connection, &response, 1, /*MSG_DONTWAIT*/0, (struct sockaddr*)&cliaddr, &len);
+// 		check(n); 
+// 		// if (response != 1) not_acked();
+
+// 		printf("GOT ACK! done with dp.!\n");
+
+// 		usleep(100000);
+// 	}
+// 	printf("debug: closing display connection...\n");
+// 	close(udp_connection);
+// 	free(screen);
+// 	return 0;
+// }
+
+
 
 
 
