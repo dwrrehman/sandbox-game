@@ -40,15 +40,15 @@ typedef int64_t i64;
 static const u32 max_player_count = 32;
 static const u32 attempt_count = 10000;
 
-static const u32 max_block_count = 1 << 16;
-
-
 
 enum commands {	
 	null_command = 0,
 	display = 9, 
 	view_resized = 6,
+	move_left = 12,
 	move_right = 13,
+	move_up = 14,
+	move_down = 15,
 	halt = 255, 
 };
 
@@ -106,15 +106,15 @@ static struct player* players = NULL;
 	else if (n < 0) { read_error(); } \
 
 
-static inline void show() {
-	printf("\nDEBUG: state:  s = %llu, count = %llu\n\n", s, count);
-	printf("{ \n");
-	for (u64 i = 0; i < count; i++) {
-		if (i and (i % 8) == 0) puts("");
-		printf("%02hhx ", universe[i]);
-	}
-	printf("}\n");
-}
+// static inline void show() {
+// 	printf("\nDEBUG: state:  s = %llu, count = %llu\n\n", s, count);
+// 	printf("{ \n");
+// 	for (u64 i = 0; i < count; i++) {
+// 		if (i and (i % 8) == 0) puts("");
+// 		printf("%02hhx ", universe[i]);
+// 	}
+// 	printf("}\n");
+// }
 
 static inline u8 at(u64 x, u64 y, i64 x_off, i64 y_off) {
 	u64 yo = (u64)((i64)y + y_off + (i64)s) % s;
@@ -183,7 +183,9 @@ static inline void generate() {
 	printf("debug: generating universe of %llu bytes ...\n", count);
 
 	for (u64 i = 0; i < count; i++) universe[i] = 0;
-	universe[2] = 5;
+	// universe[2] = 5;
+
+	for (u64 i = 0; i < count; i++) universe[i] = (rand() % 2) * (rand() % 2) * (rand() % 2);
 }
 
 static inline void halt_server() {
@@ -214,8 +216,6 @@ static inline void spawn_player(u32 p) {
 	players[p].x = 0;
 	players[p].y = 0;
 }
-
-
 
 static inline u32 find_player(const char* player_name) {
 	u32 p = 0;
@@ -267,27 +267,46 @@ static void* client_handler(void* raw) {
 	if (not player->height or not player->width) abort();
 
 	u32 screen_block_count = 0;
+	const u32 max_block_count = 10000000;
 	u16* screen = malloc(max_block_count * 2);
 
 	while (server_running) {
 
-		printf("server: debug: waiting for command...\n");
+		// printf("server: debug: waiting for command...\n");
 		n = read(client, &command, 1);
 		if (n == 0) { printf("{CLIENT DISCONNECTED}\n"); break; } 
 		check(n);
 	
-		printf("[received command --> %d]\n", command);
+		// printf("[received command --> %d]\n", command);
 
 		if (command == halt) {
 			write(client, &ack, 1);
 			halt_server();
 			continue;
 
-		} else if (command == move_right) {
-			
+		} else if (command == move_left) {
 			write(client, &ack, 1);
-			player->x++;
+			if (not at(player->x, player->y, -1, 0)) 
+				player->x = (player->x + s - 1) % s;
+			printf("debug: moving player to the left... now, at (x=%llu,y=%llu)\n", player->x, player->y);
+
+		} else if (command == move_right) {
+			write(client, &ack, 1);
+			if (not at(player->x, player->y, 1, 0)) 
+				player->x = (player->x + 1) % s;
 			printf("debug: moving player to the right... now, at (x=%llu,y=%llu)\n", player->x, player->y);
+
+		} else if (command == move_up) {
+			write(client, &ack, 1);
+			if (not at(player->x, player->y, 0, -1)) 
+				player->y = (player->y + s - 1) % s;
+			printf("debug: moving player to upwards... now, at (x=%llu,y=%llu)\n", player->x, player->y);
+
+		} else if (command == move_down) {
+			write(client, &ack, 1);
+			if (not at(player->x, player->y, 0, 1)) 
+				player->y = (player->y + 1) % s;
+			printf("debug: moving player to downwards... now, at (x=%llu,y=%llu)\n", player->x, player->y);
 
 		} else if (command == view_resized) {
 			
@@ -295,57 +314,53 @@ static void* client_handler(void* raw) {
 			n = read(client, &player->height, 2); check(n); 
 			write(client, &ack, 1);
 			printf("server: screen resized: w=%d, h=%d\n", player->width, player->height);
-			if (not player->height or not player->width) abort();
+			if (not player->height or not player->width) {
+				printf("error: window cannot be null sized! closing client connection.\n");
+				goto leave;
+			}
 
 		} else if (command == display) {
-				
-			screen_block_count = 14;   // must be even. (coord-pairs of u16s)
+			
+			screen_block_count = 0;
+			
+			int width_radius = (player->width - 1) >> 1;
+			int height_radius = (player->height - 1) >> 1;
 
-			// for (u32 i = 0; i < screen_block_count; i += 2) {
-			// 	screen[i] = rand() % player->width;
-			// 	screen[i + 1] = rand() % player->height;
-			// }
+			for (int i = 0, x_off = -width_radius; i < player->width; i++, x_off++) {
+				for (int j = 0, y_off = -height_radius; j < player->height; j++, y_off++) {
+					if (screen_block_count >= max_block_count - 1) goto screen_full;
+					if (at(player->x, player->y, x_off, y_off)) {
+						screen[screen_block_count++] = (u16) i;
+						screen[screen_block_count++] = (u16) j;
+					}
+				}
+			}
 
+		screen_full:
 
-			screen[0] = 1;
-			screen[1] = 1;
+			// pad zeros for last packet:
 
-			screen[2] = 2;
-			screen[3] = 2;
+			for (u32 i = screen_block_count; i % 128; i++) screen[i] = 0;
 
-			screen[4] = 3;
-			screen[5] = 3;
-
-			screen[6] = 4;
-			screen[7] = 4;
-
-			screen[8] = 5;
-			screen[9] = 5;
-
-			screen[10] = 6;
-			screen[11] = 6;
-
-			screen[12] = 7;
-			screen[13] = 7;
-
-
-
-			printf("sending %d blocks...\n", screen_block_count);
+			// printf("sending %d coords,(2-per-block)...\n", screen_block_count);
 			write(client, &screen_block_count, sizeof(u32));	
-			write(client, screen, screen_block_count * sizeof(u16));
-	
 
+			u32 local_count = 0;
+			while (local_count < screen_block_count) {
+				write(client, screen + local_count, 128 * sizeof(u16));
+				local_count += 128;
+			}
+	
 		} else printf("error: command not recognized:  %d\n", (int) command);
 
 	}
 
-	// printf(" waiting on display thread...\n");
 	player->active = false;
-	// pthread_join(display_handler_thread, NULL);
 
 leave:
 	printf("debug: closing control connection...\n");
 	close(client); 
+	// free(screen);
 	free(raw);
 	return 0;
 }
@@ -378,8 +393,6 @@ int main(const int argc, const char** argv) {
 
 	if (s) { mkdir(argv[3], 0700); generate(); }
 	else { load_state(state_file); load_players(players_file); }
-
-	show();   // debug
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, compute, NULL);

@@ -45,15 +45,18 @@ enum commands {
 	null_command = 0,
 	display = 9, 
 	view_resized = 6,
+	move_left = 12,
 	move_right = 13,
+	move_up = 14,
+	move_down = 15,
 	halt = 255, 
 };
 
 static const char* window_title = "universe client";
 
-static int window_height = 200, window_width = 400;
-static int scaled_height = 200, scaled_width = 400;
-static int scale = 1;
+static int window_height = 400, window_width = 640;
+static int scaled_height = 1, scaled_width = 1;
+static float scale = 0.1f;
 
 static bool quit = false;
 
@@ -83,8 +86,8 @@ static bool quit = false;
 
 
 static inline void rescale(SDL_Renderer* renderer) {
-	scaled_width = window_width / scale;
-	scaled_height = window_height / scale;
+	scaled_width = (int) ((float)window_width * scale);
+	scaled_height = (int) ((float)window_height * scale);
 	SDL_RenderSetLogicalSize(renderer, scaled_width, scaled_height);
 }
 
@@ -98,13 +101,16 @@ static inline void window_changed(SDL_Window* window, SDL_Renderer* renderer) {
 }
 
 static inline void zoom_in(SDL_Renderer* renderer) {
-	scale++; 
+	int future_scaled_width = (int) ((float)window_width * (scale - 0.005f));
+	int future_scaled_height = (int) ((float)window_height * (scale - 0.005f));
+	if (not future_scaled_width or not future_scaled_height) return;
+	scale -= 0.001f;
 	rescale(renderer);
 }
 
 static inline void zoom_out(SDL_Renderer* renderer) {
-	if (scale == 1) return; 
-	scale--; 
+	if (scale >= 0.99f) return;
+	scale += 0.001f;
 	rescale(renderer);
 }
 
@@ -132,6 +138,13 @@ static inline void send_halt_command(int connection) {
 	quit = true; 
 }
 
+static inline void send_command(u8 command, int connection) {
+	u8 response = 0;
+	write(connection, &command, 1);
+	ssize_t n = read(connection, &response, 1);
+	check(n); if (response != 1) not_acked();
+}
+
 int main(const int argc, const char** argv) {
 	if (argc != 4) exit(puts("usage: ./client <ip> <port> <playername>"));
 	if (SDL_Init(SDL_INIT_EVERYTHING)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
@@ -153,9 +166,8 @@ int main(const int argc, const char** argv) {
 	ssize_t n = 0;
 
 	u32 screen_block_count = 0;
-	const u32 max_block_count = 1 << 16;
+	const u32 max_block_count = 10000000;
 	u16* screen = malloc(max_block_count * 2);
-
 
 
 	char player_name[30] = {0};
@@ -181,25 +193,54 @@ int main(const int argc, const char** argv) {
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
 	SDL_ShowCursor(0);
+
+	window_changed(window, renderer);
+	send_resize_command(connection);
 	
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
 		
 		command = display;
 		write(connection, &command, 1);
-		n = read(connection, &screen_block_count, sizeof(u32)); check(n);
-		n = read(connection, screen, screen_block_count * sizeof(u16)); check(n);
-		
-		printf("display: received %d blocks, rendering...\n", screen_block_count);
 
+		n = read(connection, &screen_block_count, sizeof(u32)); 
+		check(n);
+		
+		u32 local_count = 0;
+		while (local_count < screen_block_count) {
+			n = read(connection, screen + local_count, 128 * sizeof(u16)); 
+			// if (n <= 0) continue; // retry this packet. // infinite loop?
+			local_count += 128;
+		}
+		
+		// printf("display: received %d blocks, rendering...\n", screen_block_count);
+
+		int width_radius = (scaled_width - 1) >> 1;
+		int height_radius = (scaled_height - 1) >> 1;
+		int _i = 0,_j = 0,x_off,y_off;
+		for (_i = 0, x_off = -width_radius; _i < scaled_width; _i++, x_off++) {
+			for (_j = 0, y_off = -height_radius; _j < scaled_height; _j++, y_off++) {
+				if (not x_off and not y_off) goto double_break_out;
+			}
+		}
+	
+	double_break_out:
+		
+
+		// clear:
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     		SDL_RenderClear(renderer);
 
+		// print player:			
+		SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
+		SDL_RenderDrawPoint(renderer, _i, _j);
+
+		// print space:
 		SDL_SetRenderDrawColor(renderer, colors[4], colors[5], colors[6], 255);
-		
 		for (u32 i = 0; i < screen_block_count; i += 2) {
 			SDL_RenderDrawPoint(renderer, screen[i], screen[i + 1]);
 		}
+
 	    	SDL_RenderPresent(renderer);
 
 		SDL_Event event;
@@ -214,43 +255,27 @@ int main(const int argc, const char** argv) {
 			}
 			
 			if (event.type == SDL_KEYDOWN) {
-
-				 if (key[SDL_SCANCODE_0]) {
-					SDL_Log("H : halting!\n"); 
-					send_halt_command(connection);
-				}
-
-				if (key[SDL_SCANCODE_MINUS]) {
-					zoom_out(renderer);
-					send_resize_command(connection);
-				}
-
-				if (key[SDL_SCANCODE_EQUALS]) {
-					zoom_in(renderer);
-					send_resize_command(connection);
-				}
-
-				if (key[SDL_SCANCODE_GRAVE]) toggle_fullscreen(window, renderer); 
+				if (key[SDL_SCANCODE_ESCAPE]) quit = true;
+				if (key[SDL_SCANCODE_Q]) quit = true;
+				if (key[SDL_SCANCODE_0]) send_halt_command(connection);
+				if (key[SDL_SCANCODE_GRAVE]) toggle_fullscreen(window, renderer);
+				if (key[SDL_SCANCODE_MINUS]) { zoom_out(renderer); send_resize_command(connection); }
+				if (key[SDL_SCANCODE_EQUALS]) { zoom_in(renderer); send_resize_command(connection); }
+				
+				if (key[SDL_SCANCODE_W]) send_command(move_up, connection);
+				if (key[SDL_SCANCODE_A]) send_command(move_left, connection);
+				if (key[SDL_SCANCODE_S]) send_command(move_down, connection);
+				if (key[SDL_SCANCODE_D]) send_command(move_right, connection);
 			}
-			if (key[SDL_SCANCODE_ESCAPE]) quit = true;
-			if (key[SDL_SCANCODE_Q]) quit = true;
-
-			if (key[SDL_SCANCODE_W]) { SDL_Log("W\n"); }
-			if (key[SDL_SCANCODE_S]) { SDL_Log("S\n"); }
-			if (key[SDL_SCANCODE_A]) { SDL_Log("A\n"); }
-
-			if (key[SDL_SCANCODE_D]) { 
-				SDL_Log("D : move right\n"); 
-				command = move_right;
-				write(connection, &command, 1);
-				n = read(connection, &response, 1);
-				check(n); if (response != 1) not_acked();
-			}
+			if (key[SDL_SCANCODE_SPACE] and key[SDL_SCANCODE_W]) send_command(move_up, connection);
+			if (key[SDL_SCANCODE_SPACE] and key[SDL_SCANCODE_A]) send_command(move_left, connection);
+			if (key[SDL_SCANCODE_SPACE] and key[SDL_SCANCODE_S]) send_command(move_down, connection);
+			if (key[SDL_SCANCODE_SPACE] and key[SDL_SCANCODE_D]) send_command(move_right, connection);
 		}
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = 16 - (int32_t) time; //16, for 60 fps.
+		int32_t sleep = 33 - (int32_t) time; 		//16, for 60 fps.
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 	
 		if (!(SDL_GetTicks() & 511)) {
@@ -258,7 +283,6 @@ int main(const int argc, const char** argv) {
 			printf("fps = %.5lf\n", fps);
 		}
 	}
-
 	close(connection);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
