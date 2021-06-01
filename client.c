@@ -33,33 +33,29 @@ typedef int32_t i32;
 typedef int64_t i64;
 
 
-static const u32 max_block_count = 1 << 16;
-
-// static const u8 ack = 1;
 
 static const u8 colors[] = {
-	0,0,0,   // 0
+	0,0,0,   	// 0
 	255,255,255,    // 1
-	255,0,100,   // 2
-	34,34,34,   // 3
+	255,0,100,   	// 2
+	34,34,34,   	// 3
 };
 
 enum commands {	
 	null_command = 0,
 	display = 9, 
-	window_resized = 6,
+	view_resized = 6,
 	move_right = 13,
 	halt = 255, 
 };
 
 static const char* window_title = "universe client";
+
 static int window_height = 200, window_width = 400;
-
-static int scaled_height = 200, scaled_width
-
+static int scaled_height = 200, scaled_width = 400;
 static int scale = 1;
 
-
+static bool quit = false;
 
 #define read_error() \
 	{do { \
@@ -85,32 +81,31 @@ static int scale = 1;
 	if (n == 0) { disconnected(); } \
 	else if (n < 0) { read_error(); } \
 
+
+static inline void rescale(SDL_Renderer* renderer) {
+	scaled_width = window_width / scale;
+	scaled_height = window_height / scale;
+	SDL_RenderSetLogicalSize(renderer, scaled_width, scaled_height);
+}
+
 static inline void window_changed(SDL_Window* window, SDL_Renderer* renderer) {
 	int w = 0, h = 0;
 	SDL_GetWindowSize(window, &w, &h);
 	window_width = w;
 	window_height = h;
 	printf("width and height: (%d, %d)\n", window_width, window_height);
+	rescale(renderer);
 }
 
 static inline void zoom_in(SDL_Renderer* renderer) {
-	// SDL_Window* window, 
-	int w = window_width - 1, h = window_height - 1;
-	if (h < 2 or w < 2) return;
-	SDL_RenderSetLogicalSize(renderer, w, h);
-	window_width = w;
-	window_height = h;
-	printf("width and height: (%d, %d)\n", window_width, window_height);
+	scale++; 
+	rescale(renderer);
 }
 
 static inline void zoom_out(SDL_Renderer* renderer) {
-	// SDL_Window* window, 
-	int w = window_width + , h = window_height + 1;
-	//if (h > 10000 or w > 10000) return;
-	SDL_RenderSetLogicalSize(renderer, w, h);
-	window_width = w;
-	window_height = h;
-	printf("width and height: (%d, %d)\n", window_width, window_height);
+	if (scale == 1) return; 
+	scale--; 
+	rescale(renderer);
 }
 
 static inline void toggle_fullscreen(SDL_Window* window, SDL_Renderer* renderer) {
@@ -120,10 +115,26 @@ static inline void toggle_fullscreen(SDL_Window* window, SDL_Renderer* renderer)
 	window_changed(window, renderer);
 }
 
+static inline void send_resize_command(int connection) {
+	u8 command = view_resized, response = 0;
+	write(connection, &command, 1);
+	write(connection, &scaled_width, 2);
+	write(connection, &scaled_height, 2);
+	ssize_t n = read(connection, &response, 1); 
+	check(n); if (response != 1) not_acked();
+}
+
+static inline void send_halt_command(int connection) {
+	u8 command = halt, response = 0;
+	write(connection, &command, 1);
+	ssize_t n = read(connection, &response, sizeof response);
+	check(n); if (response != 1) not_acked();
+	quit = true; 
+}
+
 int main(const int argc, const char** argv) {
 	if (argc != 4) exit(puts("usage: ./client <ip> <port> <playername>"));
 	if (SDL_Init(SDL_INIT_EVERYTHING)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
-	
 
 	const char* ip = argv[1];
 	i16 port = (i16) atoi(argv[2]);
@@ -138,12 +149,20 @@ int main(const int argc, const char** argv) {
 	int result = connect(connection, (struct sockaddr*) &servaddr, sizeof servaddr);
 	if (result < 0) { perror("connect"); exit(1); }
 
-	u8 response = 0;
+	u8 command = 0, response = 0; 
+	ssize_t n = 0;
+
+	u32 screen_block_count = 0;
+	const u32 max_block_count = 1 << 16;
+	u16* screen = malloc(max_block_count * 2);
+
+
+
 	char player_name[30] = {0};
 	strncpy(player_name, argv[3], sizeof player_name);
 
 	write(connection, player_name, 29);
-	ssize_t n = read(connection, &response, sizeof response);
+	n = read(connection, &response, sizeof response);
 	check(n); if (response != 1) not_acked();
 
 	write(connection, &window_width, 2);
@@ -154,18 +173,13 @@ int main(const int argc, const char** argv) {
 	printf("\n\n\t %s CONNECTED TO SERVER!\n\n", player_name);
 	printf("CLIENT[%s:%d]: running...\n", ip, port);
 
-	bool quit = false;
-	u8 command = 0;
-
-	u32 screen_block_count = 0;
-	u16* screen = malloc(max_block_count * 2);
-
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
 			window_width, window_height, 
 			SDL_WINDOW_RESIZABLE);
 
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
 	SDL_ShowCursor(0);
 	
 	while (not quit) {
@@ -195,45 +209,28 @@ int main(const int argc, const char** argv) {
 			if (event.type == SDL_WINDOWEVENT) {
                 		if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
 					window_changed(window, renderer);
-					command = window_resized;
-					write(connection, &command, 1);
-					write(connection, &window_width, 2);
-					write(connection, &window_height, 2);
-					n = read(connection, &response, sizeof response); 
-					check(n); if (response != 1) not_acked();
+					send_resize_command(connection);
 				}
 			}
-			if (event.type == SDL_KEYDOWN) { if (key[SDL_SCANCODE_GRAVE]) toggle_fullscreen(window, renderer); }
-
+			
 			if (event.type == SDL_KEYDOWN) {
-				 if (key[SDL_SCANCODE_H]) {
+
+				 if (key[SDL_SCANCODE_0]) {
 					SDL_Log("H : halting!\n"); 
-					command = halt;
-					write(connection, &command, 1);
-					n = read(connection, &response, sizeof response);
-					check(n); if (response != 1) not_acked();
-					quit = true; continue;
+					send_halt_command(connection);
 				}
 
-				if (key[SDL_SCANCODE_O]) {
+				if (key[SDL_SCANCODE_MINUS]) {
 					zoom_out(renderer);
-					command = window_resized;
-					write(connection, &command, 1);
-					write(connection, &window_width, 2);
-					write(connection, &window_height, 2);
-					n = read(connection, &response, sizeof response); 
-					check(n); if (response != 1) not_acked();
+					send_resize_command(connection);
 				}
 
-				if (key[SDL_SCANCODE_I]) {
+				if (key[SDL_SCANCODE_EQUALS]) {
 					zoom_in(renderer);
-					command = window_resized;
-					write(connection, &command, 1);
-					write(connection, &window_width, 2);
-					write(connection, &window_height, 2);
-					n = read(connection, &response, sizeof response); 
-					check(n); if (response != 1) not_acked();
+					send_resize_command(connection);
 				}
+
+				if (key[SDL_SCANCODE_GRAVE]) toggle_fullscreen(window, renderer); 
 			}
 			if (key[SDL_SCANCODE_ESCAPE]) quit = true;
 			if (key[SDL_SCANCODE_Q]) quit = true;
@@ -263,12 +260,67 @@ int main(const int argc, const char** argv) {
 	}
 
 	close(connection);
-
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 	free(screen);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ---------------------------------- dead code -------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -297,11 +349,6 @@ int main(const int argc, const char** argv) {
 
 
 
-
-
-
-
-// ---------------------------------- dead code -------------------------------------------------------------------------
 
 
 
@@ -549,5 +596,23 @@ static inline void UDP_connect_to_server(const char* playername, const char* ip,
 		// printf("sending ACK for block array...\n");
 		// response = 1;
 		// sendto(udp_connection, &response, 1, 0, (struct sockaddr*) &udp_servaddr, len);
+
+
+
+
+
+// // SDL_Window* window, 
+	// int w = window_width + , h = window_height + 1;
+	// //if (h > 10000 or w > 10000) return;
+	// SDL_RenderSetLogicalSize(renderer, w, h);
+
+
+
+// if (h < 2 or w < 2) return;
+	// if (h < 2 or w < 2) return;
+// window_width = w;
+	// window_height = h;
+	// printf("width and height: (%d, %d)\n", window_width, window_height);
+
 
 

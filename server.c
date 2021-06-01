@@ -47,7 +47,7 @@ static const u32 max_block_count = 1 << 16;
 enum commands {	
 	null_command = 0,
 	display = 9, 
-	window_resized = 6,
+	view_resized = 6,
 	move_right = 13,
 	halt = 255, 
 };
@@ -289,7 +289,7 @@ static void* client_handler(void* raw) {
 			player->x++;
 			printf("debug: moving player to the right... now, at (x=%llu,y=%llu)\n", player->x, player->y);
 
-		} else if (command == window_resized) {
+		} else if (command == view_resized) {
 			
 			n = read(client, &player->width, 2); check(n);
 			n = read(client, &player->height, 2); check(n); 
