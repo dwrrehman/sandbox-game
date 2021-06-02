@@ -158,11 +158,11 @@ int main(const int argc, const char** argv) {
 	servaddr.sin_addr.s_addr = inet_addr(ip);
 	servaddr.sin_port = htons(port);
 
-	struct timeval tv;
-	tv.tv_sec = 1; // 1 second
-	tv.tv_usec = 0;
-	setsockopt(connection, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
-	setsockopt(connection, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(struct timeval));
+	// struct timeval tv;
+	// tv.tv_sec = 1; // 1 second
+	// tv.tv_usec = 0;
+	// setsockopt(connection, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
+	// setsockopt(connection, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(struct timeval));
 
 	printf("connecting to %s:%d ...\n", ip, port);
 	int result = connect(connection, (struct sockaddr*) &servaddr, sizeof servaddr);
@@ -184,14 +184,14 @@ int main(const int argc, const char** argv) {
 	// printf("sending player name (29 chars)\n");
 	write(connection, player_name, 29);
 	// printf("receiving ACK for player name..\n");
-	n = read(connection, &response, sizeof response);
+	n = read(connection, &response, 1);
 	check(n); if (response != 1) not_acked();
 	
 	// printf("sending initial scaled height and width..\n");
 	write(connection, &scaled_width, 2);
 	write(connection, &scaled_height, 2);
 	// printf("receiving ACK for initial height and width!\n");
-	n = read(connection, &response, sizeof response);
+	n = read(connection, &response, 1);
 	check(n); if (response != 1) not_acked();
 	
 	// printf("FINISHED HANDSHAKE! starting window now...\n");
@@ -211,18 +211,37 @@ int main(const int argc, const char** argv) {
 		
 		command = display;
 		write(connection, &command, 1);
+
 		n = read(connection, &screen_block_count, sizeof(u32));
-		if (n < 0) printf("DISPLAY ERROR\n");
+		if (n != sizeof(u32)) { printf("DISPLAY COUNT ERROR\n"); 
+					screen_block_count = 0; }
+
+		if (screen_block_count > scaled_width * scaled_height) {
+			printf("error: server tried to send a bigger view than is possible to render client-side.\n");
+			exit(1);
+		}
+
+		response = 1;
+		write(connection, &response, 1);
 
 		u32 local_count = 0;
+
+		printf("display: receiving %d blocks...\n", screen_block_count);
+
 		while (local_count < screen_block_count) {
 			n = read(connection, screen + local_count, 64 * sizeof(u16)); 
-			if (n < 0) printf("DISPLAY PACKET ERROR\n");
+			if (n < 0) { printf("DISPLAY PACKET ERROR\n"); break; }
 			// if (n <= 0) continue; // retry this packet. // infinite loop?
 			local_count += 64;
 		}
 
-		// printf("display: received %d blocks, rendering...\n", screen_block_count);
+		response = 1;
+		write(connection, &response, 1);
+
+		
+
+
+
 		int width_radius = (scaled_width - 1) >> 1;
 		int height_radius = (scaled_height - 1) >> 1;
 

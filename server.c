@@ -322,11 +322,17 @@ static void* client_handler(void* raw) {
 			// printf("sending %d coords,(2-per-block)...\n", screen_block_count);
 			write(client, &screen_block_count, sizeof(u32));	
 
+			n = read(connection, &response, 1);
+			check(n); if (response != 1) not_acked();
+			
 			u32 local_count = 0;
 			while (local_count < screen_block_count) {
 				write(client, screen + local_count, 64 * sizeof(u16));
 				local_count += 64;
 			}
+
+			n = read(connection, &response, 1);
+			check(n); if (response != 1) not_acked();
 	
 		} else printf("error: command not recognized:  %d\n", (int) command);
 
