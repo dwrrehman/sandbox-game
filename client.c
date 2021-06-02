@@ -1,4 +1,4 @@
-//   Client for my multiplayer universe sandbox game.
+	//   Client for my multiplayer universe sandbox game.
 //        Written by Daniel Warren Riaz Rehman 
 //               on 2104305.171454
 #include <SDL2/SDL.h>
@@ -54,8 +54,8 @@ enum commands {
 static const char* window_title = "universe client";
 
 static int window_height = 400, window_width = 640;
-static int scaled_height = 1, scaled_width = 1;
-static float scale = 0.1f;
+static int scaled_height = 10, scaled_width = 10;
+static float scale = 0.02f;
 
 static bool quit = false;
 
@@ -153,7 +153,7 @@ int main(const int argc, const char** argv) {
 
 	int connection = socket(AF_INET, SOCK_STREAM, 0);
 	if (connection < 0) { perror("socket"); exit(1); }
-	struct sockaddr_in servaddr;
+	struct sockaddr_in servaddr = {0};
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = inet_addr(ip);
 	servaddr.sin_port = htons(port);
@@ -161,33 +161,38 @@ int main(const int argc, const char** argv) {
 	int result = connect(connection, (struct sockaddr*) &servaddr, sizeof servaddr);
 	if (result < 0) { perror("connect"); exit(1); }
 
+	printf("\n\n\t %s CONNECTED TO SERVER!\n\n", argv[3]);
+	printf("CLIENT[%s:%d]: running...\n", ip, port);
+
 	u8 command = 0, response = 0; 
 	ssize_t n = 0;
 
 	u32 screen_block_count = 0;
 	const u32 max_block_count = 10000000;
 	u16* screen = malloc(max_block_count * 2);
-
+	
 	char player_name[30] = {0};
 	strncpy(player_name, argv[3], sizeof player_name);
 
+	printf("sending player name (29 chars)\n");
 	write(connection, player_name, 29);
+	printf("receiving ACK for player name..\n");
 	n = read(connection, &response, sizeof response);
 	check(n); if (response != 1) not_acked();
-
-	write(connection, &window_width, 2);
-	write(connection, &window_height, 2);
+	
+	printf("sending initial scaled height and width..\n");
+	write(connection, &scaled_width, 2);
+	write(connection, &scaled_height, 2);
+	printf("receiving ACK for initial height and width!\n");
 	n = read(connection, &response, sizeof response);
 	check(n); if (response != 1) not_acked();
-
-	printf("\n\n\t %s CONNECTED TO SERVER!\n\n", player_name);
-	printf("CLIENT[%s:%d]: running...\n", ip, port);
+	
+	printf("FINISHED HANDSHAKE! starting window now...\n");
 
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
 			window_width, window_height, 
 			SDL_WINDOW_RESIZABLE);
-
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
 	SDL_ShowCursor(0);
@@ -260,7 +265,7 @@ int main(const int argc, const char** argv) {
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = 33 - (int32_t) time; 		//16, for 60 fps.
+		int32_t sleep = 100 - (int32_t) time; 		//16, for 60 fps.
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 	
 		if (!(SDL_GetTicks() & 511)) {
