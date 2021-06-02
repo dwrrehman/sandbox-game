@@ -224,7 +224,7 @@ static void* client_handler(void* raw) {
 	printf("[arrived in client handler function.]\n");
 
 	ssize_t n = 0;
-	u8 command = 0, ack = 1;
+	u8 command = 0, ack = 1, response = 0;
 	char player_name[32] = {0};
 
 	struct client parameters = *(struct client*)raw;
@@ -322,8 +322,8 @@ static void* client_handler(void* raw) {
 			// printf("sending %d coords,(2-per-block)...\n", screen_block_count);
 			write(client, &screen_block_count, sizeof(u32));	
 
-			n = read(connection, &response, 1);
-			check(n); if (response != 1) not_acked();
+			n = read(client, &response, 1);
+			check(n); // if (response != 1) not_acked();
 			
 			u32 local_count = 0;
 			while (local_count < screen_block_count) {
@@ -331,8 +331,8 @@ static void* client_handler(void* raw) {
 				local_count += 64;
 			}
 
-			n = read(connection, &response, 1);
-			check(n); if (response != 1) not_acked();
+			n = read(client, &response, 1);
+			check(n); // if (response != 1) not_acked();
 	
 		} else printf("error: command not recognized:  %d\n", (int) command);
 
