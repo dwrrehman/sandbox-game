@@ -268,32 +268,32 @@ static void* client_handler(void* raw) {
 			write(client, &ack, 1);
 			if (not at(player->x, player->y, -1, 0)) 
 				player->x = (player->x + s - 1) % s;
-			printf("debug: moving player to the left... now, at (x=%llu,y=%llu)\n", player->x, player->y);
+			// printf("debug: moving player to the left... now, at (x=%llu,y=%llu)\n", player->x, player->y);
 
 		} else if (command == move_right) {
 			write(client, &ack, 1);
 			if (not at(player->x, player->y, 1, 0)) 
 				player->x = (player->x + 1) % s;
-			printf("debug: moving player to the right... now, at (x=%llu,y=%llu)\n", player->x, player->y);
+			// printf("debug: moving player to the right... now, at (x=%llu,y=%llu)\n", player->x, player->y);
 
 		} else if (command == move_up) {
 			write(client, &ack, 1);
 			if (not at(player->x, player->y, 0, -1)) 
 				player->y = (player->y + s - 1) % s;
-			printf("debug: moving player to upwards... now, at (x=%llu,y=%llu)\n", player->x, player->y);
+			// printf("debug: moving player to upwards... now, at (x=%llu,y=%llu)\n", player->x, player->y);
 
 		} else if (command == move_down) {
 			write(client, &ack, 1);
 			if (not at(player->x, player->y, 0, 1)) 
 				player->y = (player->y + 1) % s;
-			printf("debug: moving player to downwards... now, at (x=%llu,y=%llu)\n", player->x, player->y);
+			// printf("debug: moving player to downwards... now, at (x=%llu,y=%llu)\n", player->x, player->y);
 
 		} else if (command == view_resized) {
 			
 			n = read(client, &player->width, 2); check(n);
 			n = read(client, &player->height, 2); check(n); 
 			write(client, &ack, 1);
-			printf("server: screen resized: w=%d, h=%d\n", player->width, player->height);
+			// printf("server: screen resized: w=%d, h=%d\n", player->width, player->height);
 			if (not player->height or not player->width) {
 				printf("error: window cannot be null sized! closing client connection.\n");
 				goto leave;
@@ -318,14 +318,14 @@ static void* client_handler(void* raw) {
 
 		screen_full:
 			// pad zeros for last packet:
-			for (u32 i = screen_block_count; i % 128; i++) screen[i] = 0;
+			for (u32 i = screen_block_count; i % 64; i++) screen[i] = 0;
 			// printf("sending %d coords,(2-per-block)...\n", screen_block_count);
 			write(client, &screen_block_count, sizeof(u32));	
 
 			u32 local_count = 0;
 			while (local_count < screen_block_count) {
-				write(client, screen + local_count, 128 * sizeof(u16));
-				local_count += 128;
+				write(client, screen + local_count, 64 * sizeof(u16));
+				local_count += 64;
 			}
 	
 		} else printf("error: command not recognized:  %d\n", (int) command);

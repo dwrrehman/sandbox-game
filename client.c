@@ -157,6 +157,13 @@ int main(const int argc, const char** argv) {
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = inet_addr(ip);
 	servaddr.sin_port = htons(port);
+
+	struct timeval tv;
+	tv.tv_sec = 1; // 1 second
+	tv.tv_usec = 0;
+	setsockopt(connection, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
+	setsockopt(connection, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(struct timeval));
+
 	printf("connecting to %s:%d ...\n", ip, port);
 	int result = connect(connection, (struct sockaddr*) &servaddr, sizeof servaddr);
 	if (result < 0) { perror("connect"); exit(1); }
@@ -174,20 +181,20 @@ int main(const int argc, const char** argv) {
 	char player_name[30] = {0};
 	strncpy(player_name, argv[3], sizeof player_name);
 
-	printf("sending player name (29 chars)\n");
+	// printf("sending player name (29 chars)\n");
 	write(connection, player_name, 29);
-	printf("receiving ACK for player name..\n");
+	// printf("receiving ACK for player name..\n");
 	n = read(connection, &response, sizeof response);
 	check(n); if (response != 1) not_acked();
 	
-	printf("sending initial scaled height and width..\n");
+	// printf("sending initial scaled height and width..\n");
 	write(connection, &scaled_width, 2);
 	write(connection, &scaled_height, 2);
-	printf("receiving ACK for initial height and width!\n");
+	// printf("receiving ACK for initial height and width!\n");
 	n = read(connection, &response, sizeof response);
 	check(n); if (response != 1) not_acked();
 	
-	printf("FINISHED HANDSHAKE! starting window now...\n");
+	// printf("FINISHED HANDSHAKE! starting window now...\n");
 
 	SDL_Window *window = SDL_CreateWindow(window_title, 
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
@@ -204,15 +211,17 @@ int main(const int argc, const char** argv) {
 		
 		command = display;
 		write(connection, &command, 1);
-		n = read(connection, &screen_block_count, sizeof(u32)); 
-		check(n);
-		
+		n = read(connection, &screen_block_count, sizeof(u32));
+		if (n < 0) printf("DISPLAY ERROR\n");
+
 		u32 local_count = 0;
 		while (local_count < screen_block_count) {
-			n = read(connection, screen + local_count, 128 * sizeof(u16)); 
+			n = read(connection, screen + local_count, 64 * sizeof(u16)); 
+			if (n < 0) printf("DISPLAY PACKET ERROR\n");
 			// if (n <= 0) continue; // retry this packet. // infinite loop?
-			local_count += 128;
+			local_count += 64;
 		}
+
 		// printf("display: received %d blocks, rendering...\n", screen_block_count);
 		int width_radius = (scaled_width - 1) >> 1;
 		int height_radius = (scaled_height - 1) >> 1;
@@ -265,7 +274,7 @@ int main(const int argc, const char** argv) {
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = 100 - (int32_t) time; 		//16, for 60 fps.
+		int32_t sleep = 33 - (int32_t) time; 		//16, for 60 fps.
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 	
 		if (!(SDL_GetTicks() & 511)) {
