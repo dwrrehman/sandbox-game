@@ -348,13 +348,13 @@ leave:
 	return 0;
 }
 
-static void* compute(void* __attribute__((unused)) unused) {
+static void* compute(void* _) {
 	printf("computing world thread...\n");
 	while (server_running) {
 		// printf("universe ticked\n");
 		sleep(1);
 	}
-	return 0;
+	return _;
 }
 
 int main(const int argc, const char** argv) {
