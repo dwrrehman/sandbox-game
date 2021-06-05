@@ -311,6 +311,20 @@ int main(const int argc, const char** argv) {
 
 
 
+	/*
+		see tb   for where i am in this game. 
+	*/
+
+
+
+
+
+
+
+
+
+
+
 
 
 
