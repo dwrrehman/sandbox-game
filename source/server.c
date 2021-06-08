@@ -57,7 +57,8 @@ static inline void initialize_server_socket() {
 	server = socket(PF_INET6, SOCK_DGRAM, 0);
 	if (server < 0) { perror("socket"); abort(); }
 
-
+	setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &(int[]){1}, sizeof(int));
+  	// setsockopt(server, SOL_SOCKET, SO_REUSEPORT, &(int[]){1}, sizeof(int));
 
 	struct sockaddr_in6 server_address = {0};
 	server_address.sin6_family = PF_INET6;
@@ -87,6 +88,11 @@ static void* client_handler(void* raw) {
 
 	int connection = socket(PF_INET6, SOCK_DGRAM, 0);
 	if (connection < 0) { perror("socket"); abort(); }
+
+	setsockopt(connection, SOL_SOCKET, SO_REUSEADDR, &(int[]){1}, sizeof(int));
+  	// setsockopt(connection, SOL_SOCKET, SO_REUSEPORT, &(int[]){1}, sizeof(int));
+
+	// also try     IPPROTO_UDP     ??????
 	
 	int result = bind(connection, (struct sockaddr*) &address, length);
 	if (result < 0) { perror("bind"); abort(); }
@@ -204,7 +210,6 @@ int main() { // const int argc, const char** argv
 
 
 
-	// setsockopt(server, IPPROTO_UDP, SO_REUSEADDR, &(int[]){1}, sizeof(int));
- //  	setsockopt(server, IPPROTO_UDP, SO_REUSEPORT, &(int[]){1}, sizeof(int));	
+
 
 
