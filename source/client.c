@@ -29,7 +29,7 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
-static const char* ip = "::1"; //"2601:1c2:4001:ecf0:55a9:3314:77c8:7ceb";
+static const char* ip = "2601:1c2:4001:ecf0:dc6a:af3e:eebb:40ca";
 static const u16 port = 12000;
 
 #define check(n) { if (n == 0 || n < 0) printf("error(%ld): %s line:%d func:%s\n", n, __FILE__, __LINE__, __func__); }

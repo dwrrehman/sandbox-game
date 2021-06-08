@@ -57,8 +57,7 @@ static inline void initialize_server_socket() {
 	server = socket(PF_INET6, SOCK_DGRAM, 0);
 	if (server < 0) { perror("socket"); abort(); }
 
-	// setsockopt(server, IPPROTO_UDP, SO_REUSEADDR, &(int[]){1}, sizeof(int));
- //  	setsockopt(server, IPPROTO_UDP, SO_REUSEPORT, &(int[]){1}, sizeof(int));	
+
 
 	struct sockaddr_in6 server_address = {0};
 	server_address.sin6_family = PF_INET6;
@@ -80,10 +79,20 @@ static void* client_handler(void* raw) {
 	socklen_t length = parameters.length;
 
 	u8 command = 0;
+
 	char ip[40] = {0};
 	ipv6_string(ip, address.sin6_addr.s6_addr);
-
 	printf("server: connected to IP = %s\n", ip);
+
+
+	int connection = socket(PF_INET6, SOCK_DGRAM, 0);
+	if (connection < 0) { perror("socket"); abort(); }
+	
+	int result = bind(connection, (struct sockaddr*) &address, length);
+	if (result < 0) { perror("bind"); abort(); }
+
+	printf("info: client-hanlder's connection running on  [%s]:%hu \n", ip, port);
+
 
 	bool client_running = true;
 
@@ -92,32 +101,33 @@ static void* client_handler(void* raw) {
 		printf("client[%s] : ", ip);
 		printf("reading command...\n");
 
-		ssize_t error = recvfrom(server, &command, 1, MSG_WAITALL, (struct sockaddr*)&address, &length);		
+		ssize_t error = recvfrom(connection, &command, 1, MSG_WAITALL, (struct sockaddr*)&address, &length);		
 		if (error == 0) { printf("DISCONNECTED!\n"); break; }
 		else check(error);
-
 
 		if (command == 'N') { 
 			printf("client[%s] : ", ip);
 			printf("no operation.\n");
-			error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length);
+			error = sendto(connection, "A", 1, 0, (struct sockaddr*)&address, length);
 			check(error);
 		}
 
 		else if (command == 'H') { 
-				printf("client[%s] : ", ip);
-				printf("SERVER: halting...\n"); 
-				error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length);
-				check(error);
-				server_running = false; 
-				shutdown(server, SHUT_RDWR); 
-				close(server); 
+			printf("client[%s] : ", ip);
+			printf("SERVER: halting...\n"); 
+			error = sendto(connection, "A", 1, 0, (struct sockaddr*)&address, length);
+			check(error);
+
+			close(connection);
+			server_running = false;
+			shutdown(server, SHUT_RDWR); 
+			close(server);
 		}
 
 		else if (command == 'D') { 
 			printf("client[%s] : ", ip);
 			printf("info: client sent a disconnection request.\n"); 
-			error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length);
+			error = sendto(connection, "A", 1, 0, (struct sockaddr*)&address, length);
 			check(error);
 			client_running = false; 
 		}
@@ -125,14 +135,14 @@ static void* client_handler(void* raw) {
 		else if (command == 'P') {
 			printf("client[%s] : ", ip);
 			printf("server was PINGED!!!\n");
-			error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length);
+			error = sendto(connection, "A", 1, 0, (struct sockaddr*)&address, length);
 			check(error);
 		}
 
 		else {
 			printf("client[%s] : ", ip);
 			printf("warning: received unknown commmand: %c\n", command);
-			error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length);
+			error = sendto(connection, "A", 1, 0, (struct sockaddr*)&address, length);
 			check(error);
 		}
 	}
@@ -191,4 +201,10 @@ int main() { // const int argc, const char** argv
 	pthread_join(compute_thread, NULL);
 	close(server);
 }
+
+
+
+	// setsockopt(server, IPPROTO_UDP, SO_REUSEADDR, &(int[]){1}, sizeof(int));
+ //  	setsockopt(server, IPPROTO_UDP, SO_REUSEPORT, &(int[]){1}, sizeof(int));	
+
 
