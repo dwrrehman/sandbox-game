@@ -91,7 +91,7 @@ static void* client_handler(void* raw) {
 		printf("client[%s] : ", ip);
 		printf("reading command...\n");
 		
-		ssize_t error = recvfrom(server, &command, 1, MSG_WAITALL, (struct sockaddr*)&address, &length);		
+		ssize_t error = recvfrom(server, &command, 1, 0, (struct sockaddr*)&address, &length);		
 		if (error == 0) { printf("DISCONNECTED!\n"); break; }
 		else check(error);
 
@@ -159,27 +159,28 @@ int main() { // const int argc, const char** argv
 	pthread_create(&compute_thread, NULL, compute, NULL);
 
 	while (server_running) {
-		char data[256] = {0};
+		
+		u8 response = 0;
 		char ip[40] = {0};
-		struct sockaddr_in6 client_address = {0};
-		socklen_t client_length = sizeof client_address;
+		struct sockaddr_in6 address = {0};
+		socklen_t len = sizeof address;
+
 
 		printf("server: listening for clients on %hu...\n", port);
-		ssize_t error = recvfrom(server, data, sizeof data, MSG_WAITALL, 
-					(struct sockaddr*)&client_address, &client_length);
+		
+		ssize_t error = recvfrom(server, &response, 1, 0, (struct sockaddr*)&address, &len);
 		check(error);
 		
-		ipv6_string(ip, client_address.sin6_addr.s6_addr);
-		printf("[%s] says: %s\n", ip, data);
-
-		strncpy(data, "server allows you to connect.", sizeof data);
-		error = sendto(server, data, sizeof data, 0, (struct sockaddr*)&client_address, client_length);
+		ipv6_string(ip, address.sin6_addr.s6_addr);
+		printf("[%s] says: %c\n", ip, response);
+		
+		error = sendto(server, "@", 1, 0, (struct sockaddr*)&address, len);
 
 		check(error);
 
 		struct client_data* client_data = malloc(sizeof(struct client_data));
-		client_data->address = client_address;
-		client_data->length = client_length;
+		client_data->address = address;
+		client_data->length = len;
 		
 		printf("starting handler thread for connection...\n");
 		pthread_t handler_thread;
