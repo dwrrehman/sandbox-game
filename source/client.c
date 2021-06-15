@@ -1,22 +1,25 @@
 // example udp client.
+
 #include <iso646.h>
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <string.h>
-// #include <stdnoreturn.h>
-// #include <pthread.h>
-// #include <math.h>
-// #include <time.h>
-#include <netdb.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
+
+enum commands {
+	null = 0, 
+	ack = 'A',
+	halt = 'H',
+	connect_request = 'C',
+	disconnect_request = 'D',
+	display = 'G',
+	move_up = 'w',
+	move_down = 's',
+	move_left = 'a',
+	move_right = 'd',
+	unknown = 255,
+};
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -27,9 +30,6 @@ typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
-
-// static const char* ip = "2601:1c2:4001:ecf0:f1c2:9a8f:cf81:33f0"; // "::1";//
-// static const u16 port = 12000;
 
 #define check(n) { if (n == 0 || n < 0) printf("error(%ld): %s line:%d func:%s\n", n, __FILE__, __LINE__, __func__); }
 
@@ -73,6 +73,7 @@ int main(const int argc, const char** argv) {
 		if (c == 'D' or c == 'H') client_running = false;
 
 		command = (u8) c;
+
 		error = sendto(fd, &command, 1, 0, (struct sockaddr*) &address, size);
 		check(error);
 
@@ -85,3 +86,21 @@ int main(const int argc, const char** argv) {
 	printf("client: terminating...\n");
 	close(fd);
 }
+
+
+
+// #include <string.h>
+// #include <stdint.h>
+// #include <stdnoreturn.h>
+// #include <pthread.h>
+// #include <math.h>
+// #include <time.h>
+// #include <netdb.h>
+// #include <netinet/in.h>
+
+// #include <sys/socket.h>
+// #include <sys/types.h>
+// #include <sys/wait.h>
+// #include <sys/stat.h>
+
+
