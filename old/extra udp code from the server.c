@@ -171,3 +171,44 @@
 
 
 // printf("client [%s]: --> they said: %c\n", ip, command);
+
+
+
+
+// #include <string.h>
+// #include <stdnoreturn.h>
+// #include <stdint.h>
+// #include <math.h>
+// #include <time.h>
+// #include <netdb.h>
+// #include <netinet/in.h>
+
+// #include <sys/socket.h>
+// #include <sys/types.h>
+// #include <sys/wait.h>
+// #include <sys/stat.h>
+
+
+
+
+
+
+// #include <string.h>
+// #include <stdint.h>
+// #include <stdnoreturn.h>
+// #include <pthread.h>
+// #include <math.h>
+// #include <time.h>
+// #include <netdb.h>
+// #include <netinet/in.h>
+
+// #include <sys/socket.h>
+// #include <sys/types.h>
+// #include <sys/wait.h>
+// #include <sys/stat.h>
+
+
+
+
+
+

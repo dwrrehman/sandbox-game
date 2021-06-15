@@ -18,12 +18,11 @@ typedef int32_t i32;
 typedef int64_t i64;
 
 enum commands {
-	null = 0, 
 	ack = 'A',
 	halt = 'H',
 	connect_request = 'C',
 	disconnect_request = 'D',
-	display = 'G',
+	display_command = 'G',
 	move_up = 'w',
 	move_down = 's',
 	move_left = 'a',
@@ -64,6 +63,7 @@ int main(const int argc, const char** argv) {
 	server_address.sin6_family = PF_INET6;
 	server_address.sin6_port = htons(port);
 	server_address.sin6_addr = in6addr_any;
+
 	int result = bind(server, (struct sockaddr*) &server_address, sizeof server_address);
 	if (result < 0) { perror("bind"); abort(); }
 
@@ -83,12 +83,19 @@ int main(const int argc, const char** argv) {
 		ipv6_string(ip, address.sin6_addr.s6_addr);
 
 		printf("client[%s] : ", ip);
-		if (command == 0) printf("Null command.\n");
+
+		if (command == 0) printf("(null command)\n");
 		else if (command == 'N') printf("no operation.\n");
-		else if (command == 'C') printf("server: they connected to server!\n");
-		else if (command == 'D') printf("info: client sent a disconnection request!\n"); 
 		else if (command == 'P') printf("server was PINGED!!!\n");
-		else if (command == 'H') {
+		
+		else if (command == move_down) printf("server: MOVE DOWN\n");
+		else if (command == move_up) printf("server: MOVE UP\n");
+		else if (command == move_right) printf("server: MOVE RIGHT\n");		
+		else if (command == move_left) printf("server: MOVE LEFT\n");
+
+		else if (command == connect_request) printf("server: they connected to server!\n");
+		else if (command == disconnect_request) printf("info: client sent a disconnection request!\n"); 
+		else if (command == halt) {
 			printf("SERVER: halting...\n"); 
 			error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length);
 			check(error);
@@ -106,18 +113,4 @@ int main(const int argc, const char** argv) {
 }
 
 
-
-
-// #include <string.h>
-// #include <stdnoreturn.h>
-// #include <stdint.h>
-// #include <math.h>
-// #include <time.h>
-// #include <netdb.h>
-// #include <netinet/in.h>
-
-// #include <sys/socket.h>
-// #include <sys/types.h>
-// #include <sys/wait.h>
-// #include <sys/stat.h>
 
