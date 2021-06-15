@@ -28,8 +28,7 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
-static const u16 port = 12000;
-
+static u16 port = 0;
 static int server = 0;
 static bool server_running = true;
 
@@ -70,7 +69,13 @@ static void* compute(void* _) {
 	return _;
 }
 
-int main() {
+int main(const int argc, const char** argv) {
+
+	if (argc < 2) return puts("usage: <port>");
+
+	port = (u16) atoi(argv[1]);
+	if (port < 1024) port = 12000;
+
 	initialize_server_socket();
 	pthread_t compute_thread;
 	pthread_create(&compute_thread, NULL, compute, NULL);

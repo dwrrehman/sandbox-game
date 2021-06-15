@@ -28,13 +28,17 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
-static const char* ip = "::1";// "2601:1c2:4001:ecf0:dc6a:af3e:eebb:40ca";
-static const u16 port = 12000;
+// static const char* ip = "2601:1c2:4001:ecf0:f1c2:9a8f:cf81:33f0"; // "::1";//
+// static const u16 port = 12000;
 
 #define check(n) { if (n == 0 || n < 0) printf("error(%ld): %s line:%d func:%s\n", n, __FILE__, __LINE__, __func__); }
 
-int main() {
+int main(const int argc, const char** argv) {
+	if (argc < 3) return puts("usage: <ip> <port>");
 
+	const char* ip = argv[1];
+	const u16 port = (u16) atoi(argv[2]);
+		
 	int fd = socket(PF_INET6, SOCK_DGRAM, 0);
 	if (fd < 0) { perror("socket"); abort(); }
 
