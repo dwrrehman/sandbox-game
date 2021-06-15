@@ -6,10 +6,10 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-// #include <stdnoreturn.h>
-// #include <pthread.h>
-// #include <math.h>
-// #include <time.h>
+#include <stdnoreturn.h>
+#include <pthread.h>
+#include <math.h>
+#include <time.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -17,6 +17,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -28,12 +29,14 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
-static const char* ip = "::1";// "2601:1c2:4001:ecf0:dc6a:af3e:eebb:40ca";
+static const char* ip = "2601:1c2:4001:ecf0:55a9:3314:77c8:7ceb"; //"::1"; 
 static const u16 port = 12000;
 
 #define check(n) { if (n == 0 || n < 0) printf("error(%ld): %s line:%d func:%s\n", n, __FILE__, __LINE__, __func__); }
 
 int main() {
+	
+	char data[256] = {0};
 
 	int fd = socket(PF_INET6, SOCK_DGRAM, 0);
 	if (fd < 0) { perror("socket"); abort(); }
@@ -44,40 +47,37 @@ int main() {
 	inet_pton(PF_INET6, ip, &address.sin6_addr); 
 	socklen_t size = sizeof address;
 	
-	u8 command = 0, response = 0;
-
-	command = 'C';
-	ssize_t error = sendto(fd, &command, 1, 0, (struct sockaddr*) &address, size);
+	strncpy(data, "can i connect?.", sizeof data);
+	ssize_t error = sendto(fd, data, sizeof data, 0, (struct sockaddr*) &address, size);
 	check(error);
 
 	printf("Connecting to [%s]:%hd ...\n", ip, port);
-
-	error = recvfrom(fd, &response, 1, 0, (struct sockaddr*) &address, &size); 
+	memset(data, 0, sizeof data);
+	error = recvfrom(fd, data, sizeof data, MSG_WAITALL, (struct sockaddr*) &address, &size); 
 	check(error);
-
-	printf("connection response = %c\n", response);
+	printf("connection response = %s\n", data);
 
 	printf(":client:>> ");
-
 	bool client_running = true;
-
 	while (client_running) {
 
 		int c = getchar();
-
 		if (c == 10) continue;
-		if (c == 'D' or c == 'H') client_running = false;
+		
+		if (c == 'D') client_running = false;
+		if (c == 'H') client_running = false;
 
-		command = (u8) c;
+		u8 command = (u8) c, response = 0;
 		error = sendto(fd, &command, 1, 0, (struct sockaddr*) &address, size);
 		check(error);
 
-		error = recvfrom(fd, &response, 1, 0, (struct sockaddr*) &address, &size); 
+		error = recvfrom(fd, &response, 1, MSG_WAITALL, (struct sockaddr*) &address, &size); 
 		check(error);
 
 		printf("response = %c\n", response);
+
 		printf(":client:>> ");
 	}
-	printf("client: terminating...\n");
+
 	close(fd);
 }
