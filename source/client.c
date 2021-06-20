@@ -212,7 +212,7 @@ int main(const int argc, const char** argv) {
 	// 	if (c == 'l') { if (px < 255) px++; }
 	// 	if (c == 'i') { if (py) py--; }
 	// 	if (c == 'k') { if (py < 255) py++; }
-		
+	
 	// 	if (c == 'm')  {
 	// 		error = sendto(fd, "M", 1, 0, (struct sockaddr*) &address, size);
 	// 		check(error);
@@ -381,8 +381,8 @@ int main(const int argc, const char** argv) {
 	
 	error = sendto(fd, "D", 1, 0, (struct sockaddr*) &address, size);
 	check(error);
-	error = recvfrom(fd, &response, 1, 0, (struct sockaddr*) &address, &size); 
-	check(error);
+	// error = recvfrom(fd, &response, 1, 0, (struct sockaddr*) &address, &size); 
+	// check(error);
 
 
 	close(fd);
