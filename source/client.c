@@ -33,7 +33,6 @@
 
 
 enum commands {
-	null = 0,
 	ack = 'A',
 	halt = 'H',
 	connect_request = 'C',
@@ -68,8 +67,6 @@ static const u8 colors[] = {
 };
 
 
-
-
 static const char* window_title = "universe client";
 
 static int window_height = 400, window_width = 640;
@@ -87,7 +84,6 @@ static bool quit = false;
 // static nat window_columns = 0;
 // static char* screen = NULL;
 // static char message[4096] = {0};
-
 
 
 // static nat px = 0, py = 0;
@@ -237,7 +233,9 @@ int main(const int argc, const char** argv) {
 	// int result = connect(connection, (struct sockaddr*) &servaddr, sizeof servaddr);
 	// if (result < 0) { perror("connect"); exit(1); }
 
-	// printf("\n\n\t %s CONNECTED TO SERVER!\n\n", argv[3]);
+	printf("\n\n\t CONNECTED TO SERVER!\n\n");
+
+
 	// printf("CLIENT[%s:%d]: running...\n", ip, port);
 
 	// u8 command = 0; // response = 0; 
@@ -247,8 +245,8 @@ int main(const int argc, const char** argv) {
 	const u32 max_block_count = 10000000;
 	u16* screen = malloc(max_block_count * 2);
 	
-	char player_name[30] = {0};
-	strncpy(player_name, argv[3], sizeof player_name);
+	// char player_name[30] = {0};
+	// strncpy(player_name, argv[3], sizeof player_name);
 
 	// // printf("sending player name (29 chars)\n");
 	// write(connection, player_name, 29);
@@ -273,7 +271,8 @@ int main(const int argc, const char** argv) {
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
 	SDL_ShowCursor(0);
-	// window_changed(window, renderer);
+	window_changed(window, renderer);
+
 	// send_resize_command(connection);
 
 
@@ -347,17 +346,17 @@ int main(const int argc, const char** argv) {
 			if (event.type == SDL_KEYDOWN) {
 				if (key[SDL_SCANCODE_ESCAPE]) quit = true;
 				if (key[SDL_SCANCODE_Q]) quit = true;
-				// if (key[SDL_SCANCODE_0]) send_halt_command(connection);
+				if (key[SDL_SCANCODE_0]) {error = sendto(fd, "H", 1, 0, (struct sockaddr*) &address, size); check(error); quit = true;}
+
 				// if (key[SDL_SCANCODE_GRAVE]) toggle_fullscreen(window, renderer);
 				// if (key[SDL_SCANCODE_MINUS]) { zoom_out(renderer); send_resize_command(connection); }
 				// if (key[SDL_SCANCODE_EQUALS]) { zoom_in(renderer); send_resize_command(connection); }
 				
-				// if (key[SDL_SCANCODE_W]) send_command(move_up, connection);
-				// if (key[SDL_SCANCODE_A]) send_command(move_left, connection);
-				// if (key[SDL_SCANCODE_S]) send_command(move_down, connection);
-				// if (key[SDL_SCANCODE_D]) send_command(move_right, connection);
+				if (key[SDL_SCANCODE_W]) {error = sendto(fd, "w", 1, 0, (struct sockaddr*) &address, size); check(error);}
+				if (key[SDL_SCANCODE_A]) {error = sendto(fd, "a", 1, 0, (struct sockaddr*) &address, size); check(error);}
+				if (key[SDL_SCANCODE_S]) {error = sendto(fd, "s", 1, 0, (struct sockaddr*) &address, size); check(error);}
+				if (key[SDL_SCANCODE_D]) {error = sendto(fd, "d", 1, 0, (struct sockaddr*) &address, size); check(error);}
 			}
-
 
 			// delete me:
 
@@ -381,6 +380,7 @@ int main(const int argc, const char** argv) {
 	
 	error = sendto(fd, "D", 1, 0, (struct sockaddr*) &address, size);
 	check(error);
+
 	// error = recvfrom(fd, &response, 1, 0, (struct sockaddr*) &address, &size); 
 	// check(error);
 
