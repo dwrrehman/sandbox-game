@@ -91,9 +91,9 @@ static void* compute(void* _) {
 
 int main(const int argc, const char** argv) {
 
-	if (argc < 2) return puts("usage: <port>");
-	u16 port = (u16) atoi(argv[1]);
+	u16 port = (u16) (argc == 2 ? atoi(argv[1]) : 0);
 	if (port < 1024) port = 12000;
+	printf("server: listening on %hu...\n", port);
 
 	server = socket(PF_INET6, SOCK_DGRAM, 0);
 	if (server < 0) { perror("socket"); abort(); }
@@ -114,8 +114,6 @@ int main(const int argc, const char** argv) {
 	char ip[40] = {0};
 	struct sockaddr_in6 address = {0};
 	socklen_t length = sizeof address;
-
-	printf("server: listening on %hu...\n", port);
 
 	while (server_running) {
 		
