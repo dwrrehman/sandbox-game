@@ -30,8 +30,13 @@ struct player {
 	u64 width;
 	u64 height;
 
+	u64 active;
+	u64 unused;
+
 	socklen_t length;
 	struct sockaddr_in6 address;
+
+	
 };
 
 static u8* universe = NULL;
@@ -73,7 +78,7 @@ static inline void spawn_player(u32 player) {
 
 static inline void tick() {
 	universe[0] = !universe[0];
-	universe[11] = !universe[11];
+	// universe[11] = !universe[11];
 	return;
 }
 
@@ -82,27 +87,31 @@ static void* compute(void* _) {
 	while (server_running) {
 
 		for (u32 player = 0; player < player_count; player++) {
-			u8 packet[400] = {0};
-
-			for (u64 i = 0; i < universe_count; i++) {
-				if (universe[i] == 1) {
-					packet[4 * i + 0] = 255;
-					packet[4 * i + 1] = 255;
-					packet[4 * i + 2] = 255;
-					packet[4 * i + 3] = 255;
-
-				} else if (universe[i] == 5) {
-					packet[4 * i + 0] = 255;
-					packet[4 * i + 1] = 0;
-					packet[4 * i + 2] = 255;
-					packet[4 * i + 3] = 255;
-				}
-			}
 			
-			const size_t packet_size = 4 * 10 * 10;
-			ssize_t error = sendto(server, packet, packet_size, 0, 
-					(struct sockaddr*)& (players[player].address), players[player].length);
-			check(error);
+			if (players[player].active) {
+
+				u8 packet[400] = {0};
+
+				for (u64 i = 0; i < universe_count; i++) {
+					if (universe[i] == 1) {
+						packet[4 * i + 0] = 255;
+						packet[4 * i + 1] = 255;
+						packet[4 * i + 2] = 255;
+						packet[4 * i + 3] = 255;
+
+					} else if (universe[i] == 5) {
+						packet[4 * i + 0] = 255;
+						packet[4 * i + 1] = 255;
+						packet[4 * i + 2] = 0;
+						packet[4 * i + 3] = 255;
+					}
+				}
+				
+				const size_t packet_size = 4 * 10 * 10;
+				ssize_t error = sendto(server, packet, packet_size, 0, 
+						(struct sockaddr*)& (players[player].address), players[player].length);
+				check(error);
+			}
 		}
 
 		tick();
@@ -139,8 +148,6 @@ static inline void move_right(u32 p) {
 	if (players[p].x == side_length - 1) players[p].x = 0; else players[p].x++;
 	universe[side_length * players[p].y + players[p].x] = 5; // put where player is now.
 }
-
-
 
 
 static inline void place_up(u32 p) {
@@ -180,7 +187,7 @@ static inline u32 identify_player_from_ip(unsigned char ip[16]) {
 	u64 id0 = 0, id1 = 0;
 	memcpy(&id0, ip, 8);
 	memcpy(&id1, ip + 8, 8);
-		
+	
 	for (u32 p = 0; p < player_count; p++) {
 		if (players[p].id0 == id0 and 
 		    players[p].id1 == id1) return p;
@@ -234,7 +241,6 @@ int main(const int argc, const char** argv) {
 		} else 
 			printf("received command byte from player #%d, IP: %s, processing...\n", player, ip);
 
-
 		if (command == 'H') server_running = false;
 		else if (command == 'w') move_up(player);
 		else if (command == 's') move_down(player);
@@ -247,8 +253,15 @@ int main(const int argc, const char** argv) {
 	
 		else if (command == 'C') {
 			printf("server: [%s]: new player connected to server! generating new player...\n", ip);
-			if (player == player_count) { error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length); check(error); }
-			else { error = sendto(server, "P", 1, 0, (struct sockaddr*)&address, length); check(error); continue; }
+			error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length); check(error); }
+
+			if (player < player_count) { 
+				printf("[%u]: RETURNING/EXISTING player's uuid is: %llx_%llx\n", player_count, 
+					players[player].id0, players[player].id1);				
+				players[player].active = true; 
+				continue; 
+			}
+
 			players[player].address = address;
 			players[player].length = length;
 			memcpy(&players[player].id0, address.sin6_addr.s6_addr, 8);
@@ -257,6 +270,7 @@ int main(const int argc, const char** argv) {
 			players[player].width = 10;
 			players[player].height = 10;
 			universe[side_length * players[player].y + players[player].x] = 5; // notate where player is now, in universe.
+			players[player].active = true;
 			player_count++;
 
 			printf("[%u]: player's uuid is: %llx_%llx\n", player_count, 
@@ -267,7 +281,9 @@ int main(const int argc, const char** argv) {
 
 			printf("server: [%s]: info: client sent a disconnection request!\n", ip); 
 			// TODO: we must require a mutext over the players, in order for this work.
-			players[player] = players[--player_count]; // swap the last player, with us. then delete the last.
+			// universe[side_length * players[player].y + players[player].x] = 0;
+			players[player].active = false;
+			// players[player] = players[--player_count]; // swap the last player, with us. then delete the last.
 		}
 
 		else if (command == 'x') players[player].width--;
