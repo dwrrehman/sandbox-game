@@ -67,11 +67,13 @@ static inline void generate(u64 s) {
 }
 
 static inline void spawn_player(u32 player) {
-	players[player].x = (u64) rand() % universe_count;
-	players[player].y = (u64) rand() % universe_count;
+	players[player].x = (u64) rand() % side_length;
+	players[player].y = (u64) rand() % side_length;
 }
 
 static inline void tick() {
+	universe[0] = !universe[0];
+	universe[11] = !universe[11];
 	return;
 }
 
@@ -80,8 +82,24 @@ static void* compute(void* _) {
 	while (server_running) {
 
 		for (u32 player = 0; player < player_count; player++) {
-			u8 packet[4] = {1,4,5,7};
-			const size_t packet_size = 4;
+			u8 packet[400] = {0};
+
+			for (u64 i = 0; i < universe_count; i++) {
+				if (universe[i] == 1) {
+					packet[4 * i + 0] = 255;
+					packet[4 * i + 1] = 255;
+					packet[4 * i + 2] = 255;
+					packet[4 * i + 3] = 255;
+
+				} else if (universe[i] == 5) {
+					packet[4 * i + 0] = 255;
+					packet[4 * i + 1] = 0;
+					packet[4 * i + 2] = 255;
+					packet[4 * i + 3] = 255;
+				}
+			}
+			
+			const size_t packet_size = 4 * 10 * 10;
 			ssize_t error = sendto(server, packet, packet_size, 0, 
 					(struct sockaddr*)& (players[player].address), players[player].length);
 			check(error);
@@ -89,15 +107,74 @@ static void* compute(void* _) {
 
 		tick();
 
-		sleep(1);
+		usleep(100000);
 	}
 	return _;
 }
 
 static inline void move_up(u32 p) {
-	printf("server: MOVE UP : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+	printf("server: MOVE UP : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
+	universe[side_length * players[p].y + players[p].x] = 0;  // remove where player was..
 	if (players[p].y) players[p].y--; else players[p].y = side_length - 1;
+	universe[side_length * players[p].y + players[p].x] = 5; // put where player is now.
 }
+
+static inline void move_down(u32 p) {
+	printf("server: MOVE DOWN : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
+	universe[side_length * players[p].y + players[p].x] = 0;  // remove where player was..
+	if (players[p].y == side_length - 1) players[p].y = 0; else players[p].y++;
+	universe[side_length * players[p].y + players[p].x] = 5; // put where player is now.
+}
+
+static inline void move_left(u32 p) {
+	printf("server: MOVE LEFT : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
+	universe[side_length * players[p].y + players[p].x] = 0;  // remove where player was..
+	if (players[p].x) players[p].x--; else players[p].x = side_length - 1;
+	universe[side_length * players[p].y + players[p].x] = 5; // put where player is now.
+}
+
+static inline void move_right(u32 p) {
+	printf("server: MOVE RIGHT : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
+	universe[side_length * players[p].y + players[p].x] = 0;  // remove where player was..
+	if (players[p].x == side_length - 1) players[p].x = 0; else players[p].x++;
+	universe[side_length * players[p].y + players[p].x] = 5; // put where player is now.
+}
+
+
+
+
+static inline void place_up(u32 p) {
+	printf("server: PLACE UP : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+	u64 y = players[p].y;
+	if (y) y--; else y = side_length - 1;
+	universe[side_length * y + players[p].x] = 1; // place a block using that y coord..
+}
+
+static inline void place_down(u32 p) {
+	printf("server: PLACE DOWN : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+	u64 y = players[p].y;
+	if (y == side_length - 1) y = 0; else y++;
+	universe[side_length * y + players[p].x] = 1; // place a block using that y coord..
+}
+
+static inline void place_left(u32 p) {
+	printf("server: PLACE LEFT : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+	u64 x = players[p].x;
+	if (x) x--; else x = side_length - 1;
+	universe[side_length * players[p].y + x] = 1; // place a block using that y coord..
+}
+
+static inline void place_right(u32 p) {
+	printf("server: PLACE RIGHT : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+	u64 x = players[p].x;
+	if (x == side_length - 1) x = 0; else x++;
+	universe[side_length * players[p].y + x] = 1; // place a block using that y coord..
+}
+
+
+
+
+
 
 static inline u32 identify_player_from_ip(unsigned char ip[16]) {
 	u64 id0 = 0, id1 = 0;
@@ -150,7 +227,6 @@ int main(const int argc, const char** argv) {
 
 		ipv6_string(ip, address.sin6_addr.s6_addr); // put in connect requ.
 
-
 		u32 player = identify_player_from_ip(address.sin6_addr.s6_addr);
 		if (player == player_count and command != 'C') { 
 				printf("received packet from unknown IP: %s, ignoring...\n", ip); 
@@ -159,14 +235,15 @@ int main(const int argc, const char** argv) {
 			printf("received command byte from player #%d, IP: %s, processing...\n", player, ip);
 
 
-
-
 		if (command == 'H') server_running = false;
-
 		else if (command == 'w') move_up(player);
-		else if (command == 's') printf("server: [%s]: MOVE DOWN\n", ip);
-		else if (command == 'a') printf("server: [%s]: MOVE LEFT\n", ip);
-		else if (command == 'd') printf("server: [%s]: MOVE RIGHT\n", ip);
+		else if (command == 's') move_down(player);
+		else if (command == 'a') move_left(player);
+		else if (command == 'd') move_right(player);
+		else if (command == 'i') place_up(player);
+		else if (command == 'j') place_down(player);
+		else if (command == 'k') place_left(player);
+		else if (command == 'l') place_right(player);
 	
 		else if (command == 'C') {
 			printf("server: [%s]: new player connected to server! generating new player...\n", ip);
@@ -178,7 +255,8 @@ int main(const int argc, const char** argv) {
 			memcpy(&players[player].id1, address.sin6_addr.s6_addr + 8, 8);
 			spawn_player(player);
 			players[player].width = 10;
-			players[player].height = 8;
+			players[player].height = 10;
+			universe[side_length * players[player].y + players[player].x] = 5; // notate where player is now, in universe.
 			player_count++;
 
 			printf("[%u]: player's uuid is: %llx_%llx\n", player_count, 

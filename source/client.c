@@ -25,17 +25,13 @@ static const char* window_title = "universe";
 
 #define check(n) { if (n == 0 || n < 0) printf("error(%ld): %s line:%d func:%s\n", n, __FILE__, __LINE__, __func__); }
 
-// static inline u32 ARGB(u32 red, u32 green, u32 blue, u32 alpha) {
-// 	return (alpha << 24) | (red << 16) | (green << 8) | blue;
-// }
-
 static inline void window_changed(SDL_Window* window, SDL_Renderer* renderer, SDL_Texture** texture) {
 	int w = 0, h = 0;
 	SDL_GetWindowSize(window, &w, &h);
 	window_width = w;
 	window_height = h;
-	SDL_DestroyTexture(*texture);
-	*texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, window_width, window_height);
+	// SDL_DestroyTexture(*texture);
+	// *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, window_width, window_height);
 
 	printf("width and height: (%d, %d)\n", window_width, window_height);
 }
@@ -47,15 +43,6 @@ static inline void toggle_fullscreen(SDL_Window* window, SDL_Renderer* renderer,
 	window_changed(window, renderer, texture);
 }
 
-struct frame {
-	u8 index;
- 
-	u16 width;    // i dont think we need these here.
-	u16 height;
-
-	u32* pixels; // 
-};
- 
 int main(const int argc, const char** argv) {
 	if (argc != 4) exit(puts("usage: ./client <ip> <port> <playername>"));
 
@@ -93,15 +80,15 @@ int main(const int argc, const char** argv) {
 	const int logical_window_width = 10;
 	const int logical_window_height = 10;         // just for testing.
 
-
 	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 
 					logical_window_width, logical_window_height);
 
 	SDL_ShowCursor(0);
 	
 	size_t count = logical_window_width * logical_window_height;
-	u32* buffer = malloc(sizeof(u32) * logical_window_width * logical_window_height);
-	memset(buffer, 0x80, sizeof(u32) * count);
+
+	u32* buffer = malloc(sizeof(u32) * logical_window_width * logical_window_height);   // calloc.
+	memset(buffer, 0x00, sizeof(u32) * count);
 
 	u32* pixels = NULL;
 	int pitch = 0;
@@ -109,10 +96,9 @@ int main(const int argc, const char** argv) {
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
 
-
-		// struct frame 
-
-
+		error = recvfrom(fd, buffer, 10 * 10 * 4, MSG_DONTWAIT, (struct sockaddr*) &address, &size); 
+		check(error);
+		
 		SDL_LockTexture(texture, NULL, (void**) &pixels, &pitch);		
 		memcpy(pixels, buffer, sizeof(u32) * count);
 		SDL_UnlockTexture(texture);
