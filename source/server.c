@@ -1,9 +1,10 @@
-// example udp server.
+// UDP server for my multiplayer game.
 #include <iso646.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include <pthread.h>
 #include <arpa/inet.h>
 
@@ -17,30 +18,25 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
-enum commands {
-	ack = 'A',
-	halt = 'H',
-	connect_request = 'C',
-	disconnect_request = 'D',
-	display_command = 'G',
-	move_up = 'w',
-	move_down = 's',
-	move_left = 'a',
-	move_right = 'd',
-	unknown = 255,
-};
+static const u16 default_port = 12000;
 
 struct player {
 	u64 id0;
 	u64 id1;
+
 	u64 x;
 	u64 y;
+
+	u64 width;
+	u64 height;
+
 	socklen_t length;
 	struct sockaddr_in6 address;
 };
 
 static u8* universe = NULL;
 static u64 universe_count = 0;
+static u64 side_length = 0;
 
 static struct player players[5];
 static u32 player_count = 0;
@@ -58,41 +54,74 @@ static inline void ipv6_string(char buffer[40], u8 ip[16]) {
 	ip[8], ip[9], ip[10], ip[11], ip[12], ip[13], ip[14], ip[15]);
 }
 
-static void generate() {
-	universe = calloc(100, 1);
-	universe_count = 100;
+static inline void generate(u64 s) {
+	side_length = s;
+	universe_count = side_length * side_length;
+	universe = calloc(universe_count, 1);
+	if (not universe) { perror("calloc"); abort(); }
+
+	printf("server: generating %llu bytes for universe...\n", universe_count);
+	for (u64 i = 0; i < universe_count; i++) {
+		universe[i] = (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2);
+	}
+}
+
+static inline void spawn_player(u32 player) {
+	players[player].x = (u64) rand() % universe_count;
+	players[player].y = (u64) rand() % universe_count;
+}
+
+static inline void tick() {
+	return;
 }
 
 static void* compute(void* _) {
 	printf("in compute thread!\n");
-
 	while (server_running) {
 
-		// we need to cache the player state here.
-
 		for (u32 player = 0; player < player_count; player++) {
-
 			u8 packet[4] = {1,4,5,7};
 			const size_t packet_size = 4;
-
-			ssize_t error = sendto(server, packet, packet_size, 0, (struct sockaddr*)& (players[player].address), players[player].length);
+			ssize_t error = sendto(server, packet, packet_size, 0, 
+					(struct sockaddr*)& (players[player].address), players[player].length);
 			check(error);
-
 		}
 
-		// then we need to update our cache...?
-
+		tick();
 
 		sleep(1);
 	}
-
 	return _;
 }
 
-int main(const int argc, const char** argv) {
+static inline void move_up(u32 p) {
+	printf("server: MOVE UP : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+	if (players[p].y) players[p].y--; else players[p].y = side_length - 1;
+}
 
-	u16 port = (u16) (argc == 2 ? atoi(argv[1]) : 0);
-	if (port < 1024) port = 12000;
+static inline u32 identify_player_from_ip(unsigned char ip[16]) {
+	u64 id0 = 0, id1 = 0;
+	memcpy(&id0, ip, 8);
+	memcpy(&id1, ip + 8, 8);
+		
+	for (u32 p = 0; p < player_count; p++) {
+		if (players[p].id0 == id0 and 
+		    players[p].id1 == id1) return p;
+	}
+
+	return player_count;
+}
+
+
+int main(const int argc, const char** argv) {
+	srand((unsigned)time(0));
+	
+	u16 port = default_port;
+	if (argc >= 2) {
+		u16 n = (u16) atoi(argv[1]);
+		if (n >= 1024) port = n;
+	}
+
 	printf("server: listening on %hu...\n", port);
 
 	server = socket(PF_INET6, SOCK_DGRAM, 0);
@@ -105,8 +134,7 @@ int main(const int argc, const char** argv) {
 	int result = bind(server, (struct sockaddr*) &server_address, sizeof server_address);
 	if (result < 0) { perror("bind"); abort(); }
 
-	generate();
-
+	generate(10);
 	pthread_t thread;
 	pthread_create(&thread, NULL, compute, NULL);
 
@@ -121,116 +149,50 @@ int main(const int argc, const char** argv) {
 		check(error);
 
 		ipv6_string(ip, address.sin6_addr.s6_addr); // put in connect requ.
-		printf("client[%s] : ", ip); // delete me.
 
-		if (command == halt) server_running = false;
-		else if (command == move_down) printf("server: MOVE DOWN\n");
-		else if (command == move_up) printf("server: MOVE UP\n");
-		else if (command == move_right) printf("server: MOVE RIGHT\n");		
-		else if (command == move_left) printf("server: MOVE LEFT\n");
+		u32 player = identify_player_from_ip(address.sin6_addr.s6_addr);
 
-		else if (command == connect_request) {
-			printf("server: they connected to server!\n");
+		if (player == player_count and command != 'C') { 
+				printf("received packet from unknown IP: %s, ignoring...\n", ip); 
+				continue; 
+		} else 
+			printf("received command byte from player #%d, IP: %s, processing...\n", player, ip);
 
-			error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length);
-			check(error);
-			
-			players[player_count].id0 = (u64) rand();
-			players[player_count].id1 = (u64) rand();
+		if (command == 'H') server_running = false;
 
-			players[player_count].x = (u64) rand() % 10;
-			players[player_count].y = (u64) rand() % 10;
+		else if (command == 'w') move_up(player);
+		else if (command == 's') printf("server: [%s]: MOVE DOWN\n", ip);
+		else if (command == 'w') printf("server: [%s]: MOVE UP\n", ip);
+		else if (command == 'd') printf("server: [%s]: MOVE RIGHT\n", ip);
 
-			players[player_count].address = address;
-			players[player_count].length = length;
-		
-			// players[player_count].id0 = (u64) * (u32*) (address.sin6_addr.s6_addr + 0);
-			// players[player_count].id0 |= (u64) * (u32*) (address.sin6_addr.s6_addr + 4);
-			// players[player_count].id1 = (u64) * (u64*) (address.sin6_addr.s6_addr + 8);
-			// players[player_count].id1 |= (u64) * (u32*) (address.sin6_addr.s6_addr + 12);
-
-			printf("[%u]: new player uuid is: %llu_%llu\n", player_count + 1, 
-				players[player_count].id0, players[player_count].id1);
-
+		else if (command == 'C') {
+			printf("server: [%s]: new player connected to server! generating new player...\n", ip);
+			if (player == player_count) { error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length); check(error); }
+			else { error = sendto(server, "P", 1, 0, (struct sockaddr*)&address, length); check(error); continue; }
+			players[player].address = address;
+			players[player].length = length;
+			memcpy(&players[player].id0, address.sin6_addr.s6_addr, 8);
+			memcpy(&players[player].id1, address.sin6_addr.s6_addr + 8, 8);
+			spawn_player(player); 
 			player_count++;
+
+			printf("[%u]: player's uuid is: %llx_%llx\n", player_count, 
+				players[player].id0, players[player].id1);
 		}
 
-		else if (command == disconnect_request) {
-			printf("info: client sent a disconnection request!\n"); 
+		else if (command == 'D') {
+			printf("server: [%s]: info: client sent a disconnection request!\n", ip); 
 			
-
-			//TODO: get the player index based on the address.
-			int player_index = 0;   // lets say.
-
+			// TODO: we must require a mutext over the players, in order for this work.
+		
 			// swap the last player, with us. then delete the last.
-			players[player_index] = players[--player_count];
+			players[player] = players[--player_count];
 
-		} else printf("warning: received unknown commmand: %c\n", command);
+		} else printf("server: [%s]: warning: received unknown commmand: %c\n", ip, command);
 	}
 	printf("SERVER: halting...\n"); 
 	pthread_join(thread, NULL);
 	close(server);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-	/*
-		instead of sending acknoledgement, we should be sending display packets. 
-
-		i also think that the display packets need to be sent in sequence, each 
-		of them being disposable, really. 
-
-		that means that will need a sequence number. also they are not acknoledged at all. 
-
-		if you get a lost display packet, then so what. it doesnt matter. 
-		also i know that we need to be sending display packets like, 
-		totally concurrently. we need to be sending that data 
-		like one thread per client, essentially. 
-		maybe even faster than that. 
-
-		because the reality is that they are like all totally disposable, 
-		and reordeable. thats the beautiful part. 
-	
-		so i think that actually having a bunch of threads to multiplex on, 
-		is a good thing to be able to not have to start up a bunch of threads each time, 
-		but still be able to send a ton of packets asynrchonously. 
-
-		also i know that we need to send like at least 1500 bytes or so, (alittle less) 
-		in each display frame, so we need to really packet in our data into that space, 
-		while still having each packet be completley independent in terms of rendering. 
-		thats the goal/dream.
-
-		also,  i know that the movement commands, etc,  are only received, on the 
-		server side, and they are not ack'd at all. 
-
-		the server is only sending display packets and receiving commands/movements, 
-		and the client is only sendinging commands/movements, and receiving display packets.
-
-		and then, 
-		the client isnt using any multi-threading, because it is just sending 
-		commands based on the render loop, i think.. (maybe ill rework that?)
-		but then the render loop is also just rendering the display packets..
-		but, the important thing is that when the algorithm receives a packet 
-		which has a lowerer number than what it has received, oh wait. 
-		no we cant use that at all, because of the fact that the packets can be 
-		reordered... crap... hmm..
-
-	
-		
-
-		
-
-	*/
-
 
 
