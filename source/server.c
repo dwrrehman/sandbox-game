@@ -253,7 +253,7 @@ int main(const int argc, const char** argv) {
 	
 		else if (command == 'C') {
 			printf("server: [%s]: new player connected to server! generating new player...\n", ip);
-			error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length); check(error); }
+			error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length); check(error);
 
 			if (player < player_count) { 
 				printf("[%u]: RETURNING/EXISTING player's uuid is: %llx_%llx\n", player_count, 
@@ -286,10 +286,10 @@ int main(const int argc, const char** argv) {
 			// players[player] = players[--player_count]; // swap the last player, with us. then delete the last.
 		}
 
-		else if (command == 'x') players[player].width--;
-		else if (command == 'X') players[player].width++;
-		else if (command == 'y') players[player].height--;
-		else if (command == 'Y') players[player].height++;
+		// else if (command == 'x') players[player].width--;
+		// else if (command == 'X') players[player].width++;
+		// else if (command == 'y') players[player].height--;
+		// else if (command == 'Y') players[player].height++;
 
 		else printf("server: [%s]: warning: received unknown commmand: %c\n", ip, command);
 	}
