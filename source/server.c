@@ -150,21 +150,24 @@ int main(const int argc, const char** argv) {
 
 		ipv6_string(ip, address.sin6_addr.s6_addr); // put in connect requ.
 
-		u32 player = identify_player_from_ip(address.sin6_addr.s6_addr);
 
+		u32 player = identify_player_from_ip(address.sin6_addr.s6_addr);
 		if (player == player_count and command != 'C') { 
 				printf("received packet from unknown IP: %s, ignoring...\n", ip); 
 				continue; 
 		} else 
 			printf("received command byte from player #%d, IP: %s, processing...\n", player, ip);
 
+
+
+
 		if (command == 'H') server_running = false;
 
 		else if (command == 'w') move_up(player);
 		else if (command == 's') printf("server: [%s]: MOVE DOWN\n", ip);
-		else if (command == 'w') printf("server: [%s]: MOVE UP\n", ip);
+		else if (command == 'a') printf("server: [%s]: MOVE LEFT\n", ip);
 		else if (command == 'd') printf("server: [%s]: MOVE RIGHT\n", ip);
-
+	
 		else if (command == 'C') {
 			printf("server: [%s]: new player connected to server! generating new player...\n", ip);
 			if (player == player_count) { error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length); check(error); }
@@ -173,26 +176,47 @@ int main(const int argc, const char** argv) {
 			players[player].length = length;
 			memcpy(&players[player].id0, address.sin6_addr.s6_addr, 8);
 			memcpy(&players[player].id1, address.sin6_addr.s6_addr + 8, 8);
-			spawn_player(player); 
+			spawn_player(player);
+			players[player].width = 10;
+			players[player].height = 8;
 			player_count++;
 
 			printf("[%u]: player's uuid is: %llx_%llx\n", player_count, 
 				players[player].id0, players[player].id1);
+
+
+		} else if (command == 'D') {
+
+			printf("server: [%s]: info: client sent a disconnection request!\n", ip); 
+			// TODO: we must require a mutext over the players, in order for this work.
+			players[player] = players[--player_count]; // swap the last player, with us. then delete the last.
 		}
 
-		else if (command == 'D') {
-			printf("server: [%s]: info: client sent a disconnection request!\n", ip); 
-			
-			// TODO: we must require a mutext over the players, in order for this work.
-		
-			// swap the last player, with us. then delete the last.
-			players[player] = players[--player_count];
+		else if (command == 'x') players[player].width--;
+		else if (command == 'X') players[player].width++;
+		else if (command == 'y') players[player].height--;
+		else if (command == 'Y') players[player].height++;
 
-		} else printf("server: [%s]: warning: received unknown commmand: %c\n", ip, command);
+		else printf("server: [%s]: warning: received unknown commmand: %c\n", ip, command);
 	}
 	printf("SERVER: halting...\n"); 
 	pthread_join(thread, NULL);
 	close(server);
 }
+
+
+
+
+
+			// u8 packet[5] = {0};
+		
+			// ssize_t error = recvfrom(server, &packet, 5, 0, (struct sockaddr*)&address, &length);
+			// check(error);
+	
+			// if (packet[0] != 'r') continue;
+
+			// u16 w = 0, h = 0;
+			// memcpy(&w, packet + 1, 2);
+			// memcpy(&h, packet + 3, 2);
 
 
