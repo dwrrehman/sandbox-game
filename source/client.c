@@ -10,7 +10,7 @@
 #define check(n) { if (n == 0 || n < 0) printf("error(%ld): %s line:%d func:%s\n", n, __FILE__, __LINE__, __func__); }
 
 int main(const int argc, const char** argv) {
-	if (argc != 4) exit(puts("usage: ./client <ip> <port> <playername>"));
+	if (argc != 3) exit(puts("usage: ./client <ip> <port>"));
 
 	const char* ip = argv[1];
 	const uint16_t port = (uint16_t) atoi(argv[2]);
@@ -37,20 +37,19 @@ int main(const int argc, const char** argv) {
 	if (SDL_Init(SDL_INIT_VIDEO)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
 	SDL_Window *window = SDL_CreateWindow("universe", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 400, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 10, 10);
+	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 20, 15);
 	SDL_ShowCursor(0);
 	
-	const size_t count = 10 * 10;
-	uint32_t* buffer = calloc(count, 4); // TODO: make me malloc()
+	uint32_t* buffer = malloc(20 * 15 * 4);
 	uint32_t* pixels = NULL;
 	int pitch = 0;
 	bool quit = false, fullscreen = false;
 
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
-		recvfrom(fd, buffer, 10 * 10 * 4, MSG_DONTWAIT, (struct sockaddr*) &address, &size); 
+		recvfrom(fd, buffer, 20 * 15 * 4, MSG_DONTWAIT, (struct sockaddr*) &address, &size); 
 		SDL_LockTexture(texture, NULL, (void**) &pixels, &pitch);		
-		memcpy(pixels, buffer, 4 * count);
+		memcpy(pixels, buffer, 20 * 15 * 4);
 		SDL_UnlockTexture(texture);
 		SDL_RenderCopy(renderer, texture, NULL, NULL);
 		SDL_RenderPresent(renderer);
@@ -83,7 +82,7 @@ int main(const int argc, const char** argv) {
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = 33 - (int32_t) time; 
+		int32_t sleep = 16 - (int32_t) time; 
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 	
 		if (!(SDL_GetTicks() & 511)) {
