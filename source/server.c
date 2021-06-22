@@ -322,7 +322,7 @@ int main(const int argc, const char** argv) {
 	socklen_t length = sizeof address;
 
 	while (server_running) {
-		usleep(50000);
+		usleep(100000);
 	
 		for (uint32_t player = 0; player < player_count; player++) {
 			if (not players[player].active) continue;
@@ -349,7 +349,8 @@ int main(const int argc, const char** argv) {
 					const u8 colors[] = {
 						0x00,0x00,0x00,0x00,  
 						0xff,0xff,0xff,0xff, 
-						0xff,0xff,0x00,0xff 
+						0xff,0xff,0x00,0xff, 
+						0xff,0x00,0x00,0xff,
 					};
 
 					packet[4 * i + 0] = colors[4 * n + 0];
@@ -392,6 +393,11 @@ int main(const int argc, const char** argv) {
 		else if (command == 'g') break_down(player);
 		else if (command == 'f') break_left(player);
 		else if (command == 'h') break_right(player);
+
+		else if (command == 'r') {
+			players[player].x = 0;
+			players[player].y = 0;
+		}
 
 		else if (command == 'C') {
 			if (debug_mode) printf("server: [%s]: new player connected to server! generating new player...\n", ip);
