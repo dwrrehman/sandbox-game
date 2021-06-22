@@ -41,8 +41,10 @@ static u64 side_length = 0;
 static struct player* players = NULL;
 static u32 player_count = 0;
 
-static bool server_running = true;
 static int server = 0;
+static bool server_running = true;
+
+static bool debug_mode = false;
 
 #define check(n) { if (n == 0 or n < 0) printf("error(%ld): in file:%s line:%d func:%s\n", n, __FILE__, __LINE__, __func__); }
 
@@ -82,111 +84,106 @@ static inline void spawn_player(u32 p) {
 }
 
 static inline void move_up(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x]) return;
 
 	u64 y = players[p].y;
 	if (y) y--; else y = side_length - 1;
 	if (universe[side_length * y + players[p].x]) return;
 
-	printf("server: MOVE UP : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
+	if (debug_mode) printf("server: MOVE UP : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
 	universe[side_length * players[p].y + players[p].x] = 0;
 	if (players[p].y) players[p].y--; else players[p].y = side_length - 1;
 	universe[side_length * players[p].y + players[p].x] = 2;
 }
 
 static inline void move_down(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x]) return;
 	u64 y = players[p].y;
 	if (y == side_length - 1) y = 0; else y++;
 	if (universe[side_length * y + players[p].x]) return;
-	printf("server: MOVE DOWN : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
+	if (debug_mode) printf("server: MOVE DOWN : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
 	universe[side_length * players[p].y + players[p].x] = 0;
 	if (players[p].y == side_length - 1) players[p].y = 0; else players[p].y++;
 	universe[side_length * players[p].y + players[p].x] = 2;
 }
 
 static inline void move_left(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x]) return;
 	u64 x = players[p].x;
 	if (x) x--; else x = side_length - 1;
 	if (universe[side_length * players[p].y + x]) return;
-	printf("server: MOVE LEFT : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
+	if (debug_mode) printf("server: MOVE LEFT : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
 	universe[side_length * players[p].y + players[p].x] = 0;
 	if (players[p].x) players[p].x--; else players[p].x = side_length - 1;
 	universe[side_length * players[p].y + players[p].x] = 2;
 }
 
 static inline void move_right(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x]) return;
 	u64 x = players[p].x;
 	if (x == side_length - 1) x = 0; else x++;
 	if (universe[side_length * players[p].y + x]) return;
-	printf("server: MOVE RIGHT : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
+	if (debug_mode) printf("server: MOVE RIGHT : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
 	universe[side_length * players[p].y + players[p].x] = 0;
 	if (players[p].x == side_length - 1) players[p].x = 0; else players[p].x++;
 	universe[side_length * players[p].y + players[p].x] = 2;
 }
 
-
 static inline void place_up(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x]) return;
-	printf("server: PLACE UP : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+
+	if (debug_mode) printf("server: PLACE UP : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
 	u64 y = players[p].y;
 	if (y) y--; else y = side_length - 1;
 	universe[side_length * y + players[p].x] = 1; 
 }
 
 static inline void place_down(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x]) return;
-	printf("server: PLACE DOWN : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+
+	if (debug_mode) printf("server: PLACE DOWN : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
 	u64 y = players[p].y;
 	if (y == side_length - 1) y = 0; else y++;
 	universe[side_length * y + players[p].x] = 1; 
 }
 
 static inline void place_left(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x]) return;
-	printf("server: PLACE LEFT : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+
+	if (debug_mode) printf("server: PLACE LEFT : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
 	u64 x = players[p].x;
 	if (x) x--; else x = side_length - 1;
 	universe[side_length * players[p].y + x] = 1;
 }
 
 static inline void place_right(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x]) return;
-	printf("server: PLACE RIGHT : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+
+	if (debug_mode) printf("server: PLACE RIGHT : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
 	u64 x = players[p].x;
 	if (x == side_length - 1) x = 0; else x++;
 	universe[side_length * players[p].y + x] = 1;
 }
 
 static inline void break_up(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x] == 0) return;
-	printf("server: PLACE UP : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+
+	if (debug_mode) printf("server: PLACE UP : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
 	u64 y = players[p].y;
 	if (y) y--; else y = side_length - 1;
 	universe[side_length * y + players[p].x] = 0; 
 }
 
 static inline void break_down(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x] == 0) return;
-	printf("server: PLACE DOWN : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+
+	if (debug_mode) printf("server: PLACE DOWN : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
 	u64 y = players[p].y;
 	if (y == side_length - 1) y = 0; else y++;
 	universe[side_length * y + players[p].x] = 0; 
 }
 
 static inline void break_left(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x] == 0) return;
-	printf("server: PLACE LEFT : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+
+	if (debug_mode) printf("server: PLACE LEFT : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
 	u64 x = players[p].x;
 	if (x) x--; else x = side_length - 1;
 	universe[side_length * players[p].y + x] = 0;
 }
 
 static inline void break_right(u32 p) {
-	// if (universe[side_length * players[p].y + players[p].x] == 0) return;
-	printf("server: PLACE RIGHT : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
+
+	if (debug_mode) printf("server: PLACE RIGHT : player #%d, player id: %llx_%llx \n", p, players[p].id0, players[p].id1);
 	u64 x = players[p].x;
 	if (x == side_length - 1) x = 0; else x++;
 	universe[side_length * players[p].y + x] = 0;
@@ -204,9 +201,6 @@ static inline u32 identify_player_from_ip(unsigned char ip[16]) {
 
 	return player_count;
 }
-
-
-
 
 
 // static inline u8 at(u64 x, u64 y, i64 x_off, i64 y_off) {
@@ -253,6 +247,8 @@ static inline void save_players(const char* destination) {
 	fwrite(&player_count, 4, 1, file);
 	fwrite(players, sizeof(struct player), player_count, file);
 	fclose(file);
+
+	printf("saved %d player's data.\n", player_count);
 }
 
 static inline void load_state(const char* source) {
@@ -277,18 +273,13 @@ static inline void load_players(const char* source) {
 	printf("loaded %d player's data.\n", player_count);
 }
 
-
-
-
 int main(const int argc, const char** argv) {
-	
 	
 	// u16 port = default_port;
 	// if (argc >= 2) {
 	// 	u16 n = (u16) atoi(argv[1]);
 	// 	if (n >= 1024) port = n;
 	// }
-
 
 	// srand((unsigned)time(0));
 
@@ -313,7 +304,6 @@ int main(const int argc, const char** argv) {
 	if (side_length) { mkdir(argv[3], 0700); generate(); }
 	else { load_state(state_file); load_players(players_file); }
 
-
 	printf("server: listening on %hu...\n", port);
 
 	server = socket(PF_INET6, SOCK_DGRAM, 0);
@@ -337,14 +327,13 @@ int main(const int argc, const char** argv) {
 		for (uint32_t player = 0; player < player_count; player++) {
 			if (not players[player].active) continue;
 
-			printf("sending DP for player #%u!\n", player);
+			if (debug_mode) printf("sending DP for player #%u!\n", player);
 			u8 packet[1200] = {0};
 
 			struct player p = players[player];
 
 			int64_t width = p.width / 2;
 			int64_t height = p.height / 2;
-			
 			
 			for (int64_t y_p = 0, y_off = -height; y_p < 15; y_off++, y_p++) {
 				for (int64_t x_p = 0, x_off = -width; x_p < 20; x_off++, x_p++) {
@@ -375,7 +364,7 @@ int main(const int argc, const char** argv) {
 			check(error);
 		}
 
-		printf("server: universe ticked!\n");
+		if (debug_mode) printf("server: universe ticked!\n");
 		universe[0] = !universe[0];
 		
 		ssize_t error = recvfrom(server, &command, 1, MSG_DONTWAIT, (struct sockaddr*)&address, &length);
@@ -388,7 +377,7 @@ int main(const int argc, const char** argv) {
 				printf("server: received packet from unknown IP: %s, ignoring...\n", ip); 
 				continue; 
 		} else 
-			printf("server: received command byte from player #%d, IP: %s, processing...\n", player, ip);
+			{ if (debug_mode) printf("server: received command byte from player #%d, IP: %s, processing...\n", player, ip); }
 
 		if (command == 'H') server_running = false;
 		else if (command == 'w') move_up(player);
@@ -405,7 +394,7 @@ int main(const int argc, const char** argv) {
 		else if (command == 'h') break_right(player);
 
 		else if (command == 'C') {
-			printf("server: [%s]: new player connected to server! generating new player...\n", ip);
+			if (debug_mode) printf("server: [%s]: new player connected to server! generating new player...\n", ip);
 			error = sendto(server, "A", 1, 0, (struct sockaddr*)&address, length); check(error);
 
 			players[player].address = address;
@@ -413,7 +402,7 @@ int main(const int argc, const char** argv) {
 			players[player].active = true; 
 
 			if (player < player_count) { 
-				printf("server: [%u / %u]: RETURNING/EXISTING player's uuid is: %llx_%llx\n", 
+				if (debug_mode) printf("server: [%u / %u]: RETURNING/EXISTING player's uuid is: %llx_%llx\n", 
 					player, player_count, players[player].id0, players[player].id1);
 
 			} else if (player == player_count) {
@@ -429,16 +418,15 @@ int main(const int argc, const char** argv) {
 				
 				player_count++;
 
-				printf("server: [%u / %u]: player's uuid is: %llx_%llx\n", 
+				if (debug_mode) printf("server: [%u / %u]: player's uuid is: %llx_%llx\n", 
 					player, player_count, players[player].id0, players[player].id1);
 			}
 
 		} else if (command == 'D') {
-			printf("server: [%s]: info: client sent a disconnection request!\n", ip); 
+			if (debug_mode) printf("server: [%s]: info: client sent a disconnection request!\n", ip); 
 			players[player].active = false;
 
 		} else printf("server: [%s]: warning: received unknown commmand: %c\n", ip, command);
-		
 	}
 
 	for (u32 i = 0; i < player_count; i++) players[i].active = false;
