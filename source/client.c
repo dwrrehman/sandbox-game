@@ -4,37 +4,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <signal.h>
 #include <arpa/inet.h>
 #include <SDL2/SDL.h>
 
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef int32_t i32;
-
-// typedef uint64_t u64;
-// typedef int8_t i8;
-// typedef int16_t i16;
-// typedef int64_t i64;
-
-static bool quit = false;
-static bool fullscreen = false;
-static i32 target_ms_per_frame = 16;
-static i32 window_height = 400, window_width = 640;
-static const char* window_title = "universe";
-
 #define check(n) { if (n == 0 || n < 0) printf("error(%ld): %s line:%d func:%s\n", n, __FILE__, __LINE__, __func__); }
-
-// static inline void window_changed(SDL_Window* window) {
-	
-// }
 
 int main(const int argc, const char** argv) {
 	if (argc != 4) exit(puts("usage: ./client <ip> <port> <playername>"));
 
 	const char* ip = argv[1];
-	const u16 port = (u16) atoi(argv[2]);
+	const uint16_t port = (uint16_t) atoi(argv[2]);
 	
 	int fd = socket(PF_INET6, SOCK_DGRAM, 0);
 	if (fd < 0) { perror("socket"); abort(); }
@@ -44,50 +23,34 @@ int main(const int argc, const char** argv) {
 	inet_pton(PF_INET6, ip, &address.sin6_addr); 
 	socklen_t size = sizeof address;
 	
-	u8 response = 0;
+	uint8_t response = 0;
 	ssize_t error = sendto(fd, "C", 1, 0, (struct sockaddr*) &address, size);
 	check(error);
 
 	printf("Connecting to [%s]:%hd ...\n", ip, port);
 	error = recvfrom(fd, &response, 1, 0, (struct sockaddr*) &address, &size);
 	check(error);
-
 	if (response != 'A') return puts("error: connection not acknolwewdged by server.");
 
 	printf("\n\t[connected]\n\n");
 
 	if (SDL_Init(SDL_INIT_VIDEO)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
-
-	SDL_Window *window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
-						window_width, window_height, 
-						SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-
+	SDL_Window *window = SDL_CreateWindow("universe", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 400, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-	
-	const int logical_window_width = 10;
-	const int logical_window_height = 10;         // just for testing.         50 x 30? .... that could work too....
-
-	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, logical_window_width, logical_window_height);
-
+	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 10, 10);
 	SDL_ShowCursor(0);
 	
-	size_t count = logical_window_width * logical_window_height;
-
-	u32* buffer = malloc(sizeof(u32) * logical_window_width * logical_window_height);   // calloc.
-	memset(buffer, 0x00, sizeof(u32) * count);
-
-	u32* pixels = NULL;
+	const size_t count = 10 * 10;
+	uint32_t* buffer = calloc(count, 4); // TODO: make me malloc()
+	uint32_t* pixels = NULL;
 	int pitch = 0;
+	bool quit = false, fullscreen = false;
 
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
-
-		error = recvfrom(fd, buffer, 10 * 10 * 4, MSG_DONTWAIT, (struct sockaddr*) &address, &size); 
-
-		// check(error);
-		
+		recvfrom(fd, buffer, 10 * 10 * 4, MSG_DONTWAIT, (struct sockaddr*) &address, &size); 
 		SDL_LockTexture(texture, NULL, (void**) &pixels, &pitch);		
-		memcpy(pixels, buffer, sizeof(u32) * count);
+		memcpy(pixels, buffer, 4 * count);
 		SDL_UnlockTexture(texture);
 		SDL_RenderCopy(renderer, texture, NULL, NULL);
 		SDL_RenderPresent(renderer);
@@ -96,42 +59,31 @@ int main(const int argc, const char** argv) {
 		while (SDL_PollEvent(&event)) {
 			const Uint8* key = SDL_GetKeyboardState(0);
 			if (event.type == SDL_QUIT) quit = true;
-			if (event.type == SDL_WINDOWEVENT) {
-                		if (event.window.event == SDL_WINDOWEVENT_RESIZED) SDL_GetWindowSize(window, &window_width, &window_height);
-			}
-			
 			if (event.type == SDL_KEYDOWN) {
-
-				if (key[SDL_SCANCODE_GRAVE]) {
-					fullscreen = !fullscreen; 
-					SDL_SetWindowFullscreen(window, fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
-					SDL_GetWindowSize(window, &window_width, &window_height);
-				}
-
+				if (key[SDL_SCANCODE_GRAVE]) SDL_SetWindowFullscreen(window, (fullscreen = !fullscreen) ? SDL_WINDOW_FULLSCREEN : 0);
 				if (key[SDL_SCANCODE_0] or key[SDL_SCANCODE_ESCAPE] or key[SDL_SCANCODE_Q]) quit = true;
+				if (key[SDL_SCANCODE_0]) sendto(fd, "H", 1, 0, (struct sockaddr*) &address, size);
 
-				if (key[SDL_SCANCODE_0]) {error = sendto(fd, "H", 1, 0, (struct sockaddr*) &address, size); check(error);}
+				if (key[SDL_SCANCODE_W]) sendto(fd, "w", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_A]) sendto(fd, "a", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_S]) sendto(fd, "s", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_D]) sendto(fd, "d", 1, 0, (struct sockaddr*) &address, size);
 
-				if (key[SDL_SCANCODE_C]) {error = sendto(fd, "y", 1, 0, (struct sockaddr*) &address, size); check(error);}
-				if (key[SDL_SCANCODE_V]) {error = sendto(fd, "Y", 1, 0, (struct sockaddr*) &address, size); check(error);}
-				if (key[SDL_SCANCODE_Z]) {error = sendto(fd, "x", 1, 0, (struct sockaddr*) &address, size); check(error);}
-				if (key[SDL_SCANCODE_X]) {error = sendto(fd, "X", 1, 0, (struct sockaddr*) &address, size); check(error);}
+				if (key[SDL_SCANCODE_T]) sendto(fd, "t", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_F]) sendto(fd, "f", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_G]) sendto(fd, "g", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_H]) sendto(fd, "h", 1, 0, (struct sockaddr*) &address, size);
 
-				if (key[SDL_SCANCODE_W]) {error = sendto(fd, "w", 1, 0, (struct sockaddr*) &address, size); check(error);}
-				if (key[SDL_SCANCODE_A]) {error = sendto(fd, "a", 1, 0, (struct sockaddr*) &address, size); check(error);}
-				if (key[SDL_SCANCODE_S]) {error = sendto(fd, "s", 1, 0, (struct sockaddr*) &address, size); check(error);}
-				if (key[SDL_SCANCODE_D]) {error = sendto(fd, "d", 1, 0, (struct sockaddr*) &address, size); check(error);}
-
-				if (key[SDL_SCANCODE_I]) {error = sendto(fd, "i", 1, 0, (struct sockaddr*) &address, size); check(error);}
-				if (key[SDL_SCANCODE_J]) {error = sendto(fd, "j", 1, 0, (struct sockaddr*) &address, size); check(error);}
-				if (key[SDL_SCANCODE_K]) {error = sendto(fd, "k", 1, 0, (struct sockaddr*) &address, size); check(error);}
-				if (key[SDL_SCANCODE_L]) {error = sendto(fd, "l", 1, 0, (struct sockaddr*) &address, size); check(error);}
+				if (key[SDL_SCANCODE_I]) sendto(fd, "i", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_J]) sendto(fd, "j", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_K]) sendto(fd, "k", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_L]) sendto(fd, "l", 1, 0, (struct sockaddr*) &address, size);
 			}
 		}
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = target_ms_per_frame - (int32_t) time; 
+		int32_t sleep = 33 - (int32_t) time; 
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 	
 		if (!(SDL_GetTicks() & 511)) {
@@ -139,9 +91,8 @@ int main(const int argc, const char** argv) {
 			printf("fps = %.5lf\n", fps);
 		}
 	}
-	error = sendto(fd, "D", 1, 0, (struct sockaddr*) &address, size);check(error);
+	sendto(fd, "D", 1, 0, (struct sockaddr*) &address, size);
 	close(fd);
-	// free(screen);
 	SDL_DestroyTexture(texture);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);

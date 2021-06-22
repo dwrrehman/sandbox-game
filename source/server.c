@@ -81,12 +81,6 @@ static inline void spawn_player(u32 p) {
 	printf("server: error: spawn aborted for player %u after %u attempts\n", p, max_spawn_attempts);
 }
 
-static inline void tick() {
-	universe[0] = !universe[0];
-	// universe[11] = !universe[11];
-	return;
-}
-
 static inline void move_up(u32 p) {
 	if (universe[side_length * players[p].y + players[p].x]) return;
 	printf("server: MOVE UP : player #%d, player id: %llx_%llx : was at x=%llu y=%llu\n", p, players[p].id0, players[p].id1, players[p].x, players[p].y);
@@ -229,35 +223,35 @@ int main(const int argc, const char** argv) {
 	socklen_t length = sizeof address;
 
 	while (server_running) {
-		usleep(1000);
+		usleep(100000);
 
-		while (server_running) {
-			for (u32 player = 0; player < player_count; player++) {
-				if (not players[player].active) continue;
+		for (u32 player = 0; player < player_count; player++) {
+			if (not players[player].active) continue;
 
-				u8 packet[400] = {0};
-				for (u64 i = 0; i < universe_count; i++) {
-					if (universe[i] == 1) {
-						packet[4 * i + 0] = 255;
-						packet[4 * i + 1] = 255;
-						packet[4 * i + 2] = 255;
-						packet[4 * i + 3] = 255;
+			u8 packet[400] = {0};
+			for (u64 i = 0; i < universe_count; i++) {
+				if (universe[i] == 1) {
+					packet[4 * i + 0] = 255;
+					packet[4 * i + 1] = 255;
+					packet[4 * i + 2] = 255;
+					packet[4 * i + 3] = 255;
 
-					} else if (universe[i] == 5) {
-						packet[4 * i + 0] = 255;
-						packet[4 * i + 1] = 255;
-						packet[4 * i + 2] = 0;
-						packet[4 * i + 3] = 255;
-					}
+				} else if (universe[i] == 5) {
+					packet[4 * i + 0] = 255;
+					packet[4 * i + 1] = 255;
+					packet[4 * i + 2] = 0;
+					packet[4 * i + 3] = 255;
 				}
-				ssize_t error = sendto(server, packet, 4 * 10 * 10, 0, (struct sockaddr*)& (players[player].address), players[player].length);
-				check(error);
 			}
-			tick();
+			ssize_t error = sendto(server, packet, 4 * 10 * 10, 0, (struct sockaddr*)& (players[player].address), players[player].length);
+			check(error);
 		}
+
+		printf("universe ticked!\n");
+		universe[0] = !universe[0];
 		
 		ssize_t error = recvfrom(server, &command, 1, MSG_DONTWAIT, (struct sockaddr*)&address, &length);
-		check(error);
+		// check(error);
 
 		ipv6_string(ip, address.sin6_addr.s6_addr); // put in connect requ.
 
