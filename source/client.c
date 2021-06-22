@@ -77,6 +77,19 @@ int main(const int argc, const char** argv) {
 				if (key[SDL_SCANCODE_J]) sendto(fd, "j", 1, 0, (struct sockaddr*) &address, size);
 				if (key[SDL_SCANCODE_K]) sendto(fd, "k", 1, 0, (struct sockaddr*) &address, size);
 				if (key[SDL_SCANCODE_L]) sendto(fd, "l", 1, 0, (struct sockaddr*) &address, size);
+
+				if (key[SDL_SCANCODE_R]) sendto(fd, "r", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_E]) sendto(fd, "e", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_X]) sendto(fd, "x", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_C]) sendto(fd, "c", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_V]) sendto(fd, "v", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_Z]) sendto(fd, "z", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_U]) sendto(fd, "u", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_Y]) sendto(fd, "y", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_N]) sendto(fd, "n", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_M]) sendto(fd, "m", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_P]) sendto(fd, "p", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_O]) sendto(fd, "o", 1, 0, (struct sockaddr*) &address, size);
 			}
 		}
 
