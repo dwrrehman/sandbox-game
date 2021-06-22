@@ -11,37 +11,24 @@
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
-// typedef uint64_t u64;
+typedef int32_t i32;
 
+// typedef uint64_t u64;
 // typedef int8_t i8;
 // typedef int16_t i16;
-typedef int32_t i32;
 // typedef int64_t i64;
 
 static bool quit = false;
-static i32 target_ms_per_frame = 33;
+static bool fullscreen = false;
+static i32 target_ms_per_frame = 16;
 static i32 window_height = 400, window_width = 640;
 static const char* window_title = "universe";
 
 #define check(n) { if (n == 0 || n < 0) printf("error(%ld): %s line:%d func:%s\n", n, __FILE__, __LINE__, __func__); }
 
-static inline void window_changed(SDL_Window* window, SDL_Renderer* renderer, SDL_Texture** texture) {
-	int w = 0, h = 0;
-	SDL_GetWindowSize(window, &w, &h);
-	window_width = w;
-	window_height = h;
-	// SDL_DestroyTexture(*texture);
-	// *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, window_width, window_height);
-
-	printf("width and height: (%d, %d)\n", window_width, window_height);
-}
-
-static inline void toggle_fullscreen(SDL_Window* window, SDL_Renderer* renderer, SDL_Texture** texture) {
-	static bool full = false;
-	full = !full;
-	SDL_SetWindowFullscreen(window, full ? SDL_WINDOW_FULLSCREEN : 0);
-	window_changed(window, renderer, texture);
-}
+// static inline void window_changed(SDL_Window* window) {
+	
+// }
 
 int main(const int argc, const char** argv) {
 	if (argc != 4) exit(puts("usage: ./client <ip> <port> <playername>"));
@@ -78,10 +65,9 @@ int main(const int argc, const char** argv) {
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 	
 	const int logical_window_width = 10;
-	const int logical_window_height = 10;         // just for testing.
+	const int logical_window_height = 10;         // just for testing.         50 x 30? .... that could work too....
 
-	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 
-					logical_window_width, logical_window_height);
+	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, logical_window_width, logical_window_height);
 
 	SDL_ShowCursor(0);
 	
@@ -97,7 +83,8 @@ int main(const int argc, const char** argv) {
 		uint32_t start = SDL_GetTicks();
 
 		error = recvfrom(fd, buffer, 10 * 10 * 4, MSG_DONTWAIT, (struct sockaddr*) &address, &size); 
-		check(error);
+
+		// check(error);
 		
 		SDL_LockTexture(texture, NULL, (void**) &pixels, &pitch);		
 		memcpy(pixels, buffer, sizeof(u32) * count);
@@ -110,14 +97,17 @@ int main(const int argc, const char** argv) {
 			const Uint8* key = SDL_GetKeyboardState(0);
 			if (event.type == SDL_QUIT) quit = true;
 			if (event.type == SDL_WINDOWEVENT) {
-                		if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-					window_changed(window, renderer, &texture);
-					// send_resize_command(connection);
-				}
+                		if (event.window.event == SDL_WINDOWEVENT_RESIZED) SDL_GetWindowSize(window, &window_width, &window_height);
 			}
 			
 			if (event.type == SDL_KEYDOWN) {
-				if (key[SDL_SCANCODE_GRAVE]) toggle_fullscreen(window, renderer, &texture);
+
+				if (key[SDL_SCANCODE_GRAVE]) {
+					fullscreen = !fullscreen; 
+					SDL_SetWindowFullscreen(window, fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
+					SDL_GetWindowSize(window, &window_width, &window_height);
+				}
+
 				if (key[SDL_SCANCODE_0] or key[SDL_SCANCODE_ESCAPE] or key[SDL_SCANCODE_Q]) quit = true;
 
 				if (key[SDL_SCANCODE_0]) {error = sendto(fd, "H", 1, 0, (struct sockaddr*) &address, size); check(error);}
@@ -326,5 +316,17 @@ s
 		// 	SDL_RenderDrawPoint(renderer, screen[i], screen[i + 1]);
 		// }
 
+
+
+
+
+ // , SDL_Renderer* renderer, SDL_Texture** texture
+// SDL_DestroyTexture(*texture);
+	// *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, window_width, window_height);
+
+
+// static inline void toggle_fullscreen(SDL_Window* window) { // , SDL_Renderer* renderer, SDL_Texture** texture
+	
+// }
 
 
