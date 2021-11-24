@@ -1,61 +1,247 @@
-// UDP client for my multiplayer game.
+// client for a 3d block game using opengl and sdl2.
 #include <iso646.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <arpa/inet.h>
 
 #include <SDL2/SDL.h>
+#include <OpenGL/gl3.h>
 
-#define check(n) do { if (n == 0 || n < 0) printf("error(%ld): %s line:%d func:%s\n", n, __FILE__, __LINE__, __func__); } while (0)
 
-int main(const int argc, const char** argv) {
-	if (argc != 3) exit(puts("usage: ./client <ip> <port>"));
+static const char* vertex_shader_code = "        	\n\
+#version 120                              		\n\
+                                                        \n\
+attribute vec3 position;                                \n\
+attribute float block;                                  \n\
+                               				\n\
+varying float block_type;                              	\n\
+uniform mat4 transform;					\n\
+                                          		\n\
+void main() {                                		\n\
+	gl_Position = transform * vec4(position, 1.0);              \n\
+	block_type = block;                             \n\
+}                                                       \n";
 
-	const char* ip = argv[1];
-	const uint16_t port = (uint16_t) atoi(argv[2]);
-	
-	int fd = socket(PF_INET6, SOCK_DGRAM, 0);
-	if (fd < 0) { perror("socket"); abort(); }
-	struct sockaddr_in6 address = {0};
-	address.sin6_family = PF_INET6;
-	address.sin6_port = htons(port);
-	inet_pton(PF_INET6, ip, &address.sin6_addr); 
-	socklen_t size = sizeof address;
-	
-	uint8_t response = 0;
-	ssize_t error = sendto(fd, "C", 1, 0, (struct sockaddr*) &address, size);
-	check(error);
 
-	printf("Connecting to [%s]:%hd ...\n", ip, port);
-	error = recvfrom(fd, &response, 1, 0, (struct sockaddr*) &address, &size);
-	check(error);
-	if (response != 'A') return puts("error: connection not acknolwewdged by server.");
+static const char* fragment_shader_code = "        				\n\
+#version 120                                            			\n\
+                               							\n\
+varying float block_type;			       				\n\
+                               							\n\
+void main() {                                					\n\
+	if (block_type == 0.0) gl_FragColor = vec4(0.5, 0.0, 0.8, 1.0);		\n\
+	else if (block_type == 1.0) gl_FragColor = vec4(0.8, 0.5, 0.0, 1.0);	\n\
+	else if (block_type == 2.0) gl_FragColor = vec4(0.0, 1.0, 1.0, 1.0);	\n\
+	else if (block_type == 3.0) gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);	\n\
+	else gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);				\n\
+}                               	 					\n";
 
-	printf("\n\t[connected]\n\n");
+
+
+
+
+
+
+
+// float* result = malloc(4 * 4 * sizeof(float));  calll using this sized mat4.
+
+float* perspective(float* result, float fovy, float aspect, float zNear, float zFar) {
+   
+	const float t = tan(fovy / 2.0f);
+	result[0 * 4 + 0] = 1.0f / (aspect * t);
+	result[4 * 1 + 1] = 1.0f / t;
+	result[4 * 2 + 2] = -(zFar + zNear) / (zFar - zNear);
+	result[4 * 2 + 3] = -1.0f;
+	result[4 * 3 + 2] = -(2.0f * zFar * zNear) / (zFar - zNear);
+	return result;
+}
+
+mat4x4 lookAt(vec3 const & eye, vec3  const & center, vec3  const & up)
+{
+    vec3  f = normalize(center - eye);
+    vec3  u = normalize(up);
+    vec3  s = normalize(cross(f, u));
+    u = cross(s, f);
+
+
+// Maths::Matrix4 mat;
+// Maths::Vector3 z = Maths::normalize(target - position);
+// Maths::Vector3 x = Maths::normalize(Maths::crossProduct(z, up));
+// Maths::Vector3 y = Maths::crossProduct(x, z);
+
+
+
+
+    mat4x4 Result(1);
+    Result[0][0] = s.x;
+    Result[1][0] = s.y;
+    Result[2][0] = s.z;
+    Result[0][1] = u.x;
+    Result[1][1] = u.y;
+    Result[2][1] = u.z;
+    Result[0][2] =-f.x;
+    Result[1][2] =-f.y;
+    Result[2][2] =-f.z;
+    Result[3][0] =-dot(s, eye);
+    Result[3][1] =-dot(u, eye);
+    Result[3][2] = dot(f, eye);
+    return Result;
+}
+
+vec3 normalize(const vec3 &v)
+{
+   float length_of_v = sqrt((v.x * v.x) + (v.y * v.y) + (v.z * v.z));
+   return vec3(v.x / length_of_v, v.y / length_of_v, v.z / length_of_v);
+}
+
+
+
+int mult(int A[N][N], int B[N][N]) {
+    int C[N][N];
+
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            int num = 0;
+            for (int k = 0; k < N; k++) {
+                num += A[i][k] * B[k][j];
+            }
+            C[i][j] = num;
+            std::cout << num << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    return 0;
+}
+
+
+
+
+
+int main() {
 
 	if (SDL_Init(SDL_INIT_VIDEO)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
-	SDL_Window *window = SDL_CreateWindow("universe", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 400, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-	SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 22, 17);
-	SDL_ShowCursor(0);
-	
-	const int buffer_count = 22 * 17 * 4;
 
-	uint32_t* buffer = malloc(buffer_count);
-	uint32_t* pixels = NULL;
-	int pitch = 0;
-	bool quit = false, fullscreen = false;
+	SDL_Window *window = SDL_CreateWindow("block game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_OPENGL);
+	SDL_GLContext context = SDL_GL_CreateContext(window);
+
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);	
+
+	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
+
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+	printf("%s\n", glGetString(GL_VERSION)); // debug
+
+	SDL_GL_SetSwapInterval(0); // no vync.
+
+	glEnable(GL_DEPTH_TEST);
+	
+
+	GLint success = 0;
+	GLchar error[1024] = {0};
+	GLuint program = glCreateProgram();
+	
+	GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+	const GLchar* vs_sources[1] = {vertex_shader_code};
+	GLint vs_lengths[1] = {(GLint)strlen(vertex_shader_code)};
+	glShaderSource(vertex_shader, 1, vs_sources, vs_lengths);
+	glCompileShader(vertex_shader);
+	glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
+	glGetShaderInfoLog(vertex_shader, sizeof(error), NULL, error);
+	printf("vs error: %s\n", error);
+	glAttachShader(program, vertex_shader);
+
+	GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+	const GLchar* fs_sources[1] = {fragment_shader_code};
+	GLint fs_lengths[1] = {(GLint)strlen(fragment_shader_code)};
+	glShaderSource(fragment_shader, 1, fs_sources, fs_lengths);
+	glCompileShader(fragment_shader);
+	glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
+	glGetShaderInfoLog(fragment_shader, sizeof(error), NULL, error);
+	printf("fs error: %s\n", error);
+	glAttachShader(program, fragment_shader);
+	
+	enum {attribute_position, attribute_block};
+	
+
+	glBindAttribLocation(program, attribute_position, "position");
+	glBindAttribLocation(program, attribute_block, "block");
+
+	glLinkProgram(program);
+	glGetProgramiv(program, GL_LINK_STATUS, &success);
+	glGetProgramInfoLog(program, sizeof(error), NULL, error);
+	printf("link error: %s\n", error);
+	glValidateProgram(program);
+	glGetProgramiv(program, GL_VALIDATE_STATUS, &success);
+	glGetProgramInfoLog(program, sizeof(error), NULL, error);
+	printf("validate error: %s\n", error);
+	glUseProgram(program);
+
+	// ---------------------------------------------------
+
+	int vertex_count = 3;
+
+	float positions[] = {
+		-0.5, -0.5, 0.0,
+		0.0, 0.5, 0.0,
+		0.5, -0.5, 0.0,
+	};
+	
+	float block_types[] = {
+		1.0,
+		1.0,
+		1.0
+	};
+
+	GLuint vertex_array;
+	glGenVertexArrays(1, &vertex_array);
+	glBindVertexArray(vertex_array);
+	
+	GLuint vertex_array_position_buffer;
+	glGenBuffers(1, &vertex_array_position_buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vertex_array_position_buffer);
+	glEnableVertexAttribArray(attribute_position);
+	glVertexAttribPointer(attribute_position, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	
+	GLuint vertex_array_block_buffer;
+	glGenBuffers(1, &vertex_array_block_buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vertex_array_block_buffer);
+	glEnableVertexAttribArray(attribute_block);
+	glVertexAttribPointer(attribute_block, 1, GL_FLOAT, GL_FALSE, 0, 0);
+
+
+	// uint8_t* data = ...;  /// load image data from txture, and get the widt and height. should be in rgba format i think.
+
+	// GLuint texture;
+	// glGenTextures(1, &texture);
+	// glActiveTexture(GL_TEXTURE0);
+	// glBindTexture(GL_TEXTURE_2D, texture);
+	
+	// glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	// glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
+
+	// glTextureParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
+	// glTextureParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data)
+
+	
+	
+	bool quit = false;
+
+	int counter = 0;
 
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
-		recvfrom(fd, buffer, buffer_count, MSG_DONTWAIT, (struct sockaddr*) &address, &size); 
-		SDL_LockTexture(texture, NULL, (void**) &pixels, &pitch);		
-		memcpy(pixels, buffer, buffer_count);
-		SDL_UnlockTexture(texture);
-		SDL_RenderCopy(renderer, texture, NULL, NULL);
-		SDL_RenderPresent(renderer);
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
@@ -63,69 +249,87 @@ int main(const int argc, const char** argv) {
 			if (event.type == SDL_QUIT) quit = true;
 			if (event.type == SDL_KEYDOWN) {
 
-				if (key[SDL_SCANCODE_TAB]) SDL_SetWindowFullscreen(window,(fullscreen=!fullscreen)?SDL_WINDOW_FULLSCREEN:0);
-				if (key[SDL_SCANCODE_ESCAPE] || key[SDL_SCANCODE_GRAVE]) quit = true;
-				if (key[SDL_SCANCODE_GRAVE]) sendto(fd, "H", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_RETURN]) sendto(fd, "S", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_Q]) quit = true;
+				if (key[SDL_SCANCODE_ESCAPE]) quit = true;
 
-				if (key[SDL_SCANCODE_A]) sendto(fd, "a", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_B]) sendto(fd, "b", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_C]) sendto(fd, "c", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_D]) sendto(fd, "d", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_E]) sendto(fd, "e", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_F]) sendto(fd, "f", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_G]) sendto(fd, "g", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_H]) sendto(fd, "h", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_I]) sendto(fd, "i", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_J]) sendto(fd, "j", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_K]) sendto(fd, "k", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_L]) sendto(fd, "l", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_M]) sendto(fd, "m", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_N]) sendto(fd, "n", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_O]) sendto(fd, "o", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_P]) sendto(fd, "p", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_Q]) sendto(fd, "q", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_R]) sendto(fd, "r", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_S]) sendto(fd, "s", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_T]) sendto(fd, "t", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_U]) sendto(fd, "u", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_V]) sendto(fd, "v", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_W]) sendto(fd, "w", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_X]) sendto(fd, "x", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_Y]) sendto(fd, "y", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_Z]) sendto(fd, "z", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_0]) sendto(fd, "0", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_1]) sendto(fd, "1", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_2]) sendto(fd, "2", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_3]) sendto(fd, "3", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_4]) sendto(fd, "4", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_5]) sendto(fd, "5", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_6]) sendto(fd, "6", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_7]) sendto(fd, "7", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_8]) sendto(fd, "8", 1, 0, (struct sockaddr*) &address, size);
-				if (key[SDL_SCANCODE_9]) sendto(fd, "9", 1, 0, (struct sockaddr*) &address, size);
+				if (key[SDL_SCANCODE_E]) {
+					block_types[0]++;
+					block_types[1]++;
+					block_types[2]++;
+				}
+
+				if (key[SDL_SCANCODE_W]) {
+					block_types[0]--;
+					block_types[1]--;
+					block_types[2]--;
+				}
+
+				if (key[SDL_SCANCODE_F]) {
+					positions[0] += 0.001;
+				}
+
+				if (key[SDL_SCANCODE_D]) {
+					positions[0] -= 0.001;
+				}
+
+				// if (key[SDL_SCANCODE_TAB]) SDL_SetWindowFullscreen ( window, ( fullscreen = !fullscreen) ? SDL_WINDOW_FULLSCREEN : 0);
 				
 			}
 		}
 
+		glClearColor(0.0f, 0.15f, 0.3f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+
+		glBindBuffer(GL_ARRAY_BUFFER, vertex_array_position_buffer);
+		glBufferData(GL_ARRAY_BUFFER, vertex_count * 3 * sizeof(float), positions, GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ARRAY_BUFFER, vertex_array_block_buffer);
+		glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(float), block_types, GL_STATIC_DRAW);
+
+		glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+
+		SDL_GL_SwapWindow(window);
+
+
+
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = 16 - (int32_t) time; 
+		int32_t sleep = 16 - (int32_t) time;  // 16 for 60fps.
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
-	
-		if (!(SDL_GetTicks() & 511)) {
+
+		if (counter == 100) counter = 0;
+		else counter++;
+
+		if (counter == 0) {
 			double fps = 1 / ((double) (SDL_GetTicks() - start) / 1000.0);
-			printf("fps = %.5lf\n", fps);
+			printf("fps = %10.10lf\n", fps);
 		}
-	}
-	sendto(fd, "D", 1, 0, (struct sockaddr*) &address, size);
-	close(fd);
-	SDL_DestroyTexture(texture);
-	SDL_DestroyRenderer(renderer);
+	}	
+
+
+	
+	// glDeleteTextures(1, &texture);
+
+
+
+	glBindVertexArray(0); // unbind vao            ...?
+
+
+	glDeleteVertexArrays(1, &vertex_array);
+
+	// delete buffers?
+
+
+	glDetachShader(program, vertex_shader);
+	glDeleteShader(vertex_shader);
+	glDetachShader(program, fragment_shader);
+	glDeleteShader(fragment_shader);
+	glDeleteProgram(program);
+
+		
+	
+	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }
-
-
-
-
