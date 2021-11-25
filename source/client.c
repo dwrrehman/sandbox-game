@@ -13,7 +13,7 @@
 
 
 static const char* vertex_shader_code = "        	\n\
-#version 120                              		\n\
+#version 330 core                              		\n\
                                                         \n\
 attribute vec3 position;                                \n\
 attribute float block;                                  \n\
@@ -29,7 +29,7 @@ void main() {                                		\n\
 
 
 static const char* fragment_shader_code = "        				\n\
-#version 120                                            			\n\
+#version 330 core                                            			\n\
                                							\n\
 varying float block_type;			       				\n\
                                							\n\
