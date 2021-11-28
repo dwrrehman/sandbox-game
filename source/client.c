@@ -12,24 +12,57 @@
 #include <OpenGL/gl3.h>
 
 
+
+
+
+
+
+// ex:
+
+
+
+
+ // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+
+ // // Draw the triangles !
+ // glDrawElements(
+ //     GL_TRIANGLES,      // mode
+ //     indices.size(),    // count
+ //     GL_UNSIGNED_INT,   // type
+ //     (void*)0           // element array buffer offset
+ // );
+
+
+
+
+
+
+
+
+
+
+
+
+
 static const char* vertex_shader_code = "        	\n\
-#version 330 core                              		\n\
+#version 120                              		\n\
                                                         \n\
 attribute vec3 position;                                \n\
 attribute float block;                                  \n\
                                				\n\
 varying float block_type;                              	\n\
 							\n\
-uniform mat4 transform;					\n\
+uniform mat4 view;					\n\
+uniform mat4 perspective;				\n\
                                           		\n\
 void main() {                                		\n\
-	gl_Position = transform * vec4(position, 1.0);  \n\
+	gl_Position = perspective * view * vec4(position, 1.0);  \n\
 	block_type = block;                             \n\
 }                                                       \n";
 
 
 static const char* fragment_shader_code = "        				\n\
-#version 330 core                                            			\n\
+#version 120                                            			\n\
                                							\n\
 varying float block_type;			       				\n\
                                							\n\
@@ -41,8 +74,8 @@ void main() {                                					\n\
 	else gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);				\n\
 }                               	 					\n";
 
-struct vec3 {float x,y,z;};
 
+struct vec3 {float x,y,z;};
 typedef float* mat4;
 
 
@@ -86,8 +119,8 @@ static inline float dot(struct vec3 a, struct vec3 b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-static inline void look_at(mat4 result, struct vec3 eye, struct vec3 forward, struct vec3 up) {
-	struct vec3 f = normalize(forward);
+static inline void look_at(mat4 result, struct vec3 eye, struct vec3 f, struct vec3 up) {
+	 //TODO: is this neccessary?
 	struct vec3 s = normalize(cross(f, up));
 	struct vec3 u = cross(s, f);
 
@@ -106,26 +139,39 @@ static inline void look_at(mat4 result, struct vec3 eye, struct vec3 forward, st
 	result[4 * 3 + 3] = 1;
 }
 
-static inline void multiply_matrix(mat4 out, mat4 A, mat4 B) {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            out[4 * i + j] = 
-		A[4 * i + 0] * B[4 * 0 + j] + 
-		A[4 * i + 1] * B[4 * 1 + j] + 
-		A[4 * i + 2] * B[4 * 2 + j] + 
-		A[4 * i + 3] * B[4 * 3 + j];
-        }
-    }
-}
+// static inline void multiply_matrix(mat4 out, mat4 A, mat4 B) {
+//     for (int i = 0; i < 4; i++) {
+//         for (int j = 0; j < 4; j++) {
+//             out[4 * i + j] = 
+// 		A[4 * i + 0] * B[4 * 0 + j] + 
+// 		A[4 * i + 1] * B[4 * 1 + j] + 
+// 		A[4 * i + 2] * B[4 * 2 + j] + 
+// 		A[4 * i + 3] * B[4 * 3 + j];
+//         }
+//     }
+// }
 
 
-#define window_width 800
-#define window_height 600
+
+// parameters:
+
+
+static const int window_width = 1600;
+static const int window_height = 1000;
+static const float aspect = (float) window_width / (float) window_height;
+
+
+
 
 static const float fovy = 1.22173f /*radians*/;
-static const float aspect = (float) window_width / (float) window_height;
-static const float znear = 0.001f;
-static const float zfar = 1000.0f;
+static const float znear = 0.01f;
+static const float zfar = 100.0f;
+
+static const float camera_sensitivity = 0.005f;
+static const float camera_accel = 0.00003f;
+static const float drag = 0.95f;
+
+static const int32_t ms_delay_per_frame = 16;
 
 
 
@@ -147,6 +193,10 @@ int main() {
 	SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
 
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+
+	glEnable(GL_DEPTH_TEST);
+
 
 	printf("%s\n", glGetString(GL_VERSION)); // debug
 
@@ -195,24 +245,45 @@ int main() {
 	printf("validate error: %s\n", error);
 	glUseProgram(program);
 
-	GLint transform = glGetUniformLocation(program, "transform");
+	GLint view_uniform = glGetUniformLocation(program, "view");
+	GLint perspective_uniform = glGetUniformLocation(program, "perspective");
 
 	
-
 	// ---------------------------------------------------
 
-	int vertex_count = 3;
+	int vertex_count = 15;
 
 	float positions[] = {
-		
+		0.0, 0.0, 0.0,    1.0, 0.0, 0.0,    0.0, 1.0, 0.0,
+
+		1.0, 1.0, 0.0,    1.0, 0.0, 0.0,    0.0, 1.0, 0.0,
+
+
+		0.0, 0.0, 1.0,    1.0, 0.0, 1.0,    0.0, 1.0, 1.0,
+
+		1.0, 1.0, 1.0,    1.0, 0.0, 1.0,    0.0, 1.0, 1.0,
+
+
+
+		1.0, 0.0, 0.0,    1.0, 1.0, 0.0,    1.0, 1.0, 1.0, 
+
+
 	};
+
+	
 
 	
 	
 	float block_types[] = {
-		1.0,
-		1.0,
-		1.0
+		0.0, 0.0, 0.0,
+	
+		1.0, 1.0, 1.0,
+
+		2.0, 2.0, 2.0,
+	
+		3.0, 3.0, 3.0,
+
+		4.0, 4.0, 4.0, 
 	};
 
 	GLuint vertex_array;
@@ -234,38 +305,37 @@ int main() {
 	glEnableVertexAttribArray(attribute_block);
 	glVertexAttribPointer(attribute_block, 1, GL_FLOAT, GL_FALSE, 0, 0);
 
-
-	// parameters:
 	
-	const float camera_sensitivity = 0.01f;
-	const float camera_accel = 0.01f;
-	const float drag = 0.95f;
-
 	// variables:
+	bool debug = false;
+	bool quit = false;
+	bool tab = false;
+	int counter = 0;
+	float delta = 0.0;
 
+	float pitch = 0.0f, yaw = 0.0f;
 	struct vec3 position = {0, 0, -3};
 	struct vec3 velocity = {0, 0, 0};
-	float pitch = 0.0f, yaw = 0.0f;
 
-	struct vec3 right = 	{1, 0, 0};
+	struct vec3 forward = 	{0, 0, -1};
+	struct vec3 straight = 	{0, 0, 1};
 	struct vec3 up = 	{0, 1, 0};
-	struct vec3 forward = 	{0, 0, 1};
+	struct vec3 right = 	{-1, 0, 0};
 
+	straight = cross(right, up);
 
+	float* view_matrix = calloc(16, 4);
 	float* perspective_matrix = calloc(16, 4);
-	perspective(perspective_matrix, fovy, aspect, znear, zfar);
-	
-	
-	bool quit = false;
-
-	int counter = 0;
+	perspective(perspective_matrix, fovy, aspect, znear, zfar);	
 
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
+
 			const Uint8* key = SDL_GetKeyboardState(0);
+
 			if (event.type == SDL_QUIT) quit = true;
 
 			if (event.type == SDL_MOUSEMOTION) {
@@ -282,187 +352,110 @@ int main() {
 				forward.x = -sinf(yaw) * cosf(pitch);
 				forward.y = -sinf(pitch);
 				forward.z = -cosf(yaw) * cosf(pitch);
+				forward = normalize(forward);
 
 				right.x = -cosf(yaw);
 				right.y = 0.0;
 				right.z = sinf(yaw);
-
-				up = cross(forward, right);
-
-				forward = normalize(forward);
 				right = normalize(right);
-				up = normalize(up);
+				
+				straight = cross(right, up);
 			}
 
-
-				if (key[SDL_SCANCODE_SPACE]) { 
-					velocity.x += camera_accel * up.x;
-					velocity.y += camera_accel * up.y;
-					velocity.z += camera_accel * up.z;
-				}
-				if (key[SDL_SCANCODE_LSHIFT]) { 
-					velocity.x -= camera_accel * up.x;
-					velocity.y -= camera_accel * up.y;
-					velocity.z -= camera_accel * up.z;
-				}
-
-				if (key[SDL_SCANCODE_W]) { 
-					velocity.x += camera_accel * forward.x;
-					velocity.y += camera_accel * forward.y;
-					velocity.z += camera_accel * forward.z;
-				}
-				if (key[SDL_SCANCODE_S]) { 
-					velocity.x -= camera_accel * forward.x;
-					velocity.y -= camera_accel * forward.y;
-					velocity.z -= camera_accel * forward.z;
-				}
-
-				if (key[SDL_SCANCODE_D]) {
-					velocity.x += camera_accel * right.x;
-					velocity.y += camera_accel * right.y;
-					velocity.z += camera_accel * right.z;
-				}
-				
-				if (key[SDL_SCANCODE_A]) { 
-					velocity.x -= camera_accel * right.x;
-					velocity.y -= camera_accel * right.y;
-					velocity.z -= camera_accel * right.z;
-				}
-
-
-
-
-
-
-
-
-				if (key[SDL_SCANCODE_LSHIFT]) velocity.y -= camera_accel;
-
-				if (key[SDL_SCANCODE_W]) velocity += camera_accel;
-				if (key[SDL_SCANCODE_S]) velocity -= camera_accel;
-
-				if (key[SDL_SCANCODE_A]) velocity -= camera_accel;
-				if (key[SDL_SCANCODE_D]) velocity += camera_accel;
-
-
-
-    // const Uint8* key = SDL_GetKeyboardState(nullptr);
-    // const float power = (delta * (key[SDL_SCANCODE_LCTRL] ? 0.0016f : camera_acceleration));
-
-    // bool rotation_mode = !!key[SDL_SCANCODE_C];
-    // bool tab = !!key[SDL_SCANCODE_TAB];
-    // bool escape = !!key[SDL_SCANCODE_ESCAPE];
-    
-    // if (key[SDL_SCANCODE_SPACE]) camera.velocity += power * camera.upward;
-    // if (key[SDL_SCANCODE_LSHIFT]) camera.velocity -= power * camera.upward;
-    // if (key[SDL_SCANCODE_W]) camera.velocity += power * forward;
-    // if (key[SDL_SCANCODE_S]) camera.velocity -= power * forward;
-    // if (key[SDL_SCANCODE_A]) camera.velocity -= power * right
-    // if (key[SDL_SCANCODE_D]) camera.velocity += power * right
-
-
-			    if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-			        SDL_Log("Mouse Button 1 (left) is pressed.");
-			    }
-
-			    if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
-			        SDL_Log("Mouse Button 2 (right) is pressed.");
-			    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 			if (event.type == SDL_KEYDOWN) {
-
-				if (key[SDL_SCANCODE_Q]) quit = true;
+				if (key[SDL_SCANCODE_Q]) quit = true;        // tempoerary. 
 				if (key[SDL_SCANCODE_ESCAPE]) quit = true;
-
-				if (key[SDL_SCANCODE_2]) {
-					block_types[0]++;
-					block_types[1]++;
-					block_types[2]++;
-				}
-
-				if (key[SDL_SCANCODE_1]) {
-					block_types[0]--;
-					block_types[1]--;
-					block_types[2]--;
-				}
-
-				if (key[SDL_SCANCODE_TAB]) {
-					
-				}
+				if (key[SDL_SCANCODE_1]) debug = !debug;
 				// if (key[SDL_SCANCODE_TAB]) SDL_SetWindowFullscreen ( window, ( fullscreen = !fullscreen) ? SDL_WINDOW_FULLSCREEN : 0);
 			}
 		}
 
 
+	
+
+			    // if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+			    //     SDL_Log("Mouse Button 1 (left) is pressed.");
+			    // }
+
+			    // if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
+			    //     SDL_Log("Mouse Button 2 (right) is pressed.");
+			    // }
+
+
+
+
+		const Uint8* key = SDL_GetKeyboardState(0);
+		
+		tab = !!key[SDL_SCANCODE_TAB];
+
+		if (key[SDL_SCANCODE_SPACE]) {
+			velocity.x += delta * camera_accel * up.x;
+			velocity.y += delta * camera_accel * up.y;
+			velocity.z += delta * camera_accel * up.z;
+		}
+
+		if (key[SDL_SCANCODE_LSHIFT]) { 
+			velocity.x -= delta * camera_accel * up.x;
+			velocity.y -= delta * camera_accel * up.y;
+			velocity.z -= delta * camera_accel * up.z;
+		}
+
+		if (key[SDL_SCANCODE_W]) { 
+			velocity.x += delta * camera_accel * straight.x;
+			velocity.y += delta * camera_accel * straight.y;
+			velocity.z += delta * camera_accel * straight.z;
+		}
+		if (key[SDL_SCANCODE_S]) { 
+			velocity.x -= delta * camera_accel * straight.x;
+			velocity.y -= delta * camera_accel * straight.y;
+			velocity.z -= delta * camera_accel * straight.z;
+		}
+
+		if (key[SDL_SCANCODE_A]) {
+			velocity.x += delta * camera_accel * right.x;
+			velocity.y += delta * camera_accel * right.y;
+			velocity.z += delta * camera_accel * right.z;
+		}
+		
+		if (key[SDL_SCANCODE_D]) { 
+			velocity.x -= delta * camera_accel * right.x;
+			velocity.y -= delta * camera_accel * right.y;
+			velocity.z -= delta * camera_accel * right.z;
+		}
+
 		glClearColor(0.0f, 0.15f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glBindBuffer(GL_ARRAY_BUFFER, vertex_array_position_buffer);
-		glBufferData(GL_ARRAY_BUFFER, vertex_count * 3 * sizeof(float), positions, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)((size_t)vertex_count * 3 * sizeof(float)), positions, GL_STATIC_DRAW);
 
 		glBindBuffer(GL_ARRAY_BUFFER, vertex_array_block_buffer);
-		glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(float), block_types, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)((size_t)vertex_count * sizeof(float)), block_types, GL_STATIC_DRAW);
 
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertex_array_index_buffer);
-        	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicies_count * sizeof(unsigned int), indicies, GL_STATIC_DRAW);
-
-
-
-
-
-
-		float* view_matrix = calloc(16, 4);
 		look_at(view_matrix, position, forward, up);
-	 
-		float* matrix = calloc(16, 4);
-		float* copy = calloc(16, 4);
-
-		matrix[4 * 0 + 0] = 1.0;
-		matrix[4 * 1 + 1] = 1.0;
-		matrix[4 * 2 + 2] = 1.0;
-		matrix[4 * 3 + 3] = 1.0;
-
-		memcpy(copy, matrix, 64);
-		multiply_matrix(matrix, copy, view_matrix);
-
-		memcpy(copy, matrix, 64);
-		multiply_matrix(matrix, copy, perspective_matrix);
-
-		glUniformMatrix4fv(transform, 1, GL_FALSE, matrix);
+		glUniformMatrix4fv(view_uniform, 1, GL_FALSE, view_matrix);
+		glUniformMatrix4fv(perspective_uniform, 1, GL_FALSE, perspective_matrix);
 
 		glDrawArrays(GL_TRIANGLES, 0, vertex_count);
 		SDL_GL_SwapWindow(window);
 
-
-		
-
+		// simulate basic movement physics:
 		velocity.x *= drag;
 		velocity.y *= drag;
 		velocity.z *= drag;
 
-
+		position.x += delta * velocity.x;
+		position.y += delta * velocity.y;
+		position.z += delta * velocity.z;
 
 		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
 		if (time < 0) continue;
-		int32_t sleep = 16 - (int32_t) time;  // 16 for 60fps.
+		int32_t sleep = ms_delay_per_frame - (int32_t) time;  
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 
-		if (counter == 100) counter = 0;
+		delta = (float) ((int32_t) SDL_GetTicks() - (int32_t) start);
+
+		if (counter == 200) counter = 0;
 		else counter++;
 
 		if (counter == 0) {
@@ -470,29 +463,27 @@ int main() {
 			printf("fps = %10.10lf\n", fps);
 		}
 
-		printf("DEBUG: \n");
-		printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
-		printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
-		printf("forward = {%3.3lf, %3.3lf, %3.3lf}\n", (double)forward.x,(double)forward.y,(double)forward.z);
-		printf("right = {%3.3lf, %3.3lf, %3.3lf}\n", (double)right.x,(double)right.y,(double)right.z);
-		printf("up = {%3.3lf, %3.3lf, %3.3lf}\n", (double)up.x,(double)up.y,(double)up.z);
-	}	
-
-	// glDeleteTextures(1, &texture);
+		if (debug) {
+			printf("DEBUG: [%s]\n", tab ? "tab" : "   ");
+			printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
+			printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
+			printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
+			printf("forward = {%3.3lf, %3.3lf, %3.3lf}\n", (double)forward.x,(double)forward.y,(double)forward.z);
+			printf("right = {%3.3lf, %3.3lf, %3.3lf}\n", (double)right.x,(double)right.y,(double)right.z);
+			printf("up = {%3.3lf, %3.3lf, %3.3lf}\n", (double)up.x,(double)up.y,(double)up.z);
+		}
+	}
 
 	glBindVertexArray(0); // unbind vao            ...?
 
 	glDeleteVertexArrays(1, &vertex_array);
 
 	// delete buffers?
-
 	glDetachShader(program, vertex_shader);
 	glDeleteShader(vertex_shader);
 	glDetachShader(program, fragment_shader);
 	glDeleteShader(fragment_shader);
 	glDeleteProgram(program);
-
-		
 	
 	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);

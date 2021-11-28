@@ -1,8 +1,8 @@
 #!/bin/zsh
 
 if [ "release" = "$1" ]; then
-	clang -Ofast -I /opt/homebrew/include/ -L /opt/homebrew/lib/ source/client.c -o client -lSDL2 
-	clang -Ofast source/server.c -o server
+	clang -Ofast -Weverything -Wno-poison-system-directories -Wno-padded -Wno-reserved-identifier -Wno-reserved-id-macro -Wno-deprecated-declarations -fsanitize=address,undefined -I /opt/homebrew/include/ -L /opt/homebrew/lib/ source/client.c -o client -lSDL2 -framework Opengl
+	clang -Ofast -Weverything -Wno-poison-system-directories -fsanitize=address,undefined source/server.c -o server
 
 elif [ "clean" = "$1" ]; then
 	rm -rf client
