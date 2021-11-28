@@ -9,6 +9,26 @@
 
 #include <SDL2/SDL.h>
 #include <OpenGL/gl3.h>
+/*ddxddxdde
+        TODO:
+ -----------------------------
+
+   	- research  simple voxel lighting without using normal vectors lol.
+
+   	- research rendering optimizations.
+
+	- research whether doing matrix mul is faster on gpu.
+
+	- why is the camera acceleratio so small?
+
+	- 
+
+
+
+
+
+
+*/
 
 static const int window_width = 1600;
 static const int window_height = 1000;
@@ -24,21 +44,21 @@ static const float drag = 0.95f;
 
 static const int32_t ms_delay_per_frame = 16;
 
-static const char* vertex_shader_code = "        	\n\
-#version 120                              		\n\
-                                                        \n\
-attribute vec3 position;                                \n\
-attribute float block;                                  \n\
-                               				\n\
-varying float block_type;                              	\n\
-							\n\
-uniform mat4 view;					\n\
-uniform mat4 perspective;				\n\
-                                          		\n\
-void main() {                                		\n\
-	gl_Position = perspective * view * vec4(position, 1.0);  \n\
-	block_type = block;                             \n\
-}                                                       \n";
+static const char* vertex_shader_code = "        			\n\
+#version 120                              				\n\
+                                                        		\n\
+attribute vec3 position;                                		\n\
+attribute float block;                                  		\n\
+                               						\n\
+varying float block_type;                              			\n\
+									\n\
+uniform mat4 view;							\n\
+uniform mat4 perspective;						\n\
+                                          				\n\
+void main() {                                				\n\
+	gl_Position = perspective * view * vec4(position, 1.0);  	\n\
+	block_type = block;                             		\n\
+}                                                       		\n";
 
 static const char* fragment_shader_code = "        				\n\
 #version 120                                            			\n\
@@ -50,6 +70,8 @@ void main() {                                					\n\
 	else if (block_type == 1.0) gl_FragColor = vec4(0.8, 0.5, 0.0, 1.0);	\n\
 	else if (block_type == 2.0) gl_FragColor = vec4(0.0, 1.0, 1.0, 1.0);	\n\
 	else if (block_type == 3.0) gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);	\n\
+	else if (block_type == 4.0) gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);	\n\
+	else if (block_type == 5.0) gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);	\n\
 	else gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);				\n\
 }                               	 					\n";
 
@@ -130,6 +152,7 @@ int main() {
 
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	glEnable(GL_DEPTH_TEST);
+	// glEnable(GL_CULL_BACKFACES);
 
 	printf("%s\n", glGetString(GL_VERSION)); // debug
 
@@ -178,23 +201,102 @@ int main() {
 	GLint view_uniform = glGetUniformLocation(program, "view");
 	GLint perspective_uniform = glGetUniformLocation(program, "perspective");
 
+
+	const int s = 100;
+	const int space_count = s * s * s;
+	int8_t* space = malloc(space_count);
+
+	for (int i = 0; i < space_count; i++) {
+		space[i] = 0;
+	}
+
+	srand((unsigned)time(NULL));
+
+	// set a flat world:
+	for (int x = 0; x < s; x++) {
+		// for (int y = 0; y < s; y++) {
+			for (int z = 0; z < s; z++) {
+				space[s * s * x + s * 0/*y=0*/ + z] = rand() % 5 + 1;
+			}
+			// break;
+		// }
+	}
+
+	space[s * s * 3 + s * 1 + 3] = 1;
+	space[s * s * 3 + s * 2 + 3] = 1;
+	space[s * s * 3 + s * 3 + 3] = 2;
+
 	
 
-	const int vertex_count = 15;
+	
+	
 
-	float verticies[] = {
-		0.0, 0.0, 0.0, 0.0,    1.0, 0.0, 0.0, 0.0,    0.0, 1.0, 0.0, 0.0,
-
-		1.0, 1.0, 0.0, 1.0,    1.0, 0.0, 0.0, 1.0,    0.0, 1.0, 0.0, 1.0,
-
-
-		0.0, 0.0, 1.0, 2.0,    1.0, 0.0, 1.0, 2.0,    0.0, 1.0, 1.0,2.0, 
-
-		1.0, 1.0, 1.0, 3.0,    1.0, 0.0, 1.0, 3.0,    0.0, 1.0, 1.0,3.0, 
+// #define color0  1.0
+// #define color1  2.0
+// #define color2  3.0
+// #define color3  4.0
+// #define color4  5.0
+// #define color5  6.0
 
 
-		1.0, 0.0, 0.0, 4.0,    1.0, 1.0, 0.0, 4.0,    1.0, 1.0, 1.0, 4.0,
-	};
+
+	float cube_verticies[] = {
+		0,0,0, 0,    1,0,0, 0,    0,1,0, 0,
+
+		1,1,0, 0,    1,0,0, 0,    0,1,0, 0,
+
+
+		0,0,1, 0,    1,0,1, 0,    0,1,1, 0,
+
+		1,1,1, 0,    1,0,1, 0,    0,1,1, 0,
+
+
+		1,1,1, 0,    1,0,0, 0,    1,1,0, 0,    
+
+		1,1,1, 0,    1,0,1, 0,    1,0,0, 0,   
+
+
+		0,1,1, 0,    0,0,0, 0,    0,1,0, 0,
+
+		0,1,1, 0,    0,0,1, 0,    0,0,0, 0,   
+
+
+		1,0,1, 0,    0,0,1, 0,    1,0,0, 0,
+
+		0,0,0, 0,    0,0,1, 0,    1,0,0, 0,
+
+
+		1,1,1, 0,    0,1,1, 0,    1,1,0, 0,
+
+		0,1,0, 0,    0,1,1, 0,    1,1,0, 0,
+
+	}; // sizeof verticies / (sizeof(float) * 4);  =  36 verticies.
+
+	int vertex_count = 0;
+	float* verticies = malloc(sizeof(float) * space_count * 144);
+
+	for (int x = 0; x < s; x++) {
+		for (int y = 0; y < s; y++) {
+			for (int z = 0; z < s; z++) {
+				int8_t block = space[s * s * x + s * y + z];
+				if (not block) continue;
+
+				for (int i = 0; i < 36 * 4; i += 4) { // for each block vertex;
+					verticies[vertex_count++] = (float)x + cube_verticies[i + 0];
+					verticies[vertex_count++] = (float)y + cube_verticies[i + 1];
+					verticies[vertex_count++] = (float)z + cube_verticies[i + 2];
+					verticies[vertex_count++] = (float) block;
+				}
+			}
+		}
+	}
+
+
+
+	
+
+	
+
 
 
 	GLuint vertex_array;
@@ -250,8 +352,8 @@ int main() {
     				float dx = (float) event.motion.xrel;
     				float dy = (float) event.motion.yrel;
 
-				yaw += camera_sensitivity * dx;
-				pitch -= camera_sensitivity * dy;
+				yaw -= camera_sensitivity * dx;
+				pitch += camera_sensitivity * dy;
 
 				if (pitch > 1.57079632679f) pitch = 1.57079632679f - 0.0001f;
 				else if (pitch < -1.57079632679f) pitch = -1.57079632679f + 0.0001f;
