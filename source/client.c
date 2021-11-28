@@ -7,42 +7,22 @@
 #include <unistd.h>
 #include <math.h>
 
-
 #include <SDL2/SDL.h>
 #include <OpenGL/gl3.h>
 
+static const int window_width = 1600;
+static const int window_height = 1000;
+static const float aspect = (float) window_width / (float) window_height;
 
+static const float fovy = 1.22173f /*radians*/;
+static const float znear = 0.01f;
+static const float zfar = 100.0f;
 
+static const float camera_sensitivity = 0.005f;
+static const float camera_accel = 0.00003f;
+static const float drag = 0.95f;
 
-
-
-
-// ex:
-
-
-
-
- // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-
- // // Draw the triangles !
- // glDrawElements(
- //     GL_TRIANGLES,      // mode
- //     indices.size(),    // count
- //     GL_UNSIGNED_INT,   // type
- //     (void*)0           // element array buffer offset
- // );
-
-
-
-
-
-
-
-
-
-
-
-
+static const int32_t ms_delay_per_frame = 16;
 
 static const char* vertex_shader_code = "        	\n\
 #version 120                              		\n\
@@ -60,7 +40,6 @@ void main() {                                		\n\
 	block_type = block;                             \n\
 }                                                       \n";
 
-
 static const char* fragment_shader_code = "        				\n\
 #version 120                                            			\n\
                                							\n\
@@ -74,28 +53,20 @@ void main() {                                					\n\
 	else gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);				\n\
 }                               	 					\n";
 
-
 struct vec3 {float x,y,z;};
 typedef float* mat4;
 
-
-
-
-// float* result = malloc(4 * 4 * sizeof(float));  calll using this sized mat4.
-
-static inline void perspective(mat4 result, float fovy, float aspect, float zNear, float zFar) {
-   
-	const float t = tanf(fovy / 2.0f);
-	result[4 * 0 + 0] = 1.0f / (aspect * t);
+static inline void perspective(mat4 result, float fov, float asp, float zNear, float zFar) {
+	const float t = tanf(fov / 2.0f);
+	result[4 * 0 + 0] = 1.0f / (asp * t);
 	result[4 * 1 + 1] = 1.0f / t;
 	result[4 * 2 + 2] = -(zFar + zNear) / (zFar - zNear);
 	result[4 * 2 + 3] = -1.0f;
 	result[4 * 3 + 2] = -(2.0f * zFar * zNear) / (zFar - zNear);
 }
 
-static inline float inversesqrt(float number) {
-	float x2 = number * 0.5f;
-	float y = number;
+static inline float inversesqrt(float y) {
+	float x2 = y * 0.5f;
 	int32_t i = *(int32_t *)&y;
 	i = 0x5f3759df - (i >> 1); 	// glm uses a86 for last three digits.
 	y = *(float*) &i;
@@ -139,47 +110,12 @@ static inline void look_at(mat4 result, struct vec3 eye, struct vec3 f, struct v
 	result[4 * 3 + 3] = 1;
 }
 
-// static inline void multiply_matrix(mat4 out, mat4 A, mat4 B) {
-//     for (int i = 0; i < 4; i++) {
-//         for (int j = 0; j < 4; j++) {
-//             out[4 * i + j] = 
-// 		A[4 * i + 0] * B[4 * 0 + j] + 
-// 		A[4 * i + 1] * B[4 * 1 + j] + 
-// 		A[4 * i + 2] * B[4 * 2 + j] + 
-// 		A[4 * i + 3] * B[4 * 3 + j];
-//         }
-//     }
-// }
-
-
-
-// parameters:
-
-
-static const int window_width = 1600;
-static const int window_height = 1000;
-static const float aspect = (float) window_width / (float) window_height;
-
-
-
-
-static const float fovy = 1.22173f /*radians*/;
-static const float znear = 0.01f;
-static const float zfar = 100.0f;
-
-static const float camera_sensitivity = 0.005f;
-static const float camera_accel = 0.00003f;
-static const float drag = 0.95f;
-
-static const int32_t ms_delay_per_frame = 16;
-
-
-
 int main() {
 
 	if (SDL_Init(SDL_INIT_VIDEO)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
 
-	SDL_Window *window = SDL_CreateWindow("block game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_OPENGL);
+	SDL_Window *window = SDL_CreateWindow("block game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+				window_width, window_height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_OPENGL);
 	SDL_GLContext context = SDL_GL_CreateContext(window);
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -193,18 +129,12 @@ int main() {
 	SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
 
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-
 	glEnable(GL_DEPTH_TEST);
-
 
 	printf("%s\n", glGetString(GL_VERSION)); // debug
 
 	SDL_GL_SetSwapInterval(0); // no vync.
-
 	SDL_SetRelativeMouseMode(SDL_TRUE);
-
-	// glEnable(GL_DEPTH_TEST);
 	
 	GLint success = 0;
 	GLchar error[1024] = {0};
@@ -249,63 +179,38 @@ int main() {
 	GLint perspective_uniform = glGetUniformLocation(program, "perspective");
 
 	
-	// ---------------------------------------------------
 
-	int vertex_count = 15;
+	const int vertex_count = 15;
 
-	float positions[] = {
-		0.0, 0.0, 0.0,    1.0, 0.0, 0.0,    0.0, 1.0, 0.0,
+	float verticies[] = {
+		0.0, 0.0, 0.0, 0.0,    1.0, 0.0, 0.0, 0.0,    0.0, 1.0, 0.0, 0.0,
 
-		1.0, 1.0, 0.0,    1.0, 0.0, 0.0,    0.0, 1.0, 0.0,
-
-
-		0.0, 0.0, 1.0,    1.0, 0.0, 1.0,    0.0, 1.0, 1.0,
-
-		1.0, 1.0, 1.0,    1.0, 0.0, 1.0,    0.0, 1.0, 1.0,
+		1.0, 1.0, 0.0, 1.0,    1.0, 0.0, 0.0, 1.0,    0.0, 1.0, 0.0, 1.0,
 
 
+		0.0, 0.0, 1.0, 2.0,    1.0, 0.0, 1.0, 2.0,    0.0, 1.0, 1.0,2.0, 
 
-		1.0, 0.0, 0.0,    1.0, 1.0, 0.0,    1.0, 1.0, 1.0, 
+		1.0, 1.0, 1.0, 3.0,    1.0, 0.0, 1.0, 3.0,    0.0, 1.0, 1.0,3.0, 
 
 
+		1.0, 0.0, 0.0, 4.0,    1.0, 1.0, 0.0, 4.0,    1.0, 1.0, 1.0, 4.0,
 	};
 
-	
-
-	
-	
-	float block_types[] = {
-		0.0, 0.0, 0.0,
-	
-		1.0, 1.0, 1.0,
-
-		2.0, 2.0, 2.0,
-	
-		3.0, 3.0, 3.0,
-
-		4.0, 4.0, 4.0, 
-	};
 
 	GLuint vertex_array;
 	glGenVertexArrays(1, &vertex_array);
 	glBindVertexArray(vertex_array);
-	
-	GLuint vertex_array_position_buffer;
-	glGenBuffers(1, &vertex_array_position_buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertex_array_position_buffer);
+
+	GLuint vertex_array_buffer;
+	glGenBuffers(1, &vertex_array_buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vertex_array_buffer);
+
 	glEnableVertexAttribArray(attribute_position);
-	glVertexAttribPointer(attribute_position, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(attribute_position, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
 
-	GLuint vertex_array_index_buffer;
-	glGenBuffers(1, &vertex_array_index_buffer);
-	
-	GLuint vertex_array_block_buffer;
-	glGenBuffers(1, &vertex_array_block_buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertex_array_block_buffer);
 	glEnableVertexAttribArray(attribute_block);
-	glVertexAttribPointer(attribute_block, 1, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(attribute_block, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
 
-	
 	// variables:
 	bool debug = false;
 	bool quit = false;
@@ -326,7 +231,9 @@ int main() {
 
 	float* view_matrix = calloc(16, 4);
 	float* perspective_matrix = calloc(16, 4);
-	perspective(perspective_matrix, fovy, aspect, znear, zfar);	
+
+	perspective(perspective_matrix, fovy, aspect, znear, zfar);
+	glUniformMatrix4fv(perspective_uniform, 1, GL_FALSE, perspective_matrix);
 
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
@@ -370,9 +277,6 @@ int main() {
 			}
 		}
 
-
-	
-
 			    // if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
 			    //     SDL_Log("Mouse Button 1 (left) is pressed.");
 			    // }
@@ -380,9 +284,6 @@ int main() {
 			    // if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
 			    //     SDL_Log("Mouse Button 2 (right) is pressed.");
 			    // }
-
-
-
 
 		const Uint8* key = SDL_GetKeyboardState(0);
 		
@@ -426,15 +327,11 @@ int main() {
 		glClearColor(0.0f, 0.15f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glBindBuffer(GL_ARRAY_BUFFER, vertex_array_position_buffer);
-		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)((size_t)vertex_count * 3 * sizeof(float)), positions, GL_STATIC_DRAW);
-
-		glBindBuffer(GL_ARRAY_BUFFER, vertex_array_block_buffer);
-		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)((size_t)vertex_count * sizeof(float)), block_types, GL_STATIC_DRAW);
+		// generate new verticies (ie, a new mesh), then say this:
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)((size_t)vertex_count * 4 * sizeof(float)), verticies, GL_STATIC_DRAW);
 
 		look_at(view_matrix, position, forward, up);
 		glUniformMatrix4fv(view_uniform, 1, GL_FALSE, view_matrix);
-		glUniformMatrix4fv(perspective_uniform, 1, GL_FALSE, perspective_matrix);
 
 		glDrawArrays(GL_TRIANGLES, 0, vertex_count);
 		SDL_GL_SwapWindow(window);
@@ -448,9 +345,7 @@ int main() {
 		position.y += delta * velocity.y;
 		position.z += delta * velocity.z;
 
-		int32_t time = (int32_t) SDL_GetTicks() - (int32_t) start;
-		if (time < 0) continue;
-		int32_t sleep = ms_delay_per_frame - (int32_t) time;  
+		const int32_t sleep = ms_delay_per_frame - ((int32_t) SDL_GetTicks() - (int32_t) start);
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
 
 		delta = (float) ((int32_t) SDL_GetTicks() - (int32_t) start);
@@ -474,8 +369,6 @@ int main() {
 		}
 	}
 
-	glBindVertexArray(0); // unbind vao            ...?
-
 	glDeleteVertexArrays(1, &vertex_array);
 
 	// delete buffers?
@@ -489,25 +382,3 @@ int main() {
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }
-
-
-
-
-	// uint8_t* data = ...;  /// load image data from txture, and get the widt and height. should be in rgba format i think.
-
-	// GLuint texture;
-	// glGenTextures(1, &texture);
-	// glActiveTexture(GL_TEXTURE0);
-	// glBindTexture(GL_TEXTURE_2D, texture);
-	
-	// glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	// glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
-
-	// glTextureParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
-	// glTextureParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data)
-
-
-
-
