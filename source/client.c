@@ -9,7 +9,8 @@
 
 #include <SDL2/SDL.h>
 #include <OpenGL/gl3.h>
-/*ddxddxdde
+
+/*
         TODO:
  -----------------------------
 
@@ -17,11 +18,25 @@
 
    	- research rendering optimizations.
 
-	- research whether doing matrix mul is faster on gpu.
+	- code up the ray casting algorithm, for placing and breaking blocks. really easy.
 
-	- why is the camera acceleratio so small?
+	- code up the world generation, using 2d-wrap-around (modulo behavior) perlin noise.
 
-	- 
+
+
+
+
+
+
+
+
+	DONE:
+---------------------------------
+
+x	- research whether doing matrix mul is faster on gpu.
+
+x	- why is the camera acceleratio so small?
+
 
 
 
@@ -30,9 +45,9 @@
 
 */
 
-static const int window_width = 1600;
-static const int window_height = 1000;
-static const float aspect = (float) window_width / (float) window_height;
+static int window_width = 1600;
+static int window_height = 1000;
+static float aspect = 1.6f;
 
 static const float fovy = 1.22173f /*radians*/;
 static const float znear = 0.01f;
@@ -52,11 +67,10 @@ attribute float block;                                  		\n\
                                						\n\
 varying float block_type;                              			\n\
 									\n\
-uniform mat4 view;							\n\
-uniform mat4 perspective;						\n\
+uniform mat4 matrix;							\n\
                                           				\n\
 void main() {                                				\n\
-	gl_Position = perspective * view * vec4(position, 1.0);  	\n\
+	gl_Position = matrix * vec4(position, 1.0);              	\n\
 	block_type = block;                             		\n\
 }                                                       		\n";
 
@@ -66,12 +80,23 @@ static const char* fragment_shader_code = "        				\n\
 varying float block_type;			       				\n\
                                							\n\
 void main() {                                					\n\
-	if (block_type == 0.0) gl_FragColor = vec4(0.5, 0.0, 0.8, 1.0);		\n\
-	else if (block_type == 1.0) gl_FragColor = vec4(0.8, 0.5, 0.0, 1.0);	\n\
-	else if (block_type == 2.0) gl_FragColor = vec4(0.0, 1.0, 1.0, 1.0);	\n\
-	else if (block_type == 3.0) gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);	\n\
-	else if (block_type == 4.0) gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);	\n\
-	else if (block_type == 5.0) gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);	\n\
+	if (block_type == 0.0) gl_FragColor = vec4(0.1, 0.1, 0.1, 1.0);		\n\
+	else if (block_type == 1.0) gl_FragColor = vec4(0.2, 0.2, 0.0, 1.0);	\n\
+	else if (block_type == 2.0) gl_FragColor = vec4(0.0, 0.2, 0.2, 1.0);	\n\
+	else if (block_type == 3.0) gl_FragColor = vec4(0.2, 0.0, 0.2, 1.0);	\n\
+	else if (block_type == 4.0) gl_FragColor = vec4(0.5, 0.5, 0.0, 1.0);	\n\
+	else if (block_type == 5.0) gl_FragColor = vec4(0.5, 0.0, 0.5, 1.0);	\n\
+	else if (block_type == 6.0) gl_FragColor = vec4(0.0, 0.5, 0.5, 1.0);	\n\
+	else if (block_type == 7.0) gl_FragColor = vec4(0.7, 0.7, 0.0, 1.0);	\n\
+	else if (block_type == 8.0) gl_FragColor = vec4(0.7, 0.0, 0.7, 1.0);	\n\
+	else if (block_type == 9.0) gl_FragColor = vec4(0.0, 0.7, 0.7, 1.0);	\n\
+	else if (block_type == 10.0) gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);	\n\
+	else if (block_type == 11.0) gl_FragColor = vec4(0.0, 1.0, 1.0, 1.0);	\n\
+	else if (block_type == 12.0) gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);	\n\
+	else if (block_type == 13.0) gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);	\n\
+	else if (block_type == 14.0) gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);	\n\
+	else if (block_type == 15.0) gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);	\n\
+	else if (block_type == 16.0) gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);	\n\
 	else gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);				\n\
 }                               	 					\n";
 
@@ -132,6 +157,19 @@ static inline void look_at(mat4 result, struct vec3 eye, struct vec3 f, struct v
 	result[4 * 3 + 3] = 1;
 }
 
+static inline void multiply_matrix(mat4 out, mat4 A, mat4 B) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            out[4 * i + j] = 
+		A[4 * i + 0] * B[4 * 0 + j] + 
+		A[4 * i + 1] * B[4 * 1 + j] + 
+		A[4 * i + 2] * B[4 * 2 + j] + 
+		A[4 * i + 3] * B[4 * 3 + j];
+        }
+    }
+}
+
+
 int main() {
 
 	if (SDL_Init(SDL_INIT_VIDEO)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
@@ -151,8 +189,18 @@ int main() {
 	SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
 
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+
 	glEnable(GL_DEPTH_TEST);
-	// glEnable(GL_CULL_BACKFACES);
+
+	glFrontFace(GL_CCW);
+
+	glCullFace(GL_BACK);
+
+	glEnable(GL_CULL_FACE);
+
+	glPolygonMode(GL_FRONT, GL_FILL);
+
 
 	printf("%s\n", glGetString(GL_VERSION)); // debug
 
@@ -170,7 +218,7 @@ int main() {
 	glCompileShader(vertex_shader);
 	glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
 	glGetShaderInfoLog(vertex_shader, sizeof(error), NULL, error);
-	printf("vs error: %s\n", error);
+	if (not success) printf("vs error: %s\n", error);
 	glAttachShader(program, vertex_shader);
 
 	GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -180,7 +228,7 @@ int main() {
 	glCompileShader(fragment_shader);
 	glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
 	glGetShaderInfoLog(fragment_shader, sizeof(error), NULL, error);
-	printf("fs error: %s\n", error);
+	if (not success) printf("fs error: %s\n", error);
 	glAttachShader(program, fragment_shader);
 	
 	enum {attribute_position, attribute_block};
@@ -191,18 +239,16 @@ int main() {
 	glLinkProgram(program);
 	glGetProgramiv(program, GL_LINK_STATUS, &success);
 	glGetProgramInfoLog(program, sizeof(error), NULL, error);
-	printf("link error: %s\n", error);
+	if (not success) printf("link error: %s\n", error);
 	glValidateProgram(program);
 	glGetProgramiv(program, GL_VALIDATE_STATUS, &success);
 	glGetProgramInfoLog(program, sizeof(error), NULL, error);
-	printf("validate error: %s\n", error);
+	if (not success) printf("validate error: %s\n", error);
 	glUseProgram(program);
 
-	GLint view_uniform = glGetUniformLocation(program, "view");
-	GLint perspective_uniform = glGetUniformLocation(program, "perspective");
+	GLint matrix_uniform = glGetUniformLocation(program, "matrix");
 
-
-	const int s = 100;
+	const int s = 10;
 	const int space_count = s * s * s;
 	int8_t* space = malloc(space_count);
 
@@ -214,65 +260,56 @@ int main() {
 
 	// set a flat world:
 	for (int x = 0; x < s; x++) {
-		// for (int y = 0; y < s; y++) {
-			for (int z = 0; z < s; z++) {
-				space[s * s * x + s * 0/*y=0*/ + z] = rand() % 5 + 1;
-			}
-			// break;
-		// }
+		for (int z = 0; z < s; z++) {
+			space[s * s * x + s * 0/*y=0*/ + z] = rand() % 5 + 1;
+		}
 	}
 
-	space[s * s * 3 + s * 1 + 3] = 1;
-	space[s * s * 3 + s * 2 + 3] = 1;
-	space[s * s * 3 + s * 3 + 3] = 2;
-
-	
-
-	
-	
-
-// #define color0  1.0
-// #define color1  2.0
-// #define color2  3.0
-// #define color3  4.0
-// #define color4  5.0
-// #define color5  6.0
+	// make a 2x2 box:
+	space[s * s * 1 + s * 1 + 1] = 1;
+	space[s * s * 1 + s * 1 + 2] = 2;
+	space[s * s * 1 + s * 2 + 1] = 3;
+	space[s * s * 1 + s * 2 + 2] = 4;
+	space[s * s * 2 + s * 1 + 1] = 5;
+	space[s * s * 2 + s * 1 + 2] = 6;
+	space[s * s * 2 + s * 2 + 1] = 7;
+	space[s * s * 2 + s * 2 + 2] = 8;
 
 
+	// float cube_verticies[] = {
+	// 	0,0,0, 0,    0,1,0, 0,    1,0,0, 0,
 
-	float cube_verticies[] = {
-		0,0,0, 0,    1,0,0, 0,    0,1,0, 0,
-
-		1,1,0, 0,    1,0,0, 0,    0,1,0, 0,
-
-
-		0,0,1, 0,    1,0,1, 0,    0,1,1, 0,
-
-		1,1,1, 0,    1,0,1, 0,    0,1,1, 0,
+	// 	1,1,0, 0,    1,0,0, 0,    0,1,0, 0,
 
 
-		1,1,1, 0,    1,0,0, 0,    1,1,0, 0,    
+	// 	0,0,1, 0,    1,0,1, 0,    0,1,1, 0,
 
-		1,1,1, 0,    1,0,1, 0,    1,0,0, 0,   
-
-
-		0,1,1, 0,    0,0,0, 0,    0,1,0, 0,
-
-		0,1,1, 0,    0,0,1, 0,    0,0,0, 0,   
+	// 	1,1,1, 0,    0,1,1, 0,    1,0,1, 0,    
 
 
-		1,0,1, 0,    0,0,1, 0,    1,0,0, 0,
+	// 	1,1,1, 0,    1,0,0, 0,    1,1,0, 0,    
 
-		0,0,0, 0,    0,0,1, 0,    1,0,0, 0,
+	// 	1,1,1, 0,    1,0,1, 0,    1,0,0, 0,   
 
 
-		1,1,1, 0,    0,1,1, 0,    1,1,0, 0,
+	// 	0,1,1, 0,    0,1,0, 0,    0,0,0, 0,    
 
-		0,1,0, 0,    0,1,1, 0,    1,1,0, 0,
+	// 	0,1,1, 0,    0,0,0, 0,    0,0,1, 0,
 
-	}; // sizeof verticies / (sizeof(float) * 4);  =  36 verticies.
 
-	int vertex_count = 0;
+	// 	1,0,1, 0,    0,0,1, 0,    1,0,0, 0,
+
+	// 	0,0,0, 0,    1,0,0, 0,    0,0,1, 0,    
+
+
+	// 	1,1,1, 0,    1,1,0, 0,    0,1,1, 0,    
+
+	// 	0,1,0, 0,    0,1,1, 0,    1,1,0, 0,    
+
+	// }; // sizeof verticies / (sizeof(float) * 4);  =  36 verticies.
+
+
+	int vertex_count = 0, list_count = 0;
 	float* verticies = malloc(sizeof(float) * space_count * 144);
 
 	for (int x = 0; x < s; x++) {
@@ -281,17 +318,210 @@ int main() {
 				int8_t block = space[s * s * x + s * y + z];
 				if (not block) continue;
 
-				for (int i = 0; i < 36 * 4; i += 4) { // for each block vertex;
-					verticies[vertex_count++] = (float)x + cube_verticies[i + 0];
-					verticies[vertex_count++] = (float)y + cube_verticies[i + 1];
-					verticies[vertex_count++] = (float)z + cube_verticies[i + 2];
-					verticies[vertex_count++] = (float) block;
-				}
+			if (not z or space[s * s * (x) + s * (y) + (z - 1)] == 0) {
+
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+
+				vertex_count += 6;
+			}
+
+			if (z >= s - 1 or space[s * s * (x) + s * (y) + (z + 1)] == 0) {
+
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+
+				vertex_count += 6;
+			}
+
+			
+			if (x >= s - 1 or space[s * s * (x + 1) + s * (y) + (z)] == 0) {
+
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+
+				vertex_count += 6;
+			}
+
+			if (not x or space[s * s * (x - 1) + s * (y) + (z)] == 0) {
+
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+
+				vertex_count += 6;
+			}
+
+			if (not y or space[s * s * (x) + s * (y - 1) + (z)] == 0) {
+
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 0;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+	
+				vertex_count += 6;
+			}
+
+			if (y >= s - 1 or space[s * s * (x) + s * (y + 1) + (z)] == 0) {
+
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 0;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 1;
+				verticies[list_count++] = (float) block;
+				verticies[list_count++] = (float)x + 1;
+				verticies[list_count++] = (float)y + 1;
+				verticies[list_count++] = (float)z + 0;
+				verticies[list_count++] = (float) block;
+
+				vertex_count += 6;
+			}
+
+	
+				// for (int i = 0; i < 36 * 4; i += 4) { // for each block vertex;
+				// 	verticies[list_count++] = (float)x + cube_verticies[i + 0];
+				// 	verticies[list_count++] = (float)y + cube_verticies[i + 1];
+				// 	verticies[list_count++] = (float)z + cube_verticies[i + 2];
+				// 	verticies[list_count++] = (float) block;
+				// 	vertex_count++;
+				// }
 			}
 		}
 	}
 
+	/*
 
+		todo: rendereing:
+
+			- we have to not draw the faces which are next to other transparent blocks, i think...
+
+			- we have to do the greedy algorithm, which treats multiple faces as one.. 
+
+			- we have to cull back faces, and only draw front faces.
+
+	*/
 
 	
 
@@ -321,7 +551,7 @@ int main() {
 	float delta = 0.0;
 
 	float pitch = 0.0f, yaw = 0.0f;
-	struct vec3 position = {0, 0, -3};
+	struct vec3 position = {5, 3, 5};
 	struct vec3 velocity = {0, 0, 0};
 
 	struct vec3 forward = 	{0, 0, -1};
@@ -333,9 +563,10 @@ int main() {
 
 	float* view_matrix = calloc(16, 4);
 	float* perspective_matrix = calloc(16, 4);
+	float* matrix = calloc(16, 4);
+	float* copy = calloc(16, 4);
 
 	perspective(perspective_matrix, fovy, aspect, znear, zfar);
-	glUniformMatrix4fv(perspective_uniform, 1, GL_FALSE, perspective_matrix);
 
 	while (not quit) {
 		uint32_t start = SDL_GetTicks();
@@ -347,6 +578,18 @@ int main() {
 
 			if (event.type == SDL_QUIT) quit = true;
 
+			if (event.type == SDL_WINDOWEVENT_RESIZED) {
+				printf("window was resized!!\n");
+	int w=0,h =0;
+					SDL_GetWindowSize(window, &w, &h);
+
+					printf("width = %d, height = %d", w,h);
+					window_width = w;
+					window_height = h;
+					aspect = (float) window_width / (float) window_height;
+					perspective(perspective_matrix, fovy, aspect, znear, zfar);
+			}
+
 			if (event.type == SDL_MOUSEMOTION) {
 
     				float dx = (float) event.motion.xrel;
@@ -354,9 +597,10 @@ int main() {
 
 				yaw -= camera_sensitivity * dx;
 				pitch += camera_sensitivity * dy;
-
-				if (pitch > 1.57079632679f) pitch = 1.57079632679f - 0.0001f;
-				else if (pitch < -1.57079632679f) pitch = -1.57079632679f + 0.0001f;
+	
+				const float pi_over_2 = 1.57079632679f;
+				if (pitch > pi_over_2) pitch = pi_over_2 - 0.0001f;
+				else if (pitch < -pi_over_2) pitch = -pi_over_2 + 0.0001f;
 
 				forward.x = -sinf(yaw) * cosf(pitch);
 				forward.y = -sinf(pitch);
@@ -372,20 +616,38 @@ int main() {
 			}
 
 			if (event.type == SDL_KEYDOWN) {
-				if (key[SDL_SCANCODE_Q]) quit = true;        // tempoerary. 
+				if (tab and key[SDL_SCANCODE_Q]) quit = true; 
 				if (key[SDL_SCANCODE_ESCAPE]) quit = true;
-				if (key[SDL_SCANCODE_1]) debug = !debug;
-				// if (key[SDL_SCANCODE_TAB]) SDL_SetWindowFullscreen ( window, ( fullscreen = !fullscreen) ? SDL_WINDOW_FULLSCREEN : 0);
+				if (key[SDL_SCANCODE_0]) debug = !debug;
+
+				if (key[SDL_SCANCODE_9]) {
+					SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+					int w=0,h =0;
+					SDL_GetWindowSize(window, &w, &h);
+
+					printf("width = %d, height = %d", w,h);
+					window_width = w;
+					window_height = h;
+					aspect = (float) window_width / (float) window_height;
+
+					perspective(perspective_matrix, fovy, aspect, znear, zfar);
+					// todo: reset the perspective, based on the aspect ratio, baased on the size of the window.
+				}
+			}
+
+			if (event.type == SDL_MOUSEBUTTONDOWN) {
+				if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+	        			SDL_Log("Mouse Button 1 (left) is pressed.");
+	    			}
+
+	    			if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
+	        			SDL_Log("Mouse Button 2 (right) is pressed.");
+	    			}
 			}
 		}
 
-			    // if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-			    //     SDL_Log("Mouse Button 1 (left) is pressed.");
-			    // }
 
-			    // if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
-			    //     SDL_Log("Mouse Button 2 (right) is pressed.");
-			    // }
+	    
 
 		const Uint8* key = SDL_GetKeyboardState(0);
 		
@@ -426,19 +688,37 @@ int main() {
 			velocity.z -= delta * camera_accel * right.z;
 		}
 
-		glClearColor(0.0f, 0.15f, 0.3f, 1.0f);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// generate new verticies (ie, a new mesh), then say this:
 		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)((size_t)vertex_count * 4 * sizeof(float)), verticies, GL_STATIC_DRAW);
 
+
 		look_at(view_matrix, position, forward, up);
-		glUniformMatrix4fv(view_uniform, 1, GL_FALSE, view_matrix);
+	
+		multiply_matrix(matrix, view_matrix, matrix);
+		multiply_matrix(matrix, perspective_matrix, matrix);
+
+	
+		memset(matrix, 0, 64);
+		matrix[4 * 0 + 0] = 1.0;
+		matrix[4 * 1 + 1] = 1.0;
+		matrix[4 * 2 + 2] = 1.0;
+		matrix[4 * 3 + 3] = 1.0;
+
+		memcpy(copy, matrix, 64);
+		multiply_matrix(matrix, copy, view_matrix);
+
+		memcpy(copy, matrix, 64);
+		multiply_matrix(matrix, copy, perspective_matrix);
+
+		glUniformMatrix4fv(matrix_uniform, 1, GL_FALSE, matrix);
 
 		glDrawArrays(GL_TRIANGLES, 0, vertex_count);
 		SDL_GL_SwapWindow(window);
 
-		// simulate basic movement physics:
+
 		velocity.x *= drag;
 		velocity.y *= drag;
 		velocity.z *= drag;
@@ -447,9 +727,9 @@ int main() {
 		position.y += delta * velocity.y;
 		position.z += delta * velocity.z;
 
+
 		const int32_t sleep = ms_delay_per_frame - ((int32_t) SDL_GetTicks() - (int32_t) start);
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
-
 		delta = (float) ((int32_t) SDL_GetTicks() - (int32_t) start);
 
 		if (counter == 200) counter = 0;
@@ -484,3 +764,102 @@ int main() {
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }
+
+
+
+
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	float x = floorf(origin.x);
+	float y = floorf(origin.y);
+	float z = floorf(origin.z);
+
+	float dx = direction.x;
+	float dy = direction.y;
+	float dz = direction.z;
+
+	float step_x = signum(dx);
+	float step_y = signum(dy);
+	float step_z = signum(dz);
+
+	float t_max_x = intbound(origin.x, dx);
+	float t_max_y = intbound(origin.y, dy);
+	float t_max_z = intbound(origin.z, dz);
+  
+	float t_delta_x = step_x / dx;
+	float t_delta_y = step_y / dy;
+	float t_delta_z = step_z / dz;
+  
+	struct vec3 face = {0, 0, 0};
+
+	if (not dx and not dy and not dz) printf("error: ray cast with zero direction.\n");
+
+	const float radius = 12.0;
+
+  while ((step_x > 0 ? x < wx : x >= 0) and
+         (step_y > 0 ? y < wy : y >= 0) and
+         (step_z > 0 ? z < wz : z >= 0)) {
+
+    
+    if (not (x < 0 or y < 0 or z < 0 or x >= wx or y >= wy or z >= wz))
+      if (callback(x, y, z, blocks[x * wy * wz + y * wz + z], face)) break;
+
+
+	if (x < y and x < z) {}
+	else if (y < x and y < z) {}
+	else if (z < x and z < y) {}
+	else 
+
+
+    if (t_max_x < t_max_y) {
+      if (t_max_x < tMaxZ) {
+        if (t_max_x > radius) break;
+        x += stepX;
+        t_max_x += tDeltaX;
+        face = {-stepX,0,0};
+      } else {
+        if (tMaxZ > radius) break;
+        z += stepZ;
+        tMaxZ += tDeltaZ;
+        face = {0,0,-stepZ};
+      }
+    } else {
+      if (t_max_y < tMaxZ) {
+        if (t_max_y > radius) break;
+        y += stepY;
+        t_max_y += tDeltaY;
+        face = {0,-stepY,0};
+      } else {
+        if (tMaxZ > radius) break;
+        z += stepZ;
+        tMaxZ += tDeltaZ;
+        face = {0,0,-stepZ};
+      }
+    }
+  }
+
+
+
+
+*/
+
+
