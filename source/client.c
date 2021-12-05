@@ -14,17 +14,20 @@
         TODO:
  -----------------------------
 
-   	- research  simple voxel lighting without using normal vectors lol.
+2  	- research  simple voxel lighting without using normal vectors lol.
 
-   	- research rendering optimizations.
-
-	- code up the ray casting algorithm, for placing and breaking blocks. really easy.
-
-	- code up the world generation, using 2d-wrap-around (modulo behavior) perlin noise.
+3  	- research rendering optimizations.
 
 
+1	- code up the world generation, using 2d-wrap-around (modulo behavior) perlin noise.
 
 
+2	- figure out how to render transluscent voxels. (for like, water, and gases, etc)
+
+
+1	- remove the simple dumb player physics that we implemented?
+
+1	- remove the mouse button pressing code.  its just not neccessary. 
 
 
 
@@ -38,10 +41,10 @@ x	- research whether doing matrix mul is faster on gpu.
 x	- why is the camera acceleratio so small?
 
 
+x	- code up the ray casting algorithm, for placing and breaking blocks. really easy.
 
-
-
-
+x					...nor is the code for doing ray casting. its just not necc.
+								wow
 
 */
 
@@ -51,7 +54,7 @@ static float aspect = 1.6f;
 
 static const float fovy = 1.22173f /*radians*/;
 static const float znear = 0.01f;
-static const float zfar = 100.0f;
+static const float zfar = 1000.0f;
 
 static const float camera_sensitivity = 0.005f;
 static const float camera_accel = 0.00003f;
@@ -170,7 +173,59 @@ static inline void multiply_matrix(mat4 out, mat4 A, mat4 B) {
 }
 
 
+
+
+static const int s = 20;
+static const int space_count = s * s * s;
+static int8_t* space = NULL;
+
+
+// variables:
+static	bool debug = false;
+static	bool quit = false;
+static	bool tab = false;
+static 	bool should_move_camera = true;
+static 	bool is_fullscreen = false;
+static	int counter = 0;
+static	float delta = 0.0;
+
+static	float pitch = 0.0f, yaw = 0.0f;
+static	struct vec3 position = {10, 5, 10};
+static	struct vec3 velocity = {0, 0, 0};
+
+static	struct vec3 forward = 	{0, 0, -1};
+static	struct vec3 straight = 	{0, 0, 1};
+static	struct vec3 up = 	{0, 1, 0};
+static	struct vec3 right = 	{-1, 0, 0};
+
+
+
+
+
+
+
+
+static inline void move_camera() {
+	const float pi_over_2 = 1.57079632679f;
+	if (pitch > pi_over_2) pitch = pi_over_2 - 0.0001f;
+	else if (pitch < -pi_over_2) pitch = -pi_over_2 + 0.0001f;
+
+	forward.x = -sinf(yaw) * cosf(pitch);
+	forward.y = -sinf(pitch);
+	forward.z = -cosf(yaw) * cosf(pitch);
+	forward = normalize(forward);
+
+	right.x = -cosf(yaw);
+	right.y = 0.0;
+	right.z = sinf(yaw);
+	right = normalize(right);
+	
+	straight = cross(right, up);
+}
+
 int main() {
+
+	srand((unsigned)time(NULL));
 
 	if (SDL_Init(SDL_INIT_VIDEO)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
 
@@ -200,7 +255,6 @@ int main() {
 	glEnable(GL_CULL_FACE);
 
 	glPolygonMode(GL_FRONT, GL_FILL);
-
 
 	printf("%s\n", glGetString(GL_VERSION)); // debug
 
@@ -248,67 +302,25 @@ int main() {
 
 	GLint matrix_uniform = glGetUniformLocation(program, "matrix");
 
-	const int s = 10;
-	const int space_count = s * s * s;
-	int8_t* space = malloc(space_count);
-
-	for (int i = 0; i < space_count; i++) {
-		space[i] = 0;
-	}
-
-	srand((unsigned)time(NULL));
-
+	space = calloc(space_count, 1);
+	
 	// set a flat world:
 	for (int x = 0; x < s; x++) {
 		for (int z = 0; z < s; z++) {
-			space[s * s * x + s * 0/*y=0*/ + z] = rand() % 5 + 1;
+			space[s * s * x + s * 0/*y=0*/ + z] = rand() % 2 + 1;
 		}
 	}
 
-	// make a 2x2 box:
-	space[s * s * 1 + s * 1 + 1] = 1;
-	space[s * s * 1 + s * 1 + 2] = 2;
-	space[s * s * 1 + s * 2 + 1] = 3;
-	space[s * s * 1 + s * 2 + 2] = 4;
-	space[s * s * 2 + s * 1 + 1] = 5;
-	space[s * s * 2 + s * 1 + 2] = 6;
-	space[s * s * 2 + s * 2 + 1] = 7;
-	space[s * s * 2 + s * 2 + 2] = 8;
-
-
-	// float cube_verticies[] = {
-	// 	0,0,0, 0,    0,1,0, 0,    1,0,0, 0,
-
-	// 	1,1,0, 0,    1,0,0, 0,    0,1,0, 0,
-
-
-	// 	0,0,1, 0,    1,0,1, 0,    0,1,1, 0,
-
-	// 	1,1,1, 0,    0,1,1, 0,    1,0,1, 0,    
-
-
-	// 	1,1,1, 0,    1,0,0, 0,    1,1,0, 0,    
-
-	// 	1,1,1, 0,    1,0,1, 0,    1,0,0, 0,   
-
-
-	// 	0,1,1, 0,    0,1,0, 0,    0,0,0, 0,    
-
-	// 	0,1,1, 0,    0,0,0, 0,    0,0,1, 0,
-
-
-	// 	1,0,1, 0,    0,0,1, 0,    1,0,0, 0,
-
-	// 	0,0,0, 0,    1,0,0, 0,    0,0,1, 0,    
-
-
-	// 	1,1,1, 0,    1,1,0, 0,    0,1,1, 0,    
-
-	// 	0,1,0, 0,    0,1,1, 0,    1,1,0, 0,    
-
-	// }; // sizeof verticies / (sizeof(float) * 4);  =  36 verticies.
-
-
+	// // make a 2x2 box:
+	// space[s * s * 1 + s * 1 + 1] = 1;
+	// space[s * s * 1 + s * 1 + 2] = 2;
+	// space[s * s * 1 + s * 2 + 1] = 3;
+	// space[s * s * 1 + s * 2 + 2] = 4;
+	// space[s * s * 2 + s * 1 + 1] = 5;
+	// space[s * s * 2 + s * 1 + 2] = 6;
+	// space[s * s * 2 + s * 2 + 1] = 7;
+	// space[s * s * 2 + s * 2 + 2] = 8;
+	
 	int vertex_count = 0, list_count = 0;
 	float* verticies = malloc(sizeof(float) * space_count * 144);
 
@@ -318,216 +330,189 @@ int main() {
 				int8_t block = space[s * s * x + s * y + z];
 				if (not block) continue;
 
-			if (not z or space[s * s * (x) + s * (y) + (z - 1)] == 0) {
+				if (not z or space[s * s * (x) + s * (y) + (z - 1)] == 0) {
 
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
 
-				vertex_count += 6;
-			}
+					vertex_count += 6;
+				}
 
-			if (z >= s - 1 or space[s * s * (x) + s * (y) + (z + 1)] == 0) {
+				if (z >= s - 1 or space[s * s * (x) + s * (y) + (z + 1)] == 0) {
 
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
 
-				vertex_count += 6;
-			}
+					vertex_count += 6;
+				}
 
-			
-			if (x >= s - 1 or space[s * s * (x + 1) + s * (y) + (z)] == 0) {
+				
+				if (x >= s - 1 or space[s * s * (x + 1) + s * (y) + (z)] == 0) {
 
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
 
-				vertex_count += 6;
-			}
+					vertex_count += 6;
+				}
 
-			if (not x or space[s * s * (x - 1) + s * (y) + (z)] == 0) {
+				if (not x or space[s * s * (x - 1) + s * (y) + (z)] == 0) {
 
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
 
-				vertex_count += 6;
-			}
+					vertex_count += 6;
+				}
 
-			if (not y or space[s * s * (x) + s * (y - 1) + (z)] == 0) {
+				if (not y or space[s * s * (x) + s * (y - 1) + (z)] == 0) {
 
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 0;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-	
-				vertex_count += 6;
-			}
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 0;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+		
+					vertex_count += 6;
+				}
 
-			if (y >= s - 1 or space[s * s * (x) + s * (y + 1) + (z)] == 0) {
+				if (y >= s - 1 or space[s * s * (x) + s * (y + 1) + (z)] == 0) {
 
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 0;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 1;
-				verticies[list_count++] = (float) block;
-				verticies[list_count++] = (float)x + 1;
-				verticies[list_count++] = (float)y + 1;
-				verticies[list_count++] = (float)z + 0;
-				verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 0;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 1;
+					verticies[list_count++] = (float) block;
+					verticies[list_count++] = (float)x + 1;
+					verticies[list_count++] = (float)y + 1;
+					verticies[list_count++] = (float)z + 0;
+					verticies[list_count++] = (float) block;
 
-				vertex_count += 6;
-			}
-
-	
-				// for (int i = 0; i < 36 * 4; i += 4) { // for each block vertex;
-				// 	verticies[list_count++] = (float)x + cube_verticies[i + 0];
-				// 	verticies[list_count++] = (float)y + cube_verticies[i + 1];
-				// 	verticies[list_count++] = (float)z + cube_verticies[i + 2];
-				// 	verticies[list_count++] = (float) block;
-				// 	vertex_count++;
-				// }
+					vertex_count += 6;
+				}
 			}
 		}
 	}
-
-	/*
-
-		todo: rendereing:
-
-			- we have to not draw the faces which are next to other transparent blocks, i think...
-
-			- we have to do the greedy algorithm, which treats multiple faces as one.. 
-
-			- we have to cull back faces, and only draw front faces.
-
-	*/
-
-	
-
-	
-
-
 
 	GLuint vertex_array;
 	glGenVertexArrays(1, &vertex_array);
@@ -542,22 +527,6 @@ int main() {
 
 	glEnableVertexAttribArray(attribute_block);
 	glVertexAttribPointer(attribute_block, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
-
-	// variables:
-	bool debug = false;
-	bool quit = false;
-	bool tab = false;
-	int counter = 0;
-	float delta = 0.0;
-
-	float pitch = 0.0f, yaw = 0.0f;
-	struct vec3 position = {5, 3, 5};
-	struct vec3 velocity = {0, 0, 0};
-
-	struct vec3 forward = 	{0, 0, -1};
-	struct vec3 straight = 	{0, 0, 1};
-	struct vec3 up = 	{0, 1, 0};
-	struct vec3 right = 	{-1, 0, 0};
 
 	straight = cross(right, up);
 
@@ -578,50 +547,39 @@ int main() {
 
 			if (event.type == SDL_QUIT) quit = true;
 
-			if (event.type == SDL_WINDOWEVENT_RESIZED) {
+			else if (event.type == SDL_WINDOWEVENT_RESIZED) {
 				printf("window was resized!!\n");
-	int w=0,h =0;
-					SDL_GetWindowSize(window, &w, &h);
-
-					printf("width = %d, height = %d", w,h);
-					window_width = w;
-					window_height = h;
-					aspect = (float) window_width / (float) window_height;
-					perspective(perspective_matrix, fovy, aspect, znear, zfar);
+				int w=0,h=0;
+				SDL_GetWindowSize(window, &w, &h);
+				printf("width = %d, height = %d", w,h);
+				window_width = w;
+				window_height = h;
+				aspect = (float) window_width / (float) window_height;
+				perspective(perspective_matrix, fovy, aspect, znear, zfar);
 			}
 
-			if (event.type == SDL_MOUSEMOTION) {
-
+			else if (event.type == SDL_MOUSEMOTION and should_move_camera) {
+				
     				float dx = (float) event.motion.xrel;
     				float dy = (float) event.motion.yrel;
 
 				yaw -= camera_sensitivity * dx;
 				pitch += camera_sensitivity * dy;
 	
-				const float pi_over_2 = 1.57079632679f;
-				if (pitch > pi_over_2) pitch = pi_over_2 - 0.0001f;
-				else if (pitch < -pi_over_2) pitch = -pi_over_2 + 0.0001f;
-
-				forward.x = -sinf(yaw) * cosf(pitch);
-				forward.y = -sinf(pitch);
-				forward.z = -cosf(yaw) * cosf(pitch);
-				forward = normalize(forward);
-
-				right.x = -cosf(yaw);
-				right.y = 0.0;
-				right.z = sinf(yaw);
-				right = normalize(right);
-				
-				straight = cross(right, up);
+				move_camera();
 			}
 
-			if (event.type == SDL_KEYDOWN) {
-				if (tab and key[SDL_SCANCODE_Q]) quit = true; 
+			else if (event.type == SDL_KEYDOWN) {
 				if (key[SDL_SCANCODE_ESCAPE]) quit = true;
-				if (key[SDL_SCANCODE_0]) debug = !debug;
-
-				if (key[SDL_SCANCODE_9]) {
-					SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+				if (tab and key[SDL_SCANCODE_Q]) quit = true; 
+				if (tab and key[SDL_SCANCODE_0]) debug = !debug;	
+				if (tab and key[SDL_SCANCODE_1]) { // pause game.
+					should_move_camera = not should_move_camera;
+					SDL_SetRelativeMouseMode(should_move_camera);
+				}
+				if (tab and key[SDL_SCANCODE_2]) {
+					is_fullscreen = not is_fullscreen;
+					SDL_SetWindowFullscreen(window, is_fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
 					int w=0,h =0;
 					SDL_GetWindowSize(window, &w, &h);
 
@@ -629,25 +587,11 @@ int main() {
 					window_width = w;
 					window_height = h;
 					aspect = (float) window_width / (float) window_height;
-
 					perspective(perspective_matrix, fovy, aspect, znear, zfar);
-					// todo: reset the perspective, based on the aspect ratio, baased on the size of the window.
 				}
 			}
 
-			if (event.type == SDL_MOUSEBUTTONDOWN) {
-				if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-	        			SDL_Log("Mouse Button 1 (left) is pressed.");
-	    			}
-
-	    			if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
-	        			SDL_Log("Mouse Button 2 (right) is pressed.");
-	    			}
-			}
 		}
-
-
-	    
 
 		const Uint8* key = SDL_GetKeyboardState(0);
 		
@@ -659,33 +603,50 @@ int main() {
 			velocity.z += delta * camera_accel * up.z;
 		}
 
-		if (key[SDL_SCANCODE_LSHIFT]) { 
+		if (key[SDL_SCANCODE_A]) { 
 			velocity.x -= delta * camera_accel * up.x;
 			velocity.y -= delta * camera_accel * up.y;
 			velocity.z -= delta * camera_accel * up.z;
 		}
 
-		if (key[SDL_SCANCODE_W]) { 
+		if (key[SDL_SCANCODE_E]) { 
 			velocity.x += delta * camera_accel * straight.x;
 			velocity.y += delta * camera_accel * straight.y;
 			velocity.z += delta * camera_accel * straight.z;
 		}
-		if (key[SDL_SCANCODE_S]) { 
+		if (key[SDL_SCANCODE_D]) { 
 			velocity.x -= delta * camera_accel * straight.x;
 			velocity.y -= delta * camera_accel * straight.y;
 			velocity.z -= delta * camera_accel * straight.z;
 		}
 
-		if (key[SDL_SCANCODE_A]) {
+		if (key[SDL_SCANCODE_S]) {
 			velocity.x += delta * camera_accel * right.x;
 			velocity.y += delta * camera_accel * right.y;
 			velocity.z += delta * camera_accel * right.z;
 		}
 		
-		if (key[SDL_SCANCODE_D]) { 
+		if (key[SDL_SCANCODE_F]) { 
 			velocity.x -= delta * camera_accel * right.x;
 			velocity.y -= delta * camera_accel * right.y;
 			velocity.z -= delta * camera_accel * right.z;
+		}
+
+		if (key[SDL_SCANCODE_L]) { 
+			yaw -= 0.08f;
+			move_camera();
+		}
+		if (key[SDL_SCANCODE_J]) { 
+			yaw += 0.08f;
+			move_camera();
+		}
+		if (key[SDL_SCANCODE_I]) { 
+			pitch -= 0.08f;
+			move_camera();
+		}
+		if (key[SDL_SCANCODE_K]) { 
+			pitch += 0.08f;
+			move_camera();
 		}
 
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -696,11 +657,7 @@ int main() {
 
 
 		look_at(view_matrix, position, forward, up);
-	
-		multiply_matrix(matrix, view_matrix, matrix);
-		multiply_matrix(matrix, perspective_matrix, matrix);
 
-	
 		memset(matrix, 0, 64);
 		matrix[4 * 0 + 0] = 1.0;
 		matrix[4 * 1 + 1] = 1.0;
@@ -718,7 +675,6 @@ int main() {
 		glDrawArrays(GL_TRIANGLES, 0, vertex_count);
 		SDL_GL_SwapWindow(window);
 
-
 		velocity.x *= drag;
 		velocity.y *= drag;
 		velocity.z *= drag;
@@ -726,7 +682,6 @@ int main() {
 		position.x += delta * velocity.x;
 		position.y += delta * velocity.y;
 		position.z += delta * velocity.z;
-
 
 		const int32_t sleep = ms_delay_per_frame - ((int32_t) SDL_GetTicks() - (int32_t) start);
 		if (sleep > 0) SDL_Delay((uint32_t) sleep);
@@ -751,6 +706,7 @@ int main() {
 		}
 	}
 
+	glDeleteBuffers(1, &vertex_array_buffer);
 	glDeleteVertexArrays(1, &vertex_array);
 
 	// delete buffers?
@@ -859,7 +815,23 @@ int main() {
 
 
 
-
 */
+
+
+
+	/*
+
+		todo: rendereing:
+
+			- we have to not draw the faces which are next to other transparent blocks, i think...
+
+			- we have to do the greedy algorithm, which treats multiple faces as one.. 
+
+			- we have to cull back faces, and only draw front faces.
+
+	*/
+
+	
+
 
 
