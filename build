@@ -1,8 +1,8 @@
 #!/bin/zsh
 
 if [ "release" = "$1" ]; then
-	clang -Ofast -Weverything -Wno-poison-system-directories -Wno-padded -Wno-reserved-identifier -Wno-reserved-id-macro -Wno-deprecated-declarations -fsanitize=address,undefined -I /opt/homebrew/include/ -L /opt/homebrew/lib/ source/client.c -o client -lSDL2 -framework Opengl
-	clang -Ofast -Weverything -Wno-poison-system-directories -fsanitize=address,undefined source/server.c -o server
+	clang -Ofast -Weverything -Wno-poison-system-directories -Wno-declaration-after-statement -Wno-padded -Wno-reserved-identifier -Wno-reserved-id-macro -Wno-deprecated-declarations -fsanitize=address,undefined -I /opt/homebrew/include/ -L /opt/homebrew/lib/ source/client.c -o client -lSDL2 -framework Opengl
+	clang -Ofast -Weverything -Wno-poison-system-directories -Wno-declaration-after-statement -fsanitize=address,undefined source/server.c -o server
 
 elif [ "clean" = "$1" ]; then
 	rm -rf client
@@ -11,14 +11,14 @@ elif [ "clean" = "$1" ]; then
 	rm -rf server.dSYM
 
 elif [ "" = "$1" ]; then 
-	clang -g -O0 -Weverything -Wno-poison-system-directories -Wno-padded -Wno-reserved-identifier -Wno-reserved-id-macro -Wno-deprecated-declarations -fsanitize=address,undefined -I /opt/homebrew/include/ -L /opt/homebrew/lib/ source/client.c -o client -lSDL2 -framework Opengl
-	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined source/server.c -o server
+	clang -g -O0 -Weverything -Wno-poison-system-directories -Wno-declaration-after-statement -Wno-padded -Wno-reserved-identifier -Wno-reserved-id-macro -Wno-deprecated-declarations -fsanitize=address,undefined -I /opt/homebrew/include/ -L /opt/homebrew/lib/ source/client.c -o client -lSDL2 -framework Opengl
+	clang -g -O0 -Weverything -Wno-poison-system-directories -Wno-declaration-after-statement -fsanitize=address,undefined source/server.c -o server
 
 elif [ "client" = "$1" ]; then 
-	clang -g -O0 -Weverything -Wno-poison-system-directories -Wno-padded -Wno-reserved-identifier -Wno-reserved-id-macro -Wno-deprecated-declarations -fsanitize=address,undefined -I /opt/homebrew/include/ -L /opt/homebrew/lib/ source/client.c -o client -lSDL2 -framework Opengl
+	clang -g -O0 -Weverything -Wno-poison-system-directories -Wno-declaration-after-statement -Wno-padded -Wno-reserved-identifier -Wno-reserved-id-macro -Wno-deprecated-declarations -fsanitize=address,undefined -I /opt/homebrew/include/ -L /opt/homebrew/lib/ source/client.c -o client -lSDL2 -framework Opengl
 	
 elif [ "server" = "$1" ]; then 
-	clang -g -O0 -Weverything -Wno-poison-system-directories -fsanitize=address,undefined source/server.c -o server
+	clang -g -O0 -Weverything -Wno-poison-system-directories -Wno-declaration-after-statement -fsanitize=address,undefined source/server.c -o server
 
 else 
 	echo "build: unknown target: $1"
