@@ -433,7 +433,7 @@ int main(void) {
 			cc;*/
 
 			glTexSubImage2D(GL_TEXTURE_2D, 0, 
-					x, y, 
+					x * 8, y * 8, 
 					8, 8,
 					GL_RGBA,
 					GL_UNSIGNED_BYTE,
@@ -442,7 +442,10 @@ int main(void) {
 
 			cc;
 
+
+			// i think i may have figured out whats happening. it has to do with x and y. 
 		}
+
 	}
 
 
