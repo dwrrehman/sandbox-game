@@ -33,6 +33,7 @@
 
 #include <SDL2/SDL.h>
 #include <OpenGL/gl3.h>
+//#include <OpenGL/gl.h>
 
 /*
         TODO:
@@ -112,7 +113,8 @@ varying vec2 output_uv;							\n\
 uniform sampler2D atlas_texture;					\n\
 									\n\
 void main() {								\n\
-	gl_FragColor.rbg = texture2D(atlas_texture, output_uv).rbg;	\n\
+//	gl_FragColor.rbg = texture2D(atlas_texture, output_uv).rbg;	\n\
+	gl_FragColor.rbg = vec3(output_uv, 0.0);			\n\
 	gl_FragColor.a = 1.0;						\n\
 }									\n";
 
@@ -319,6 +321,17 @@ static const uint32_t atlas[64 * 64] = {
 };
 
 
+#define push_vertex(xo, yo, zo, u, v) 			\
+	do {						\
+	verticies[raw_count++] = (float)x + xo;		\
+	verticies[raw_count++] = (float)y + yo;		\
+	verticies[raw_count++] = (float)z + zo;		\
+	verticies[raw_count++] = (float) u;		\
+	verticies[raw_count++] = (float) v;		\
+	vertex_count++;					\
+	} while(0);
+
+
 static uint gle = 0;
 
 #define cc	do { gle = glGetError(); if (gle != GL_NO_ERROR) { printf("%s:l%u:e%u\n", __FILE__, __LINE__, gle);  exit(1); } } while(0);
@@ -333,8 +346,8 @@ int main(void) {
 				window_width, window_height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_OPENGL);
 	SDL_GLContext context = SDL_GL_CreateContext(window);
 
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
@@ -372,9 +385,9 @@ int main(void) {
 	glBindTexture(GL_TEXTURE_2D, texture_id);
 	cc;
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); //GL_CLAMP_TO_EDGE);
 	cc;
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); //GL_CLAMP_TO_EDGE);
 	cc;
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -406,34 +419,27 @@ int main(void) {
 	cc;
 
 
-	
-	int p_dx = 64 / 8; // pixels of each tile in x
-	int p_dy = 64 / 8; // pixels of each tile in y
+//	int p_dx = 64 / 8; // pixels of each tile in x
+//	int p_dy = 64 / 8; // pixels of each tile in y
 	// int tiles = 8 * 8; // number of tiles total
 	
 	
 	//glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA32F, p_dx, p_dy, tiles); 
 	//cc;
 	
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, 64); // width
-	cc;
+//	glPixelStorei(GL_UNPACK_ROW_LENGTH, 64); // width
+//	cc;
 
-	glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, 64); // height
-	cc;
+//	glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, 64); // height
+//	cc;
 	
-	for (int x = 0; x < 8; x++) {
+/*	for (int x = 0; x < 8; x++) {
 		for (int y = 0; y < 8; y++) {
 
-			/*glTexSubImage2D(
-				GL_TEXTURE_2D_ARRAY, 0, 0, 0, 
-				x * 8 + y, p_dx, p_dy, 1, 
-				GL_RGBA, GL_UNSIGNED_BYTE, 
-				pixel_bytes + (x * p_dy * 8 + y * p_dx) * 4
-			);
-			cc;*/
+			
 
 			glTexSubImage2D(GL_TEXTURE_2D, 0, 
-					x * 8, y * 8, 
+					x * 8, y * 8,
 					8, 8,
 					GL_RGBA,
 					GL_UNSIGNED_BYTE,
@@ -448,13 +454,19 @@ int main(void) {
 
 	}
 
-
+*/
 
 	
 
 
-
-/*	
+/*glTexSubImage2D(
+				GL_TEXTURE_2D_ARRAY, 0, 0, 0, 
+				x * 8 + y, p_dx, p_dy, 1, 
+				GL_RGBA, GL_UNSIGNED_BYTE, 
+				pixel_bytes + (x * p_dy * 8 + y * p_dx) * 4
+			);
+			cc;
+	
 	for (int x = 0; x < 8; x++) {
 		for (int y = 0; y < 8; y++) {
 
@@ -552,13 +564,13 @@ int main(void) {
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
 
-/*
+
 
 	// set a flat world:
 	for (int x = 1; x < s; x++) {
 		for (int z = 1; z < s; z++) {
 			const int y = 0;
-			space[s * s * x + s * y + z] = 1;
+			space[s * s * x + s * y + z] = rand() % 2;
 		}
 	}
 
@@ -577,25 +589,18 @@ int main(void) {
 	// and a random block:
 	space[s * s * 4 + s * 4 + 4] = 1;
 
-	*/
 
 	//space[s * s * 0 + s * 0 + 0] = 1;
 
 
 
-#define push_vertex(xo, yo, zo, u, v) 			\
-	verticies[raw_count++] = (float)x + xo;		\
-	verticies[raw_count++] = (float)y + yo;		\
-	verticies[raw_count++] = (float)z + zo;		\
-	verticies[raw_count++] = (float) u;		\
-	verticies[raw_count++] = (float) v;		\
-	vertex_count++;
-
-
 	GLsizei vertex_count = 0, raw_count = 0;//, index_count = 0;
 
-	//unsigned* indicies = malloc(sizeof(unsigned) * space_count * 144);	
-	float* verticies = malloc(sizeof(float) * space_count * 144);
+	//unsigned* indicies = malloc(sizeof(unsigned) * space_count * );	
+
+
+
+	float* verticies = malloc(sizeof(float) * space_count * 6 * 6 * 5);
 
 
 	float top_x[256] 	= {	0	};
@@ -610,9 +615,12 @@ int main(void) {
 	for (int x = 0; x < s; x++) {
 		for (int y = 0; y < s; y++) {
 			for (int z = 0; z < s; z++) {
+
 				int8_t block = space[s * s * x + s * y + z];
 				if (not block) continue;
-				block--;
+				printf("generating block at <%d,%d,%d>...\n", x,y,z);
+
+				//block--;
 
 				const float ut = 0;//(float) top_x[block] / 64.0f;
 				const float vt = 0;//(float) top_y[block] / 64.0f;
@@ -622,9 +630,9 @@ int main(void) {
 				//const float us = (float) sides_x[block] / 64.0f;
 				//const float vs = (float) sides_y[block] / 64.0f;
 				
-				//const float e = 1;//8.0f / 64.0f;
-				//const float _ = 0;
-				/*
+				const float e = 1;//8.0f / 64.0f;
+				const float _ = 0;
+				
 				if (not z or not space[s * s * (x) + s * (y) + (z - 1)]) {
 					push_vertex(0,0,0, ut+_,vt+_);
 					push_vertex(0,1,0, ut+_,vt+e);
@@ -678,12 +686,16 @@ int main(void) {
 					push_vertex(0,1,1, ut+e,vt+_);
 					push_vertex(1,1,0, ut+_,vt+e);
 				}
-				*/
 			}
 		}
 	}
 
-	const float e = 1;// 8.0f / 64.0f;
+
+	printf("info: pushed %u verticies. (as %u floats)", vertex_count, raw_count);
+
+	//getchar();
+/*
+	const float e = 0.5;// 8.0f / 64.0f;
 	const float b = 0;
 
 	int x = 0, y = 0, z = 0;
@@ -694,6 +706,12 @@ int main(void) {
 	push_vertex(1,1,0, e,e);
 	push_vertex(1,0,0, b,e);
 	push_vertex(0,1,0, e,b);
+*/
+
+
+// vertex_count += 6;
+
+
 
 /*
 	push_vertex(0,0,1, b,b);
@@ -743,6 +761,24 @@ int main(void) {
 	push_vertex(1,1,0, b,b);
 	push_vertex(1,0,1, e,b);
 */
+	
+
+	puts("debug: our verticies data is: ");
+	for (int i = 0; i < vertex_count * 5; i++) {
+		if (i % 5 == 0) puts("");
+		printf("%f, ", verticies[i]);
+	}
+	puts("");
+
+	GLuint vertex_array;
+	glGenVertexArraysAPPLE(1, &vertex_array);
+	//glGenVertexArrays(1, &vertex_array);
+	cc;
+
+	glBindVertexArrayAPPLE(vertex_array);
+	//glBindVertexArray(vertex_array);
+	cc;
+
 
 	GLuint vertex_array_buffer;
 	glGenBuffers(1, &vertex_array_buffer);
@@ -752,15 +788,17 @@ int main(void) {
 
 	enum {attribute_position, attribute_uv};
 
-	glVertexAttribPointer(attribute_position, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
-	cc;
 	glEnableVertexAttribArray(attribute_position);
 	cc;
-
-	glVertexAttribPointer(attribute_uv, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	glVertexAttribPointer(attribute_position, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
 	cc;
+	
+
 	glEnableVertexAttribArray(attribute_uv);
 	cc;
+	glVertexAttribPointer(attribute_uv, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	cc;
+	
 	
 	float* view_matrix = calloc(16, 4);
 	float* perspective_matrix = calloc(16, 4);
@@ -906,7 +944,7 @@ int main(void) {
 
 		glBufferData(
 			GL_ARRAY_BUFFER, 
-			(GLsizeiptr)((size_t)vertex_count * 5 * sizeof(float)), 
+			(GLsizeiptr)((size_t)raw_count * sizeof(float)), 
 			verticies, 
 			GL_STATIC_DRAW
 		);
@@ -978,7 +1016,8 @@ int main(void) {
 	}
 
 	
-	//glDeleteVertexArrays(1, &vertex_array);
+	glDeleteVertexArrays(1, &vertex_array);
+	cc;
 
 	glDeleteBuffers(1, &vertex_array_buffer);
 	cc;
