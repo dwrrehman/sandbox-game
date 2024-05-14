@@ -1,7 +1,5 @@
 // the cpp client for the metal-based 3d block game that we are writing. 
 
-#include "atlas.h"
-
 #include <stdint.h>
 #include <iso646.h>
 #include <stdbool.h>
@@ -18,14 +16,18 @@
 #include <QuartzCore/QuartzCore.hpp>
 #include <simd/simd.h>
 #include <SDL.h>
+
 #include "triangle_metallib.h"
+
+#include "atlas.h"
+
 
 struct vertex {
     vector_float3 position;
     vector_float4 color;
 };
 
-struct vec3 {float x,y,z;};
+struct vec3 { float x,y,z; };
 typedef float* mat4;
 
 static int window_width = 1600;
@@ -141,7 +143,6 @@ static inline void move_camera(void) {
 	
 	straight = cross(right, up);
 }
-
 
 // todo: make this a function. 
 #define push_vertex(xo, yo, zo, u, v) 			\
