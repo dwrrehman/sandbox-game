@@ -40,13 +40,11 @@ static float copy[16] = {0};
 static double lastx = 0, lasty = 0;
 static bool first = true;
 
-static bool is_fullscreen = false;
-
 static int window_width = 1280;
 static int window_height = 720;
 static float aspect = 1280.0f / 720.0f;
 
-static float delta = 0.0; // delete this
+static float delta = 0.0; 
 static float pitch = 0.0f, yaw = 0.0f;
 static struct vec3 position = {20, 20, 20};
 static struct vec3 velocity = {0, 0, 0};
@@ -55,15 +53,12 @@ static struct vec3 straight = 	{0, 0, 1};
 static struct vec3 up = 	{0, 1, 0};
 static struct vec3 right = 	{-1, 0, 0};
 
-
 static const char* vertex_shader_code = "        			\n\
 #version 330 core							\n\
 									\n\
 layout(location = 0) in vec3 pos;					\n\
 layout(location = 1) in vec2 tex;					\n\
-                      							\n\
 out vec2 UV;                      					\n\
-                                          				\n\
 uniform mat4 matrix;                      				\n\
                                           				\n\
 void main() {                                				\n\
@@ -76,38 +71,30 @@ static const char* fragment_shader_code = "				\n\
 									\n\
 in vec2 UV;								\n\
 out vec3 color;								\n\
-									\n\
 uniform sampler2D atlas_texture;					\n\
 									\n\
 void main() {								\n\
 	 color = texture( atlas_texture, UV ).rgb;			\n\
 }									\n";
 
-
-
 static void printGLInfo(void) {
-	printf("OpenGL: %s %s %s",
+	printf("OpenGL: %s %s %s\n",
 			glGetString(GL_VENDOR),
 			glGetString(GL_RENDERER),
 			glGetString(GL_VERSION));
-	printf("OpenGL Shading language: %s",
+	printf("OpenGL Shading language: %s\n",
 			glGetString(GL_SHADING_LANGUAGE_VERSION));
 }
 
 static void listGLExtensions(void) {
-	GLint num=0;
-	GLuint i;
+	GLint num = 0;
 	glGetIntegerv(GL_NUM_EXTENSIONS, &num);
-	printf("GL extensions supported: %d", num);
-	if (num < 1) {
-		return;
-	}
+	printf("GL extensions supported: %d\n", num);
+	if (num < 1) return;
 
-	for (i=0; i<(GLuint)num; i++) {
-		const GLubyte *ext=glGetStringi(GL_EXTENSIONS,i);
-		if (ext) {
-			printf("  %s",ext);
-		}
+	for (int i = 0; i < num; i++) {
+		const GLubyte* ext = glGetStringi(GL_EXTENSIONS, (GLuint) i);
+		if (ext) printf("  %s\n",ext);
 	}
 }
 
@@ -129,8 +116,8 @@ static inline float inversesqrt(float y) {
 }
 
 static inline struct vec3 normalize(struct vec3 v) {
-   float s = inversesqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-   return (struct vec3) {v.x * s, v.y * s, v.z * s};
+	float s = inversesqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	return (struct vec3) {v.x * s, v.y * s, v.z * s};
 }
 
 static inline struct vec3 cross(struct vec3 x, struct vec3 y) {
@@ -165,15 +152,15 @@ static inline void look_at(mat4 result, struct vec3 eye, struct vec3 f, struct v
 }
 
 static inline void multiply_matrix(mat4 out, mat4 A, mat4 B) {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            out[4 * i + j] = 
-		A[4 * i + 0] * B[4 * 0 + j] + 
-		A[4 * i + 1] * B[4 * 1 + j] + 
-		A[4 * i + 2] * B[4 * 2 + j] + 
-		A[4 * i + 3] * B[4 * 3 + j];
-        }
-    }
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			out[4 * i + j] = 
+			A[4 * i + 0] * B[4 * 0 + j] + 
+			A[4 * i + 1] * B[4 * 1 + j] + 
+			A[4 * i + 2] * B[4 * 2 + j] + 
+			A[4 * i + 3] * B[4 * 3 + j];
+		}
+	}
 }
 
 static inline void move_camera(void) {
@@ -211,6 +198,14 @@ static void mouse_callback(__attribute__((unused)) GLFWwindow* window, double x,
 	lastx = x; lasty = y;
 }
 
+static void mouse_button_callback(__attribute__((unused)) GLFWwindow* window, int button, int action, __attribute__((unused)) int mods) {
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+		puts("right mouse button clicked!!");
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+		puts("left mouse button clicked!!");
+}
+
 int main(void) {
 	srand((unsigned)time(NULL));
 	if (not glfwInit()) exit(1);
@@ -230,11 +225,14 @@ int main(void) {
 
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(0);
+
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); 
 	if (glfwRawMouseMotionSupported())
     		glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
 
 	if (not gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) exit(1);
 
@@ -312,6 +310,7 @@ int main(void) {
 	glGenTextures(1, &texture_id);cc;
 	glActiveTexture(GL_TEXTURE0);cc;
 	glBindTexture(GL_TEXTURE_2D, texture_id);cc;
+	glGenerateMipmap(GL_TEXTURE_2D);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);cc;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);cc;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);cc;
@@ -337,20 +336,26 @@ int main(void) {
 	);cc;
 
 
+enum blocks {
+	air_block,
+	grass_block,
+	dirt_block,
+	stone_block,
+	granite_block,
+	wood_block,
+	leaves_block,
+	water_block,
+	moss_block,
+	iron_ore_block,
+	off_cell_block,
+	on_cell_block,
+	off_path_block,
+	on_path_block,
+	glass_block,
+	block_count,
+};
 
-	enum blocks {
-		air_block,
-		grass_block,
-		dirt_block,
-		stone_block,
-		granite_block,
-		wood_block,
-		leaves_block,
-		water_block,
-	};
-
-
-	const int s = 100;
+	const int s = 200;
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
 
@@ -363,6 +368,7 @@ int main(void) {
 		}
 	}
 
+	// grass stair case:
 	for (int x = 0; x < s; x++) {
 		for (int z = 0; z < s; z++) {
 			for (int y = 0; y < (x) % 10; y++) {
@@ -373,25 +379,42 @@ int main(void) {
 	}
 
 	// // make a 2x2 box:
-	space[s * s * 1 + s * 10 + 1] = grass_block;
-	space[s * s * 1 + s * 10 + 2] = grass_block;
-	space[s * s * 1 + s * 11 + 1] = grass_block;
-	space[s * s * 1 + s * 11 + 2] = grass_block;
-	space[s * s * 2 + s * 10 + 1] = grass_block;
-	space[s * s * 2 + s * 10 + 2] = grass_block;
-	space[s * s * 2 + s * 11 + 1] = grass_block;
-	space[s * s * 2 + s * 11 + 2] = grass_block;
+	space[s * s * 1 + s * 10 + 1] = rand() % block_count;
+	space[s * s * 1 + s * 10 + 2] = rand() % block_count;
+	space[s * s * 1 + s * 11 + 1] = rand() % block_count;
+	space[s * s * 1 + s * 11 + 2] = rand() % block_count;
+	space[s * s * 2 + s * 10 + 1] = rand() % block_count;
+	space[s * s * 2 + s * 10 + 2] = rand() % block_count;
+	space[s * s * 2 + s * 11 + 1] = rand() % block_count;
+	space[s * s * 2 + s * 11 + 2] = rand() % block_count;
 
 
-	
+	// // make a 2x2 box:
+	space[s * s * 1 + s * 20 + 1] = rand() % block_count;
+	space[s * s * 1 + s * 20 + 2] = rand() % block_count;
+	space[s * s * 1 + s * 21 + 1] = rand() % block_count;
+	space[s * s * 1 + s * 21 + 2] = rand() % block_count;
+	space[s * s * 2 + s * 20 + 1] = rand() % block_count;
+	space[s * s * 2 + s * 20 + 2] = rand() % block_count;
+	space[s * s * 2 + s * 21 + 1] = rand() % block_count;
+	space[s * s * 2 + s * 21 + 2] = rand() % block_count;
+
 	// and a random block:
-	space[s * s * 0 + s * 15 + 0] = 1 + rand() % 4;
-
-	
-	
-
-
-
+	space[s * s * 3 + s * 15 + 4] = air_block;
+	space[s * s * 3 + s * 15 + 6] = grass_block;
+	space[s * s * 3 + s * 15 + 8] = dirt_block;
+	space[s * s * 3 + s * 15 + 10] = stone_block;
+	space[s * s * 3 + s * 15 + 12] = granite_block;
+	space[s * s * 3 + s * 15 + 14] = wood_block;
+	space[s * s * 3 + s * 15 + 16] = leaves_block;
+	space[s * s * 3 + s * 15 + 18] = water_block;
+	space[s * s * 3 + s * 15 + 20] = moss_block;
+	space[s * s * 3 + s * 15 + 22] = iron_ore_block;
+	space[s * s * 3 + s * 15 + 24] = off_cell_block;
+	space[s * s * 3 + s * 15 + 26] = on_cell_block;
+	space[s * s * 3 + s * 15 + 28] = off_path_block;
+	space[s * s * 3 + s * 15 + 30] = on_path_block;
+	space[s * s * 3 + s * 15 + 32] = glass_block;
 
 
 #define push_vertex(xo, yo, zo, u, v) 			\
@@ -408,23 +431,23 @@ int main(void) {
 	float* verticies = malloc(sizeof(float) * space_count * 144);
 
 
-	unsigned short front_x[256] 	= {1,0,3};
-	unsigned short front_y[256] 	= {0,0,0};
+	unsigned short front_x[256] 	= {1,0,3,4,5,6,7,2,3,4,5,6,7,1};
+	unsigned short front_y[256] 	= {0,0,0,0,0,0,0,1,1,1,1,1,1,1};
 
-	unsigned short back_x[256] 	= {1,0,3};
-	unsigned short back_y[256] 	= {0,0,0};
+	unsigned short back_x[256] 	= {1,0,3,4,5,6,7,2,3,4,5,6,7,1};
+	unsigned short back_y[256] 	= {0,0,0,0,0,0,0,1,1,1,1,1,1,1};
 
-	unsigned short up_x[256] 	= {2,0,3};
-	unsigned short up_y[256] 	= {0,0,0};
+	unsigned short up_x[256] 	= {2,0,3,4,0,6,7,2,3,4,5,6,7,1};
+	unsigned short up_y[256] 	= {0,0,0,0,1,0,0,1,1,1,1,1,1,1};
 
-	unsigned short down_x[256] 	= {0,0,3};
-	unsigned short down_y[256] 	= {0,0,0};
+	unsigned short down_x[256] 	= {0,0,3,4,0,6,7,2,3,4,5,6,7,1};
+	unsigned short down_y[256] 	= {0,0,0,0,1,0,0,1,1,1,1,1,1,1};
 
-	unsigned short left_x[256] 	= {1,0,3};
-	unsigned short left_y[256] 	= {0,0,0};
+	unsigned short left_x[256] 	= {1,0,3,4,5,6,7,2,3,4,5,6,7,1};
+	unsigned short left_y[256] 	= {0,0,0,0,0,0,0,1,1,1,1,1,1,1};
 
-	unsigned short right_x[256] 	= {1,0,3};
-	unsigned short right_y[256] 	= {0,0,0};
+	unsigned short right_x[256] 	= {1,0,3,4,5,6,7,2,3,4,5,6,7,1};
+	unsigned short right_y[256] 	= {0,0,0,0,0,0,0,1,1,1,1,1,1,1};
 
 	for (int x = 0; x < s; x++) {
 		for (int y = 0; y < s; y++) {
@@ -533,15 +556,11 @@ int main(void) {
 		if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
 			const GLFWvidmode* videomode = glfwGetVideoMode(monitor);
 			glfwSetWindowMonitor(window, monitor, 0, 0, videomode->width, videomode->height, videomode->refreshRate);
-			is_fullscreen = true;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
 			glfwSetWindowMonitor(window, NULL, 50, 50, 1280, 720, 0);
-			is_fullscreen = false;
-		}	
-		
-		
+		}
 
 		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
 			velocity.x += delta * camera_accel * up.x;
