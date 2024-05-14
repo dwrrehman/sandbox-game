@@ -15,25 +15,46 @@
 #include <GLFW/glfw3.h>
 
 #include "atlas.h"
-
 #include "glad/glad.h"
-
 
 // temporary:
 
 static uint32_t err = 0;
 #define cc	do { err = glGetError(); if (err != GL_NO_ERROR) { printf("%s: line%u: err%u\n", __FILE__, __LINE__, err);  exit(1); } } while(0);
 
-
 static const float fovy = 1.22173f /*radians*/;
 static const float znear = 0.01f;
 static const float zfar = 1000.0f;
-
 static const float camera_sensitivity = 0.005f;
-static const float camera_accel = 0.000000003f;
-static const float drag = 0.95f;
-
+static const float camera_accel = 0.000000002f;
+static const float drag = 0.90f;
 // static const int32_t ms_delay_per_frame = 8;
+
+struct vec3 {float x,y,z;};
+typedef float* mat4;
+
+static float view_matrix[16] = {0};
+static float perspective_matrix[16] = {0};
+static float matrix[16] = {0};
+static float copy[16] = {0};
+static double lastx = 0, lasty = 0;
+static bool first = true;
+
+static bool is_fullscreen = false;
+
+static int window_width = 1280;
+static int window_height = 720;
+static float aspect = 1280.0f / 720.0f;
+
+static float delta = 0.0; // delete this
+static float pitch = 0.0f, yaw = 0.0f;
+static struct vec3 position = {20, 20, 20};
+static struct vec3 velocity = {0, 0, 0};
+static struct vec3 forward = 	{0, 0, -1};
+static struct vec3 straight = 	{0, 0, 1};
+static struct vec3 up = 	{0, 1, 0};
+static struct vec3 right = 	{-1, 0, 0};
+
 
 static const char* vertex_shader_code = "        			\n\
 #version 330 core							\n\
@@ -62,117 +83,6 @@ void main() {								\n\
 	 color = texture( atlas_texture, UV ).rgb;			\n\
 }									\n";
 
-// 
-
-
-// texture( atlas_texture, UV ).rgb
-
-
-
-
-// sampler2D uTexture
-// void main() {
-// 	vec4 textureColor = texture(uTexture, aTexCoords);
-//
-//}
-
-/*
-#version 330 core
-
-// Input vertex data, different for all executions of this shader.
-layout(location = 0) in vec3 vertexPosition_modelspace;
-layout(location = 1) in vec2 vertexUV;
-
-// Output data ; will be interpolated for each fragment.
-out vec2 UV;
-
-// Values that stay constant for the whole mesh.
-uniform mat4 MVP;
-
-void main(){
-
-    // Output position of the vertex, in clip space : MVP * position
-    gl_Position =  MVP * vec4(vertexPosition_modelspace,1);
-
-    // UV of the vertex. No special space for this one.
-    UV = vertexUV;
-}
-
-
-
-
-#version 330 core
-
-// Interpolated values from the vertex shaders
-in vec2 UV;
-
-// Ouput data
-out vec3 color;
-
-// Values that stay constant for the whole mesh.
-uniform sampler2D myTextureSampler;
-
-void main(){
-
-    // Output color = color of the texture at the specified UV
-    color = texture( myTextureSampler, UV ).rgb;
-}
-
-
-
-
-
-
-
-
-
-	static const float cubeGeometry[]={
-
-		-1.0, -1.0,  1.0,    255,   0,   0, 255,
-		 1.0, -1.0,  1.0,    192,   0,   0, 255,
-		-1.0,  1.0,  1.0,    192,   0,   0, 255,
-		 1.0,  1.0,  1.0,    128,   0,   0, 255,
-
-		 1.0, -1.0, -1.0,      0, 255, 255, 255,
-		-1.0, -1.0, -1.0,      0, 192, 192, 255,
-		 1.0,  1.0, -1.0,      0, 192, 192, 255,
-		-1.0,  1.0, -1.0,      0, 128, 128, 255,
-
-		-1.0, -1.0, -1.0,      0, 255,   0, 255,
-		-1.0, -1.0,  1.0,      0, 192,   0, 255,
-		-1.0,  1.0, -1.0,      0, 192,   0, 255,
-		-1.0,  1.0,  1.0,      0, 128,   0, 255,
-
-		 1.0, -1.0,  1.0,    255,   0, 255, 255,
-		 1.0, -1.0, -1.0,    192,   0, 192, 255,
-		 1.0,  1.0,  1.0,    192,   0, 192, 255,
-		 1.0,  1.0, -1.0,    128,   0, 128, 255,
-
-		-1.0,  1.0,  1.0,      0,   0, 255, 255,
-		 1.0,  1.0,  1.0,      0,   0, 192, 255,
-		-1.0,  1.0, -1.0,      0,   0, 192, 255,
-		 1.0,  1.0, -1.0,      0,   0, 128, 255,
-
-		 1.0, -1.0,  1.0,    255, 255,   0, 255,
-		-1.0, -1.0,  1.0,    192, 192,   0, 255,
-		 1.0, -1.0, -1.0,    192, 192,   0, 255,
-		-1.0, -1.0, -1.0,    128, 128,   0, 255,
-	};
-
-
-
-
-	static const unsigned cubeConnectivity[]={
-		 0, 1, 2,  2, 1, 3,	
-		 4, 5, 6,  6, 5, 7,	
-		 8, 9,10, 10, 9,11,	
-		12,13,14, 14,13,15,	
-		16,17,18, 18,17,19,	
-		20,21,22, 22,21,23
-	};
-
-
-*/
 
 
 static void printGLInfo(void) {
@@ -200,10 +110,6 @@ static void listGLExtensions(void) {
 		}
 	}
 }
-
-
-struct vec3 {float x,y,z;};
-typedef float* mat4;
 
 static inline void perspective(mat4 result, float fov, float asp, float zNear, float zFar) {
 	const float t = tanf(fov / 2.0f);
@@ -239,8 +145,8 @@ static inline float dot(struct vec3 a, struct vec3 b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-static inline void look_at(mat4 result, struct vec3 eye, struct vec3 f, struct vec3 up) {
-	struct vec3 s = normalize(cross(f, up));
+static inline void look_at(mat4 result, struct vec3 eye, struct vec3 f, struct vec3 up1) {
+	struct vec3 s = normalize(cross(f, up1));
 	struct vec3 u = cross(s, f);
 
 	result[4 * 0 + 0] =  s.x;
@@ -270,29 +176,6 @@ static inline void multiply_matrix(mat4 out, mat4 A, mat4 B) {
     }
 }
 
-static int window_width = 1600;
-static int window_height = 1000;
-static float aspect = 1.6f;
-
-
-// static bool debug = false; // delete this
-//static bool quit = false; // delete this
-// static bool tab = false; // delete this
-//static bool should_move_camera = true; // delete this
-//static bool is_fullscreen = false; // delete this
-
-
-static float delta = 0.0; // delete this
-
-static float pitch = 0.0f, yaw = 0.0f;
-static struct vec3 position = {0, 0, 3};
-static struct vec3 velocity = {0, 0, 0};
-
-static struct vec3 forward = 	{0, 0, -1};
-static struct vec3 straight = 	{0, 0, 1};
-static struct vec3 up = 	{0, 1, 0};
-static struct vec3 right = 	{-1, 0, 0};
-
 static inline void move_camera(void) {
 	const float pi_over_2 = 1.57079632679f;
 	if (pitch > pi_over_2) pitch = pi_over_2 - 0.0001f;
@@ -310,17 +193,7 @@ static inline void move_camera(void) {
 	straight = cross(right, up);
 }
 
-
-
-
-
-static float view_matrix[16] = {0};
-static float perspective_matrix[16] = {0};
-static float matrix[16] = {0};
-static float copy[16] = {0};
-
-
-static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+static void framebuffer_size_callback(__attribute__((unused)) GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
 	printf("framebuffer_size_callback: window was resized!!\n");
 	printf("width = %d, height = %d", width, height);
@@ -330,29 +203,16 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	perspective(perspective_matrix, fovy, aspect, znear, zfar);
 }
 
-static double lastx = 0, lasty = 0;
-static bool first = true;
-
-static void mouse_callback(GLFWwindow* window, double x, double y) {
-	
-	if (first) {
-		lastx = x;
-		lasty = y;
-		first = false;
-	}
-
-	yaw += camera_sensitivity * -(x - lastx);
-	pitch += camera_sensitivity * -(lasty - y);
-
+static void mouse_callback(__attribute__((unused)) GLFWwindow* window, double x, double y) {
+	if (first) { lastx = x; lasty = y; first = false; }
+	yaw += camera_sensitivity * -((float)x - (float)lastx);
+	pitch += camera_sensitivity * -((float)lasty - (float)y);
 	move_camera();
-
-	lastx = x;
-	lasty = y;
+	lastx = x; lasty = y;
 }
 
 int main(void) {
 	srand((unsigned)time(NULL));
-
 	if (not glfwInit()) exit(1);
 
 #ifdef __APPLE__
@@ -363,8 +223,10 @@ int main(void) {
 #endif
 	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
-	GLFWwindow* window = glfwCreateWindow( 1280, 720, "block game", NULL, NULL );
-	if (not window) { glfwTerminate(); exit(1); }
+	GLFWwindow* window = glfwCreateWindow( window_width, window_height, "block game", NULL, NULL );
+	if (not window) { puts("error: window creation"); glfwTerminate(); exit(1); }
+	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+	if (not monitor) { puts("error: could not get monitor"); glfwTerminate(); exit(1); }
 
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(0);
@@ -380,22 +242,19 @@ int main(void) {
 	glGenVertexArrays(1, &vertex_array);cc;
 	glBindVertexArray(vertex_array);cc;
 
-	glEnable(GL_DEPTH_TEST); cc;
-	glFrontFace(GL_CCW); cc;
-	//glCullFace(GL_BACK); cc;
-	//glEnable(GL_CULL_FACE); cc;
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); //GL_FRONT  cc;
+	glEnable(GL_DEPTH_TEST);cc;
+	glFrontFace(GL_CCW);cc;
+	glCullFace(GL_BACK);cc;
+	glEnable(GL_CULL_FACE);cc;
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);cc;
 
 	printf("glGetString(GL_VERSION) = %s\n", glGetString(GL_VERSION)); // debug
-	printGLInfo();
-	puts("");
-	listGLExtensions();
-	puts("");
+	printGLInfo(); puts("");
+	listGLExtensions(); puts("");
 
 	straight = cross(right, up);
 	perspective(perspective_matrix, fovy, aspect, znear, zfar);
 
-	
 	GLint success = 0;
 	GLchar error[1024] = {0};
 	GLuint program = glCreateProgram();cc;
@@ -411,8 +270,7 @@ int main(void) {
 		printf("vertex shader compile error: %s\n", error);
 		exit(1);
 	}
-	glAttachShader(program, vertex_shader);
-	cc;
+	glAttachShader(program, vertex_shader);cc;
 
 	GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);cc;
 	const GLchar* fs_sources[1] = {fragment_shader_code};
@@ -425,8 +283,7 @@ int main(void) {
 		printf("fragment shader compile error: %s\n", error);
 		exit(1);
 	}
-	glAttachShader(program, fragment_shader);
-	cc;
+	glAttachShader(program, fragment_shader);cc;
 	
 	glLinkProgram(program);cc;
 	glGetProgramiv(program, GL_LINK_STATUS, &success);cc;
@@ -442,46 +299,23 @@ int main(void) {
 		printf("program validate error: %s\n", error);
 		exit(1);
 	}
-	glUseProgram(program);
-	cc;
-
-	GLint matrix_uniform = glGetUniformLocation(program, "matrix");
-	cc;
-
-	GLint texture_uniform = glGetUniformLocation(program, "atlas_texture");
-	cc;
-
-	glUniform1i(texture_uniform, 0);
-	cc;
+	glUseProgram(program);cc;
+	GLint matrix_uniform = glGetUniformLocation(program, "matrix");cc;
+	GLint texture_uniform = glGetUniformLocation(program, "atlas_texture");cc;
+	glUniform1i(texture_uniform, 0);cc;
 
 	glBindAttribLocation(program, 0, "pos");cc;
 	glBindAttribLocation(program, 1, "tex");cc;
 	glBindFragDataLocation(program, 0, "color");cc;
 
-
-
-
-
-
 	uint32_t texture_id;
-	glGenTextures(1, &texture_id);
-	cc;
-
-	glActiveTexture(GL_TEXTURE0); 
-	cc;
-
-	glBindTexture(GL_TEXTURE_2D, texture_id);
-	cc;
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	cc;
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	cc;
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	cc;
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	cc;
+	glGenTextures(1, &texture_id);cc;
+	glActiveTexture(GL_TEXTURE0);cc;
+	glBindTexture(GL_TEXTURE_2D, texture_id);cc;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);cc;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);cc;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);cc;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);cc;
 
 	uint8_t pixel_bytes[64 * 64 * 4] = {0};
 	for (unsigned i = 0; i < 64 * 64; i++) {
@@ -500,80 +334,63 @@ int main(void) {
 	glTexImage2D(
 		GL_TEXTURE_2D, 0, internal_format, 
 		width, height, 0, format, type, pixel_bytes
-	); 
-	cc;
+	);cc;
 
 
 
-
-
-
-
-
-
-
-
-
-/*
-	const float e = 1.0 / 8;
-	const float c = 4 * e;
-	const float r = 3 * e;
-
-	const float verticies[] = {
-	   0, 0, 0,    c + 0, r + 0,
-	   1, 0, 0,    c + e, r + 0,
-	   1, 1, 0,    c + e, r + e,
-	   0, 0, 0,    c + 0, r + 0,
-	   1, 1, 0,    c + e, r + e,
-	   0, 1, 0,    c + 0, r + e,
+	enum blocks {
+		air_block,
+		grass_block,
+		dirt_block,
+		stone_block,
+		granite_block,
+		wood_block,
+		leaves_block,
+		water_block,
 	};
 
-	unsigned int vertex_count = 3 * 2;
 
-
-							confirmed working vertex data!
-
-*/
-
-
-
-
-
-
-
-
-
-	const int s = 20;
+	const int s = 100;
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
 
-
 	// set a flat world:
-	for (int x = 1; x < s; x++) {
-		for (int z = 1; z < s; z++) {
-			const int y = 0;
-			space[s * s * x + s * y + z] = 1;
+	for (int x = 0; x < s; x++) {
+		for (int z = 0; z < s; z++) {
+			for (int y = 0; y < 5; y++) {
+				space[s * s * x + s * y + z] = stone_block;
+			}
+		}
+	}
+
+	for (int x = 0; x < s; x++) {
+		for (int z = 0; z < s; z++) {
+			for (int y = 0; y < (x) % 10; y++) {
+				if (not space[s * s * x + s * y + z]) space[s * s * x + s * y + z] = dirt_block;
+			}
+			if (not space[s * s * x + s * ((x) % 10) + z]) space[s * s * x + s * ((x) % 10) + z] = grass_block;
 		}
 	}
 
 	// // make a 2x2 box:
-	space[s * s * 1 + s * 1 + 1] = 1;
-	space[s * s * 1 + s * 1 + 2] = 1;
-	space[s * s * 1 + s * 2 + 1] = 1;
-	space[s * s * 1 + s * 2 + 2] = 1;
-	space[s * s * 2 + s * 1 + 1] = 1;
-	space[s * s * 2 + s * 1 + 2] = 1;
-	space[s * s * 2 + s * 2 + 1] = 1;
-	space[s * s * 2 + s * 2 + 2] = 1;
+	space[s * s * 1 + s * 10 + 1] = grass_block;
+	space[s * s * 1 + s * 10 + 2] = grass_block;
+	space[s * s * 1 + s * 11 + 1] = grass_block;
+	space[s * s * 1 + s * 11 + 2] = grass_block;
+	space[s * s * 2 + s * 10 + 1] = grass_block;
+	space[s * s * 2 + s * 10 + 2] = grass_block;
+	space[s * s * 2 + s * 11 + 1] = grass_block;
+	space[s * s * 2 + s * 11 + 2] = grass_block;
 
 
 	
 	// and a random block:
-	space[s * s * 4 + s * 4 + 4] = 1;
+	space[s * s * 0 + s * 15 + 0] = 1 + rand() % 4;
 
 	
+	
 
-	//space[s * s * 0 + s * 0 + 0] = 1;
+
 
 
 
@@ -585,77 +402,93 @@ int main(void) {
 	verticies[raw_count++] = (float) v;		\
 	vertex_count++;
 
-
 	GLsizei vertex_count = 0, raw_count = 0;//, index_count = 0;
 
-	//unsigned* indicies = malloc(sizeof(unsigned) * space_count * 144);	
+	//unsigned* indicies = malloc(sizeof(unsigned) * space_count * 144);
 	float* verticies = malloc(sizeof(float) * space_count * 144);
 
 
-	//float top_x[256] 	= {	0	};
-	//float top_y[256] 	= {	0	};
+	unsigned short front_x[256] 	= {1,0,3};
+	unsigned short front_y[256] 	= {0,0,0};
 
-	//float bottom_x[256] 	= {	0	};
-	//float bottom_y[256] 	= {	0	};
-	//float sides_x[256] 	= {	1	};
-	//float sides_y[256] 	= {	0	};
+	unsigned short back_x[256] 	= {1,0,3};
+	unsigned short back_y[256] 	= {0,0,0};
 
+	unsigned short up_x[256] 	= {2,0,3};
+	unsigned short up_y[256] 	= {0,0,0};
+
+	unsigned short down_x[256] 	= {0,0,3};
+	unsigned short down_y[256] 	= {0,0,0};
+
+	unsigned short left_x[256] 	= {1,0,3};
+	unsigned short left_y[256] 	= {0,0,0};
+
+	unsigned short right_x[256] 	= {1,0,3};
+	unsigned short right_y[256] 	= {0,0,0};
 
 	for (int x = 0; x < s; x++) {
 		for (int y = 0; y < s; y++) {
 			for (int z = 0; z < s; z++) {
 				int8_t block = space[s * s * x + s * y + z];
 				if (not block) continue;
+
 				block--;
-
-				const float ut = 0;		//(float) top_x[block] / 64.0f;
-				const float vt = 0;		//(float) top_y[block] / 64.0f;
-
-				//const float ub = (float) bottom_x[block] / 64.0f;
-				//const float vb = (float) bottom_y[block] / 64.0f;
-				//const float us = (float) sides_x[block] / 64.0f;
-				//const float vs = (float) sides_y[block] / 64.0f;
 				
 				const float e = 1.0 / 8.0;
 				const float _ = 0;
-				
-				if (not z or not space[s * s * (x) + s * (y) + (z - 1)]) {
-					push_vertex(0,0,0, ut+_,vt+_);
-					push_vertex(0,1,0, ut+_,vt+e);
-					push_vertex(1,0,0, ut+e,vt+_);
-					push_vertex(1,1,0, ut+e,vt+e);
-					push_vertex(1,0,0, ut+e,vt+_);
-					push_vertex(0,1,0, ut+_,vt+e);
+
+				if (not z or not space[s * s * (x) + s * (y) + (z - 1)]) { 
+					// LEFT
+					const float ut = e * left_x[block];
+					const float vt = e * left_y[block];
+					push_vertex(0,0,0, ut+e,vt+e);
+					push_vertex(0,1,0, ut+e,vt+_);
+					push_vertex(1,0,0, ut+_,vt+e);
+					push_vertex(1,1,0, ut+_,vt+_);
+					push_vertex(1,0,0, ut+_,vt+e);
+					push_vertex(0,1,0, ut+e,vt+_);
 				}
 
 				if (z >= s - 1 or not space[s * s * (x) + s * (y) + (z + 1)]) {
-					push_vertex(0,0,1, ut+_,vt+_);
+					//RIGHT
+					const float ut = e * right_x[block];
+					const float vt = e * right_y[block];
+					push_vertex(0,0,1, ut+e,vt+e);
 					push_vertex(1,0,1, ut+_,vt+e);
 					push_vertex(0,1,1, ut+e,vt+_);
-					push_vertex(1,1,1, ut+e,vt+e);
+					push_vertex(1,1,1, ut+_,vt+_);
 					push_vertex(0,1,1, ut+e,vt+_);
 					push_vertex(1,0,1, ut+_,vt+e);
-				}
+				} 
 
 				if (x >= s - 1 or not space[s * s * (x + 1) + s * (y) + (z)]) {
-					push_vertex(1,1,1, ut+_,vt+_);
-					push_vertex(1,0,0, ut+_,vt+e);
-					push_vertex(1,1,0, ut+e,vt+_);
-					push_vertex(1,1,1, ut+e,vt+e);
-					push_vertex(1,0,1, ut+e,vt+_);
-					push_vertex(1,0,0, ut+_,vt+e);
+					// BACK
+					const float ut = e * back_x[block];
+					const float vt = e * back_y[block];
+					push_vertex(1,1,1, ut+e,vt+_); // back top right
+					push_vertex(1,0,0, ut+_,vt+e); // back bottom left
+					push_vertex(1,1,0, ut+_,vt+_); // back bottom right
+					push_vertex(1,1,1, ut+e,vt+_); // back top right
+					push_vertex(1,0,1, ut+e,vt+e); // back top left
+					push_vertex(1,0,0, ut+_,vt+e); // back bottom left
 				}
 
 				if (not x or not space[s * s * (x - 1) + s * (y) + (z)]) {
-					push_vertex(0,1,1, ut+_,vt+_);
-					push_vertex(0,1,0, ut+_,vt+e);
-					push_vertex(0,0,0, ut+e,vt+_);
-					push_vertex(0,1,1, ut+e,vt+e);
-					push_vertex(0,0,0, ut+e,vt+_);
-					push_vertex(0,0,1, ut+_,vt+e);
+					// FRONT
+					const float ut = e * front_x[block];
+					const float vt = e * front_y[block];
+					push_vertex(0,1,1, ut+_,vt+_); //top right
+					push_vertex(0,1,0, ut+e,vt+_); //bottom right
+					push_vertex(0,0,0, ut+e,vt+e); //bottom left
+					push_vertex(0,1,1, ut+_,vt+_); //top right
+					push_vertex(0,0,0, ut+e,vt+e); //bottom left
+					push_vertex(0,0,1, ut+_,vt+e); //top left
 				}
 
 				if (not y or not space[s * s * (x) + s * (y - 1) + (z)]) {
+					// DOWN
+					const float ut = e * down_x[block];
+					const float vt = e * down_y[block];
 					push_vertex(1,0,1, ut+_,vt+_);
 					push_vertex(0,0,1, ut+_,vt+e);
 					push_vertex(1,0,0, ut+e,vt+_);
@@ -665,6 +498,9 @@ int main(void) {
 				}
 
 				if (y >= s - 1 or not space[s * s * (x) + s * (y + 1) + (z)]) {
+					// UP
+					const float ut = e * up_x[block];
+					const float vt = e * up_y[block];
 					push_vertex(1,1,1, ut+_,vt+_);
 					push_vertex(1,1,0, ut+_,vt+e);
 					push_vertex(0,1,1, ut+e,vt+_);
@@ -677,42 +513,15 @@ int main(void) {
 	}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	GLuint vertex_array_buffer;
 	glGenBuffers(1, &vertex_array_buffer);cc;
 	glBindBuffer(GL_ARRAY_BUFFER, vertex_array_buffer);cc;
-
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);cc;
 	glEnableVertexAttribArray(0);cc;
-
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));cc;
 	glEnableVertexAttribArray(1);cc;
 	
-
-
 	while (not glfwWindowShouldClose(window)) {
-
 		glfwPollEvents();
 
 		const clock_t begin_time = clock();
@@ -720,6 +529,19 @@ int main(void) {
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
 		if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); 
 		if (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); 
+
+		if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+			const GLFWvidmode* videomode = glfwGetVideoMode(monitor);
+			glfwSetWindowMonitor(window, monitor, 0, 0, videomode->width, videomode->height, videomode->refreshRate);
+			is_fullscreen = true;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
+			glfwSetWindowMonitor(window, NULL, 50, 50, 1280, 720, 0);
+			is_fullscreen = false;
+		}	
+		
+		
 
 		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
 			velocity.x += delta * camera_accel * up.x;
@@ -757,7 +579,6 @@ int main(void) {
 			velocity.z -= delta * camera_accel * straight.z;
 		}
 
-
 		look_at(view_matrix, position, forward, up);
 
 		memset(matrix, 0, 64);
@@ -772,20 +593,20 @@ int main(void) {
 		multiply_matrix(matrix, copy, perspective_matrix);
 
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);cc;
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); cc;
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);cc;
 
-		glUniformMatrix4fv(matrix_uniform, 1, GL_FALSE, matrix);
-		cc;
+		glUniformMatrix4fv(matrix_uniform, 1, GL_FALSE, matrix);cc;
 
 		glBufferData(
 			GL_ARRAY_BUFFER, 
 			(GLsizeiptr)((size_t) vertex_count * 5 * sizeof(float)), 
 			verticies, 
 			GL_STATIC_DRAW
-		);
-		cc;
+		);cc;
 
-		glDrawArrays(GL_TRIANGLES, 0, vertex_count); cc;
+		const bool render_lines = glfwGetKey(window, GLFW_KEY_BACKSLASH) == GLFW_PRESS;
+
+		glDrawArrays(render_lines ? GL_LINES : GL_TRIANGLES, 0, vertex_count); cc;
 		glfwSwapBuffers(window);
 		
 		velocity.x *= drag;
@@ -2475,6 +2296,172 @@ glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 
 */
+
+
+
+
+
+
+
+
+
+
+
+// 
+
+
+// texture( atlas_texture, UV ).rgb
+
+
+
+
+// sampler2D uTexture
+// void main() {
+// 	vec4 textureColor = texture(uTexture, aTexCoords);
+//
+//}
+
+/*
+#version 330 core
+
+// Input vertex data, different for all executions of this shader.
+layout(location = 0) in vec3 vertexPosition_modelspace;
+layout(location = 1) in vec2 vertexUV;
+
+// Output data ; will be interpolated for each fragment.
+out vec2 UV;
+
+// Values that stay constant for the whole mesh.
+uniform mat4 MVP;
+
+void main(){
+
+    // Output position of the vertex, in clip space : MVP * position
+    gl_Position =  MVP * vec4(vertexPosition_modelspace,1);
+
+    // UV of the vertex. No special space for this one.
+    UV = vertexUV;
+}
+
+
+
+
+#version 330 core
+
+// Interpolated values from the vertex shaders
+in vec2 UV;
+
+// Ouput data
+out vec3 color;
+
+// Values that stay constant for the whole mesh.
+uniform sampler2D myTextureSampler;
+
+void main(){
+
+    // Output color = color of the texture at the specified UV
+    color = texture( myTextureSampler, UV ).rgb;
+}
+
+
+
+
+
+
+
+
+
+	static const float cubeGeometry[]={
+
+		-1.0, -1.0,  1.0,    255,   0,   0, 255,
+		 1.0, -1.0,  1.0,    192,   0,   0, 255,
+		-1.0,  1.0,  1.0,    192,   0,   0, 255,
+		 1.0,  1.0,  1.0,    128,   0,   0, 255,
+
+		 1.0, -1.0, -1.0,      0, 255, 255, 255,
+		-1.0, -1.0, -1.0,      0, 192, 192, 255,
+		 1.0,  1.0, -1.0,      0, 192, 192, 255,
+		-1.0,  1.0, -1.0,      0, 128, 128, 255,
+
+		-1.0, -1.0, -1.0,      0, 255,   0, 255,
+		-1.0, -1.0,  1.0,      0, 192,   0, 255,
+		-1.0,  1.0, -1.0,      0, 192,   0, 255,
+		-1.0,  1.0,  1.0,      0, 128,   0, 255,
+
+		 1.0, -1.0,  1.0,    255,   0, 255, 255,
+		 1.0, -1.0, -1.0,    192,   0, 192, 255,
+		 1.0,  1.0,  1.0,    192,   0, 192, 255,
+		 1.0,  1.0, -1.0,    128,   0, 128, 255,
+
+		-1.0,  1.0,  1.0,      0,   0, 255, 255,
+		 1.0,  1.0,  1.0,      0,   0, 192, 255,
+		-1.0,  1.0, -1.0,      0,   0, 192, 255,
+		 1.0,  1.0, -1.0,      0,   0, 128, 255,
+
+		 1.0, -1.0,  1.0,    255, 255,   0, 255,
+		-1.0, -1.0,  1.0,    192, 192,   0, 255,
+		 1.0, -1.0, -1.0,    192, 192,   0, 255,
+		-1.0, -1.0, -1.0,    128, 128,   0, 255,
+	};
+
+
+
+
+	static const unsigned cubeConnectivity[]={
+		 0, 1, 2,  2, 1, 3,	
+		 4, 5, 6,  6, 5, 7,	
+		 8, 9,10, 10, 9,11,	
+		12,13,14, 14,13,15,	
+		16,17,18, 18,17,19,	
+		20,21,22, 22,21,23
+	};
+
+
+*/
+
+
+
+
+
+
+
+// static bool debug = false; // delete this
+//static bool quit = false; // delete this
+// static bool tab = false; // delete this
+//static bool should_move_camera = true; // delete this
+//static bool is_fullscreen = false; // delete this
+
+
+
+
+
+
+
+
+/*
+	const float e = 1.0 / 8;
+	const float c = 4 * e;
+	const float r = 3 * e;
+
+	const float verticies[] = {
+	   0, 0, 0,    c + 0, r + 0,
+	   1, 0, 0,    c + e, r + 0,
+	   1, 1, 0,    c + e, r + e,
+	   0, 0, 0,    c + 0, r + 0,
+	   1, 1, 0,    c + e, r + e,
+	   0, 1, 0,    c + 0, r + e,
+	};
+
+	unsigned int vertex_count = 3 * 2;
+
+
+							confirmed working vertex data!
+
+*/
+
+
+
+
 
 
 
