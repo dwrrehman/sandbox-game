@@ -21,8 +21,8 @@
 
 // temporary:
 
-static uint32_t gle = 0;
-#define cc	do { gle = glGetError(); if (gle != GL_NO_ERROR) { printf("%s:l%u:e%u\n", __FILE__, __LINE__, gle);  exit(1); } } while(0);
+static uint32_t err = 0;
+#define cc	do { err = glGetError(); if (err != GL_NO_ERROR) { printf("%s: line%u: err%u\n", __FILE__, __LINE__, err);  exit(1); } } while(0);
 
 
 static const float fovy = 1.22173f /*radians*/;
@@ -30,34 +30,27 @@ static const float znear = 0.01f;
 static const float zfar = 1000.0f;
 
 static const float camera_sensitivity = 0.005f;
-static const float camera_accel = 0.00003f;
+static const float camera_accel = 0.00000003f;
 static const float drag = 0.95f;
 
-static const int32_t ms_delay_per_frame = 8;
+// static const int32_t ms_delay_per_frame = 8;
 
 static const char* vertex_shader_code = "        			\n\
 #version 330 core							\n\
 									\n\
-attribute vec3 position;                                		\n\
-attribute vec2 input_uv;                               			\n\
-									\n\
-varying vec2 output_uv;							\n\
-uniform mat4 matrix;							\n\
+layout(location = 0) in vec3 position;					\n\
                                           				\n\
 void main() {                                				\n\
-	gl_Position = matrix * vec4(position, 1.0);              	\n\
-	output_uv = input_uv;                           		\n\
+	gl_Position = vec4(position, 1.0);              	\n\
 }                                                       		\n";
 
 static const char* fragment_shader_code = "				\n\
 #version 330 core							\n\
 									\n\
-varying vec2 output_uv;							\n\
-uniform sampler2D atlas_texture;					\n\
+out vec3 color;								\n\
 									\n\
 void main() {								\n\
-	gl_FragColor.rbg = texture2D(atlas_texture, output_uv).rbg;	\n\
-	gl_FragColor.a = 1.0;						\n\
+	color = vec3(1,0,0);						\n\
 }									\n";
 
 // 
@@ -67,8 +60,82 @@ void main() {								\n\
 //
 //}
 
-struct vec3 {float x,y,z;};
 
+
+	static const float cubeGeometry[]={
+
+		-1.0, -1.0,  1.0,    255,   0,   0, 255,
+		 1.0, -1.0,  1.0,    192,   0,   0, 255,
+		-1.0,  1.0,  1.0,    192,   0,   0, 255,
+		 1.0,  1.0,  1.0,    128,   0,   0, 255,
+
+		 1.0, -1.0, -1.0,      0, 255, 255, 255,
+		-1.0, -1.0, -1.0,      0, 192, 192, 255,
+		 1.0,  1.0, -1.0,      0, 192, 192, 255,
+		-1.0,  1.0, -1.0,      0, 128, 128, 255,
+
+		-1.0, -1.0, -1.0,      0, 255,   0, 255,
+		-1.0, -1.0,  1.0,      0, 192,   0, 255,
+		-1.0,  1.0, -1.0,      0, 192,   0, 255,
+		-1.0,  1.0,  1.0,      0, 128,   0, 255,
+
+		 1.0, -1.0,  1.0,    255,   0, 255, 255,
+		 1.0, -1.0, -1.0,    192,   0, 192, 255,
+		 1.0,  1.0,  1.0,    192,   0, 192, 255,
+		 1.0,  1.0, -1.0,    128,   0, 128, 255,
+
+		-1.0,  1.0,  1.0,      0,   0, 255, 255,
+		 1.0,  1.0,  1.0,      0,   0, 192, 255,
+		-1.0,  1.0, -1.0,      0,   0, 192, 255,
+		 1.0,  1.0, -1.0,      0,   0, 128, 255,
+
+		 1.0, -1.0,  1.0,    255, 255,   0, 255,
+		-1.0, -1.0,  1.0,    192, 192,   0, 255,
+		 1.0, -1.0, -1.0,    192, 192,   0, 255,
+		-1.0, -1.0, -1.0,    128, 128,   0, 255,
+	};
+
+
+
+
+	static const unsigned cubeConnectivity[]={
+		 0, 1, 2,  2, 1, 3,	
+		 4, 5, 6,  6, 5, 7,	
+		 8, 9,10, 10, 9,11,	
+		12,13,14, 14,13,15,	
+		16,17,18, 18,17,19,	
+		20,21,22, 22,21,23
+	};
+
+
+static void printGLInfo(void) {
+	printf("OpenGL: %s %s %s",
+			glGetString(GL_VENDOR),
+			glGetString(GL_RENDERER),
+			glGetString(GL_VERSION));
+	printf("OpenGL Shading language: %s",
+			glGetString(GL_SHADING_LANGUAGE_VERSION));
+}
+
+static void listGLExtensions(void) {
+	GLint num=0;
+	GLuint i;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &num);
+	printf("GL extensions supported: %d", num);
+	if (num < 1) {
+		return;
+	}
+
+	for (i=0; i<(GLuint)num; i++) {
+		const GLubyte *ext=glGetStringi(GL_EXTENSIONS,i);
+		if (ext) {
+			printf("  %s",ext);
+		}
+	}
+}
+
+
+struct vec3 {float x,y,z;};
 typedef float* mat4;
 
 static inline void perspective(mat4 result, float fov, float asp, float zNear, float zFar) {
@@ -140,13 +207,15 @@ static int window_width = 1600;
 static int window_height = 1000;
 static float aspect = 1.6f;
 
-static bool debug = false;
-static bool quit = false;
-static bool tab = false;
-static bool should_move_camera = true;
-static bool is_fullscreen = false;
-static int counter = 0;
-static float delta = 0.0;
+
+// static bool debug = false; // delete this
+//static bool quit = false; // delete this
+// static bool tab = false; // delete this
+//static bool should_move_camera = true; // delete this
+//static bool is_fullscreen = false; // delete this
+
+
+static float delta = 0.0; // delete this
 
 static float pitch = 0.0f, yaw = 0.0f;
 static struct vec3 position = {10, 5, 10};
@@ -176,27 +245,45 @@ static inline void move_camera(void) {
 
 
 
-static const char *vertexShaderSource = "#version 330 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-    "}\0";
-static const char *fragmentShader1Source = "#version 330 core\n"
-    "out vec4 FragColor;\n"
-    "void main()\n"
-    "{\n"
-    "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-    "}\n\0";
 
+
+static float view_matrix[16] = {0};
+static float perspective_matrix[16] = {0};
+static float matrix[16] = {0};
+static float copy[16] = {0};
 
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
+	printf("framebuffer_size_callback: window was resized!!\n");
+	printf("width = %d, height = %d", width, height);
+	window_width = width;
+	window_height = height;
+	aspect = (float) window_width / (float) window_height;
+	perspective(perspective_matrix, fovy, aspect, znear, zfar);
 }
 
-int main(void) { // real main. 
+static double lastx = 0, lasty = 0;
+static bool first = true;
 
+static void mouse_callback(GLFWwindow* window, double x, double y) {
+	
+	if (first) {
+		lastx = x;
+		lasty = y;
+		first = false;
+	}
+
+	yaw += camera_sensitivity * (lasty - y);
+	pitch += camera_sensitivity * (x - lastx);
+
+	move_camera();
+
+	lastx = x;
+	lasty = y;
+}
+
+int main(void) {
 	srand((unsigned)time(NULL));
 
 	if (not glfwInit()) exit(1);
@@ -209,97 +296,193 @@ int main(void) { // real main.
 #endif
 	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
-
 	GLFWwindow* window = glfwCreateWindow( 1280, 720, "block game", NULL, NULL );
 	if (not window) { glfwTerminate(); exit(1); }
 
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(0);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); 
-
+	if (glfwRawMouseMotionSupported())
+    		glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 	if (not gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) exit(1);
 
-	glEnable(GL_DEPTH_TEST);
-	cc;
-	glFrontFace(GL_CCW);
-	cc;
-	//glCullFace(GL_BACK);
-	cc;
-	//glEnable(GL_CULL_FACE);
-	cc;
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); //GL_FRONT
-	cc;
+	GLuint vertex_array;
+	glGenVertexArrays(1, &vertex_array);
+	glBindVertexArray(vertex_array);
+
+	glEnable(GL_DEPTH_TEST); cc;
+	glFrontFace(GL_CCW); cc;
+	//glCullFace(GL_BACK); cc;
+	//glEnable(GL_CULL_FACE); cc;
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); //GL_FRONT  cc;
 
 	printf("glGetString(GL_VERSION) = %s\n", glGetString(GL_VERSION)); // debug
 
+	printGLInfo();
+	puts("");
+	listGLExtensions();
+	puts("");
 
-	unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	unsigned int fragmentShaderOrange = glCreateShader(GL_FRAGMENT_SHADER); cc;
-	unsigned int shaderProgramOrange = glCreateProgram(); cc;
-	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);cc;
-	glCompileShader(vertexShader);cc;
-	glShaderSource(fragmentShaderOrange, 1, &fragmentShader1Source, NULL);cc;
-	glCompileShader(fragmentShaderOrange);cc;
-	glAttachShader(shaderProgramOrange, vertexShader);cc;
-	glAttachShader(shaderProgramOrange, fragmentShaderOrange);cc;
-	glLinkProgram(shaderProgramOrange);cc;
-	
-	
+	straight = cross(right, up);
+	perspective(perspective_matrix, fovy, aspect, znear, zfar);
 
-	float firstTriangle[] = {
-		-0.9f, -0.5f, 0.0f, 
-		-0.0f, -0.5f, 0.0f, 
-		-0.45f, 0.5f, 0.0f, 
-	};
-	float secondTriangle[] = {
-		0.0f, -0.5f, 0.0f,  
-		0.9f, -0.5f, 0.0f,  
-		0.45f, 0.5f, 0.0f   
+
+
+	// An array of 3 vectors which represents 3 vertices
+	static const GLfloat g_vertex_buffer_data[] = {
+	   -1.0f, -1.0f, 0.0f,
+	   1.0f, -1.0f, 0.0f,
+	   0.0f,  1.0f, 0.0f,
 	};
 
-	unsigned int VBOs[2], VAOs[2];
-	glGenVertexArrays(2, VAOs); cc;
-	glGenBuffers(2, VBOs);cc;
 
-	glBindVertexArray(VAOs[0]);cc;
-	glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);cc;
-	glBufferData(GL_ARRAY_BUFFER, sizeof(firstTriangle), firstTriangle, GL_STATIC_DRAW);cc;
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);cc;
-	glEnableVertexAttribArray(0);cc;
+	
+	GLint success = 0;
+	GLchar error[1024] = {0};
+	GLuint program = glCreateProgram();cc;
+	
+	GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER); cc;
+	const GLchar* vs_sources[1] = {vertex_shader_code};
+	GLint vs_lengths[1] = {(GLint)strlen(vertex_shader_code)};
+	glShaderSource(vertex_shader, 1, vs_sources, vs_lengths);cc;
+	glCompileShader(vertex_shader);cc;
+	glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);cc;
+	glGetShaderInfoLog(vertex_shader, sizeof(error), NULL, error);cc;
+	if (not success) {
+		printf("vertex shader compile error: %s\n", error);
+		exit(1);
+	}
+	glAttachShader(program, vertex_shader);
+	cc;
 
-	glBindVertexArray(VAOs[1]);cc;
-	glBindBuffer(GL_ARRAY_BUFFER, VBOs[1]);cc;
-	glBufferData(GL_ARRAY_BUFFER, sizeof(secondTriangle), secondTriangle, GL_STATIC_DRAW);cc;
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);cc;
-	glEnableVertexAttribArray(0);cc;
+	GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);cc;
+	const GLchar* fs_sources[1] = {fragment_shader_code};
+	GLint fs_lengths[1] = {(GLint)strlen(fragment_shader_code)};
+	glShaderSource(fragment_shader, 1, fs_sources, fs_lengths);cc;
+	glCompileShader(fragment_shader);cc;
+	glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);cc;
+	glGetShaderInfoLog(fragment_shader, sizeof(error), NULL, error);cc;
+	if (not success) {
+		printf("fragment shader compile error: %s\n", error);
+		exit(1);
+	}
+	glAttachShader(program, fragment_shader);
+	cc;
+	
+	glLinkProgram(program);cc;
+	glGetProgramiv(program, GL_LINK_STATUS, &success);cc;
+	glGetProgramInfoLog(program, sizeof(error), NULL, error);cc;
+	if (not success) {
+		printf("program link error: %s\n", error);
+		exit(1);
+	}
+	glValidateProgram(program);cc;
+	glGetProgramiv(program, GL_VALIDATE_STATUS, &success);cc;
+	glGetProgramInfoLog(program, sizeof(error), NULL, error);cc;
+	if (not success) {
+		printf("program validate error: %s\n", error);
+		exit(1);
+	}
+	glUseProgram(program);
+	cc;
+
+
+	GLuint vertexbuffer;
+	glGenBuffers(1, &vertexbuffer);cc;
+	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);cc;
+	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);cc;
+
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
 	while (not glfwWindowShouldClose(window)) {
+
+		glfwPollEvents();
+
+		const clock_t begin_time = clock();
 
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
 		if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); 
 		if (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); 
 
-		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) puts("activate_airship();");
-		if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) puts("destroy_all();");
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) puts("bubbles();");
+		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+			velocity.x += delta * camera_accel * up.x;
+			velocity.y += delta * camera_accel * up.y;
+			velocity.z += delta * camera_accel * up.z;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+			velocity.x -= delta * camera_accel * up.x;
+			velocity.y -= delta * camera_accel * up.y;
+			velocity.z -= delta * camera_accel * up.z;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+			velocity.x += delta * camera_accel * right.x;
+			velocity.y += delta * camera_accel * right.y;
+			velocity.z += delta * camera_accel * right.z;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+			velocity.x -= delta * camera_accel * right.x;
+			velocity.y -= delta * camera_accel * right.y;
+			velocity.z -= delta * camera_accel * right.z;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+			velocity.x += delta * camera_accel * straight.x;
+			velocity.y += delta * camera_accel * straight.y;
+			velocity.z += delta * camera_accel * straight.z;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+			velocity.x -= delta * camera_accel * straight.x;
+			velocity.y -= delta * camera_accel * straight.y;
+			velocity.z -= delta * camera_accel * straight.z;
+		}
+
+
+		look_at(view_matrix, position, forward, up);
+
+		memset(matrix, 0, 64);
+		matrix[4 * 0 + 0] = 1.0;
+		matrix[4 * 1 + 1] = 1.0;
+		matrix[4 * 2 + 2] = 1.0;
+		matrix[4 * 3 + 3] = 1.0;
+
+		memcpy(copy, matrix, 64);
+		multiply_matrix(matrix, copy, view_matrix);
+		memcpy(copy, matrix, 64);
+		multiply_matrix(matrix, copy, perspective_matrix);
 
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);cc;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);cc;
-		glUseProgram(shaderProgramOrange);cc;
-		glBindVertexArray(VAOs[0]);cc;
-		glDrawArrays(GL_TRIANGLES, 0, 3);cc;
-		glUseProgram(shaderProgramOrange);cc;
-		glBindVertexArray(VAOs[1]);cc;
-		glDrawArrays(GL_TRIANGLES, 0, 3);cc;
+		glDrawArrays(GL_TRIANGLES, 0, 3);
 		glfwSwapBuffers(window);
-		glfwPollEvents();
-	}
+		
+		velocity.x *= drag;
+		velocity.y *= drag;
+		velocity.z *= drag;
 
-	glDeleteVertexArrays(2, VAOs);
-	glDeleteBuffers(2, VBOs);
-	glDeleteProgram(shaderProgramOrange);
+		position.x += delta * velocity.x;
+		position.y += delta * velocity.y;
+		position.z += delta * velocity.z;
+
+		const clock_t end_time = clock();
+		delta = (float) (end_time - begin_time);
+		usleep(16000); // todo: convert elapsed to seconds, and use it. 
+
+		//printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
+		//printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
+		//printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
+		//printf("forward = {%3.3lf, %3.3lf, %3.3lf}\n", (double)forward.x,(double)forward.y,(double)forward.z);
+		//printf("right = {%3.3lf, %3.3lf, %3.3lf}\n", (double)right.x,(double)right.y,(double)right.z);
+		//printf("up = {%3.3lf, %3.3lf, %3.3lf}\n", (double)up.x,(double)up.y,(double)up.z);
+	}
 	glfwTerminate();
 }
 
@@ -320,6 +503,189 @@ int main(void) { // real main.
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+
+
+static const char *vertexShaderSource = "#version 330 core\n"
+    "layout (location = 0) in vec3 aPos;\n"
+    "void main()\n"
+    "{\n"
+    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+    "}\0";
+static const char *fragmentShader1Source = "#version 330 core\n"
+    "out vec4 FragColor;\n"
+    "void main()\n"
+    "{\n"
+    "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+    "}\n\0";
+
+
+
+
+	unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+	unsigned int fragmentShaderOrange = glCreateShader(GL_FRAGMENT_SHADER); cc;
+	unsigned int shaderProgramOrange = glCreateProgram(); cc;
+	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);cc;
+	glCompileShader(vertexShader);cc;
+	glShaderSource(fragmentShaderOrange, 1, &fragmentShader1Source, NULL);cc;
+	glCompileShader(fragmentShaderOrange);cc;
+	glAttachShader(shaderProgramOrange, vertexShader);cc;
+	glAttachShader(shaderProgramOrange, fragmentShaderOrange);cc;
+	glLinkProgram(shaderProgramOrange);cc;
+
+
+
+	unsigned int VBOs[1], VAOs[1];
+	glGenVertexArrays(1, VAOs); cc;
+	glGenBuffers(1, VBOs);cc;
+	glBindVertexArray(VAOs[0]);cc;
+	glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);cc;
+	glBufferData(GL_ARRAY_BUFFER, sizeof(firstTriangle), firstTriangle, GL_STATIC_DRAW);cc;
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);cc;
+	glEnableVertexAttribArray(0);cc;
+*/
+
+
+
+		/*
+		glUseProgram(shaderProgramOrange);cc;
+		glBindVertexArray(VAOs[0]);cc;
+		glDrawArrays(GL_TRIANGLES, 0, 3);cc;
+		*/
+
+
+
+//glDeleteVertexArrays(2, VAOs);
+	//glDeleteBuffers(2, VBOs);
+	//glDeleteProgram(shaderProgramOrange);
 
 
 
@@ -1027,6 +1393,766 @@ int main(void) { // real main.
 */
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+static void initCube(Cube *cube)
+{
+
+	glGenVertexArrays(1,&cube->vao);
+	glBindVertexArray(cube->vao);
+	glGenBuffers(2,cube->vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, cube->vbo[0]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(cubeGeometry), cubeGeometry, GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube->vbo[1]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cubeConnectivity), cubeConnectivity, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, sizeof(Vertex), 3 * sizeof(float));
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(2);
+
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	cube->model = glm::mat4(1.0f);
+}
+
+
+
+static bool initShaders(CubeApp *app, const char *vs, const char *fs)
+{
+	
+	app->program=programCreateFromFiles(vs, fs);
+	if (app->program == 0)
+		return false;
+
+	app->locProjection=glGetUniformLocation(app->program, "projection");
+	app->locModelView=glGetUniformLocation(app->program, "modelView");
+	app->locTime=glGetUniformLocation(app->program, "time");
+
+	return true;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+static GLuint programCreate(GLuint vertex_shader, GLuint fragment_shader)
+{
+	GLuint program=0;
+	GLint status;
+
+	program=glCreateProgram();
+	info("created program %u",program);
+
+	if (vertex_shader)
+		glAttachShader(program, vertex_shader);
+	if (fragment_shader)
+		glAttachShader(program, fragment_shader);
+
+
+	glBindAttribLocation(program, 0, "pos");
+	glBindAttribLocation(program, 1, "nrm");
+	glBindAttribLocation(program, 2, "clr");
+	glBindAttribLocation(program, 3, "tex");
+
+
+	glBindFragDataLocation(program, 0, "color");
+
+
+	info("linking program %u",program);
+	glLinkProgram(program);
+
+	glGetProgramiv(program, GL_LINK_STATUS, &status);
+	if (status != GL_TRUE) {
+		warn("Failed to link program!");
+		printInfoLog(program,true);
+		glDeleteProgram(program);
+		return 0;
+	}
+	return program;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+typedef struct {
+	GLuint vbo[2];
+	GLuint vao;
+	glm::mat4 model;
+} Cube;
+
+typedef enum {
+	DEBUG_OUTPUT_DISABLED=0,
+	DEBUG_OUTPUT_ERRORS_ONLY,
+	DEBUG_OUTPUT_ALL
+} DebugOutputLevel;
+
+struct AppConfig {
+	int posx;
+	int posy;
+	int width;
+	int height;
+	bool decorated;
+	bool fullscreen;
+	unsigned int frameCount;
+	DebugOutputLevel debugOutputLevel;
+	bool debugOutputSynchronous;
+
+	AppConfig() :
+		posx(100),
+		posy(100),
+		width(800),
+		height(600),
+		decorated(true),
+		fullscreen(false),
+		frameCount(0),
+		debugOutputLevel(DEBUG_OUTPUT_DISABLED),
+		debugOutputSynchronous(false)
+	{}
+};
+
+typedef struct {
+
+	GLFWwindow *win;
+	int width, height;
+	unsigned int flags;
+
+	double timeCur, timeDelta;
+	double avg_frametime;
+	double avg_fps;
+	unsigned int frame;
+
+	bool pressedKeys[GLFW_KEY_LAST+1];
+	bool releasedKeys[GLFW_KEY_LAST+1];
+
+	Cube cube;
+
+	GLuint program;	
+	GLint locProjection;
+	GLint locModelView;
+	GLint locTime;
+	glm::mat4 projection;
+	glm::mat4 view;
+} CubeApp;
+
+struct Vertex {
+	GLfloat pos[3]; 
+	GLfloat clr[4];
+};
+
+static GLenum getGLError(const char *action, bool ignore=false, const char *file=NULL, const int line=0)
+{
+	GLenum e,err=GL_NO_ERROR;
+
+	do {
+		e=glGetError();
+		if ( (e != GL_NO_ERROR) && (!ignore) ) {
+			err=e;
+			if (file)
+				fprintf(stderr,"%s:",file);
+			if (line)
+				fprintf(stderr,"%d:",line);
+			warn("GL error 0x%x at %s",(unsigned)err,action);
+		}
+	} while (e != GL_NO_ERROR);
+	return err;
+}
+
+#define GL_ERROR_DBG(action) getGLError(action, false, __FILE__, __LINE__)
+
+
+extern void APIENTRY debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
+			  GLsizei length, const GLchar *message, const GLvoid* userParam) {
+	const AppConfig *cfg=(const AppConfig*)userParam;
+
+	switch(type) {
+		case GL_DEBUG_TYPE_ERROR:
+		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+			if (cfg->debugOutputLevel >= DEBUG_OUTPUT_ERRORS_ONLY) {
+				warn("GLDEBUG: %s %s %s [0x%x]: %s",
+					translateDebugSourceEnum(source),
+					translateDebugTypeEnum(type),
+					translateDebugSeverityEnum(severity),
+					id, message);
+			}
+			break;
+		default:
+			if (cfg->debugOutputLevel >= DEBUG_OUTPUT_ALL) {
+				warn("GLDEBUG: %s %s %s [0x%x]: %s",
+					translateDebugSourceEnum(source),
+					translateDebugTypeEnum(type),
+					translateDebugSeverityEnum(severity),
+					id, message);
+			}
+	}
+}
+
+
+static void initGLState(const AppConfig&cfg)
+{
+	printGLInfo();
+	listGLExtensions();
+}
+
+static  GLuint shaderCreateAndCompile(GLenum type, const GLchar *source) {
+	GLuint shader=0;
+	GLint status;
+
+	shader=glCreateShader(type);
+	info("created shader object %u",shader);
+	glShaderSource(shader, 1, (const GLchar**)&source, NULL);
+	info("compiling shader object %u",shader);
+	glCompileShader(shader);
+
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+	if (status != GL_TRUE) {
+		warn("Failed to compile shader");
+		printInfoLog(shader,false);
+		glDeleteShader(shader);
+		shader=0;
+	}
+
+	return shader;
+}
+
+static GLuint programCreate(GLuint vertex_shader, GLuint fragment_shader) {
+	GLuint program=0;
+	GLint status;
+
+	program=glCreateProgram();
+
+	if (vertex_shader)
+		glAttachShader(program, vertex_shader);
+	if (fragment_shader)
+		glAttachShader(program, fragment_shader);
+
+	glBindAttribLocation(program, 0, "pos");
+	glBindAttribLocation(program, 1, "nrm");
+	glBindAttribLocation(program, 2, "clr");
+	glBindAttribLocation(program, 3, "tex");
+
+	glBindFragDataLocation(program, 0, "color");
+
+	glLinkProgram(program);
+
+	glGetProgramiv(program, GL_LINK_STATUS, &status);
+	if (status != GL_TRUE) {
+		return 0;
+	}
+	return program;
+}
+
+static GLenum programCreateFromFiles(const char *vs, const char *fs)
+{
+	GLuint id_vs=shaderCreateFromFileAndCompile(GL_VERTEX_SHADER, vs);
+	GLuint id_fs=shaderCreateFromFileAndCompile(GL_FRAGMENT_SHADER, fs);
+	GLuint program=programCreate(id_vs,id_fs);
+
+	return program;
+}
+
+static void destroyShaders(CubeApp *app) {
+	if (app->program) {
+		info("deleting program %u",app->program);
+		glDeleteProgram(app->program);
+		app->program=0;
+	}
+}
+
+static bool initShaders(CubeApp *app, const char *vs, const char *fs) {
+	destroyShaders(app);
+	app->program=programCreateFromFiles(vs, fs);
+	if (app->program == 0)
+		return false;
+
+	app->locProjection=glGetUniformLocation(app->program, "projection");
+	app->locModelView=glGetUniformLocation(app->program, "modelView");
+	app->locTime=glGetUniformLocation(app->program, "time");
+	return true;
+}
+
+bool initCubeApplication(CubeApp *app, const AppConfig& cfg) {
+	int i;
+	int w, h, x, y;
+	bool debugCtx=(cfg.debugOutputLevel > DEBUG_OUTPUT_DISABLED);
+
+	app->win=NULL;
+	app->flags=0;
+	app->avg_frametime=-1.0;
+	app->avg_fps=-1.0;
+	app->frame = 0;
+
+	for (i=0; i<=GLFW_KEY_LAST; i++)
+		app->pressedKeys[i]=app->releasedKeys[i]=false;
+
+	app->cube.vbo[0]=app->cube.vbo[1]=app->cube.vao=0;
+	app->program=0;
+
+	info("initializing GLFW");
+	if (!glfwInit()) {
+		warn("Failed to initialze GLFW");
+		return false;
+	}
+
+	app->flags |= APP_HAVE_GLFW;
+
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, (debugCtx)?GL_TRUE:GL_FALSE);
+
+	GLFWmonitor *monitor = NULL;
+	x = cfg.posx;
+	y = cfg.posy;
+	w = cfg.width;
+	h = cfg.height;
+
+	if (cfg.fullscreen) {
+		monitor = glfwGetPrimaryMonitor();
+	}
+	if (monitor) {
+		glfwGetMonitorPos(monitor, &x, &y);
+		const GLFWvidmode *v = glfwGetVideoMode(monitor);
+		if (v) {
+			w = v->width;
+			h = v->height;
+			info("Primary monitor: %dx%d @(%d,%d)", w, h, x, y);
+		}
+		else {
+			warn("Failed to query current video mode!");
+		}
+	}
+
+	if (!cfg.decorated) {
+		glfwWindowHint(GLFW_DECORATED, GL_FALSE);
+	}
+
+	info("creating window and OpenGL context");
+	app->win=glfwCreateWindow(w, h, APP_TITLE, monitor, NULL);
+	if (!app->win) {
+		warn("failed to get window with OpenGL 3.2 core context");
+		return false;
+	}
+
+	app->width = w;
+	app->height = h;
+
+	if (!monitor) {
+		glfwSetWindowPos(app->win, x, y);
+	}
+
+	glfwSetWindowUserPointer(app->win, app);
+	glfwSetFramebufferSizeCallback(app->win, callback_Resize);
+	glfwSetKeyCallback(app->win, callback_Keyboard);
+	glfwMakeContextCurrent(app->win);
+	glfwSwapInterval(1);
+
+	info("initializing glad");
+	if (!gladLoadGL(glfwGetProcAddress)) {
+		warn("failed to intialize glad GL extension loader");
+		return false;
+	}
+
+	if (!GLAD_GL_VERSION_3_2) {
+		warn("failed to load at least GL 3.2 functions via GLAD");
+		return false;
+	}
+
+	app->flags |= APP_HAVE_GL;
+
+
+	initGLState(cfg);
+	initCube(&app->cube);
+	if (!initShaders(app,"shaders/color.vs.glsl","shaders/color.fs.glsl")) {
+		warn("something wrong with our shaders...");
+		return false;
+	}
+
+	
+	app->timeCur=glfwGetTime();
+
+	return true;
+}
+
+static void setProjectionAndView(CubeApp *app) {
+	app->projection = glm::perspective(glm::radians(75.0f), (float)app->width / (float)app->height, 0.1f, 10.0f);
+	app->view = glm::translate(glm::vec3(0.0f, 0.0f, -4.0f));
+}
+
+static void displayFunc(CubeApp *app, const AppConfig& cfg) {
+	
+	app->cube.model = glm::rotate(app->cube.model, (float)(glm::half_pi<double>() * app->timeDelta), glm::vec3(0.8f, 0.6f, 0.1f));
+	glViewport(0, 0, app->width, app->height);
+	glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	setProjectionAndView(app);
+	glm::mat4 modelView = app->view * app->cube.model;
+	glUseProgram(app->program);
+	glUniformMatrix4fv(app->locProjection, 1, GL_FALSE, glm::value_ptr(app->projection));
+	glUniformMatrix4fv(app->locModelView, 1, GL_FALSE, glm::value_ptr(modelView));
+	glUniform1f(app->locTime, (GLfloat)app->timeCur);
+	glBindVertexArray(app->cube.vao);
+	glDrawElements(GL_TRIANGLES, 6 * 6, GL_UNSIGNED_SHORT, BUFFER_OFFSET(0));
+	glBindVertexArray(0);
+	glfwSwapBuffers(app->win);
+	GL_ERROR_DBG("display function");
+}
+
+static void mainLoop(CubeApp *app, const AppConfig& cfg) {
+	unsigned int frame = 0;
+	double start_time = glfwGetTime();
+	double last_time = start_time;
+
+	info("entering main loop");
+	while (!glfwWindowShouldClose(app->win)) {
+		
+		double now=glfwGetTime();
+		app->timeDelta = now - app->timeCur;
+		app->timeCur = now;
+
+		double elapsed = app->timeCur - last_time;
+		if (elapsed >= 1.0) {
+			char WinTitle[80];
+			app->avg_frametime=1000.0 * elapsed/(double)frame;
+			app->avg_fps=(double)frame/elapsed;
+			last_time=app->timeCur;
+			frame=0;
+			
+			mysnprintf(WinTitle, sizeof(WinTitle), APP_TITLE "   /// AVG: %4.2fms/frame (%.1ffps)", app->avg_frametime, app->avg_fps);
+			glfwSetWindowTitle(app->win, WinTitle);
+			info("frame time: %4.2fms/frame (%.1ffps)",app->avg_frametime, app->avg_fps);
+		}
+
+		
+		displayFunc(app, cfg);
+		app->frame++;
+		frame++;
+		if (cfg.frameCount && app->frame >= cfg.frameCount) {
+			break;
+		}
+		glfwPollEvents();
+	}
+	info("left main loop\n%u frames rendered in %.1fs seconds == %.1ffps",
+		app->frame,(app->timeCur-start_time),
+		(double)app->frame/(app->timeCur-start_time) );
+}
+
+
+
+int main (int argc, char **argv) {
+	parseCommandlineArgs(cfg, argc, argv);
+
+	initCubeApplication(&app, cfg);
+	mainLoop(&app, cfg);
+
+	glBindVertexArray(0);
+	if (cube->vao) {
+		info("Cube: deleting VAO %u", cube->vao);
+		glDeleteVertexArrays(1,&cube->vao);
+		cube->vao=0;
+	}
+	if (cube->vbo[0] || cube->vbo[1]) {
+		info("Cube: deleting VBOs %u %u", cube->vbo[0], cube->vbo[1]);
+		glDeleteBuffers(2,cube->vbo);
+		cube->vbo[0]=0;
+		cube->vbo[1]=0;
+	}
+	destroyShaders(app);
+	glfwDestroyWindow(app->win);
+	glfwTerminate();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+vs:
+
+
+#version 150 core
+
+uniform mat4 modelView;
+uniform mat4 projection;
+
+in vec3 pos;
+in vec4 clr;
+
+out vec4 v_clr;
+
+void main()
+{
+	v_clr = clr;
+	gl_Position = projection * modelView * vec4(pos, 1.0);
+}
+
+
+
+
+fs:
+
+
+
+#version 150 core
+
+in vec4 v_clr;
+
+out vec4 color;
+
+void main()
+{
+	color = v_clr;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#version 330 core
+
+// Interpolated values from the vertex shaders
+in vec2 UV;
+
+// Ouput data
+out vec3 color;
+
+// Values that stay constant for the whole mesh.
+uniform sampler2D myTextureSampler;
+
+void main(){
+
+    // Output color = color of the texture at the specified UV
+    color = texture( myTextureSampler, UV ).rgb;
+}
+
+
+
+
+
+
+
+
+#version 330 core
+
+// Input vertex data, different for all executions of this shader.
+layout(location = 0) in vec3 vertexPosition_modelspace;
+layout(location = 1) in vec2 vertexUV;
+
+// Output data ; will be interpolated for each fragment.
+out vec2 UV;
+
+// Values that stay constant for the whole mesh.
+uniform mat4 MVP;
+
+void main(){
+
+    // Output position of the vertex, in clip space : MVP * position
+    gl_Position =  MVP * vec4(vertexPosition_modelspace,1);
+
+    // UV of the vertex. No special space for this one.
+    UV = vertexUV;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Two UV coordinatesfor each vertex. They were created with Blender. You'll learn shortly how to do this yourself.
+static const GLfloat g_uv_buffer_data[] = {
+    0.000059f, 1.0f-0.000004f,
+    0.000103f, 1.0f-0.336048f,
+    0.335973f, 1.0f-0.335903f,
+    1.000023f, 1.0f-0.000013f,
+    0.667979f, 1.0f-0.335851f,
+    0.999958f, 1.0f-0.336064f,
+    0.667979f, 1.0f-0.335851f,
+    0.336024f, 1.0f-0.671877f,
+    0.667969f, 1.0f-0.671889f,
+    1.000023f, 1.0f-0.000013f,
+    0.668104f, 1.0f-0.000013f,
+    0.667979f, 1.0f-0.335851f,
+    0.000059f, 1.0f-0.000004f,
+    0.335973f, 1.0f-0.335903f,
+    0.336098f, 1.0f-0.000071f,
+    0.667979f, 1.0f-0.335851f,
+    0.335973f, 1.0f-0.335903f,
+    0.336024f, 1.0f-0.671877f,
+    1.000004f, 1.0f-0.671847f,
+    0.999958f, 1.0f-0.336064f,
+    0.667979f, 1.0f-0.335851f,
+    0.668104f, 1.0f-0.000013f,
+    0.335973f, 1.0f-0.335903f,
+    0.667979f, 1.0f-0.335851f,
+    0.335973f, 1.0f-0.335903f,
+    0.668104f, 1.0f-0.000013f,
+    0.336098f, 1.0f-0.000071f,
+    0.000103f, 1.0f-0.336048f,
+    0.000004f, 1.0f-0.671870f,
+    0.336024f, 1.0f-0.671877f,
+    0.000103f, 1.0f-0.336048f,
+    0.336024f, 1.0f-0.671877f,
+    0.335973f, 1.0f-0.335903f,
+    0.667969f, 1.0f-0.671889f,
+    1.000004f, 1.0f-0.671847f,
+    0.667979f, 1.0f-0.335851f
+};
+
+
+
+
+
+// Create one OpenGL texture
+GLuint textureID;
+glGenTextures(1, &textureID);
+
+// "Bind" the newly created texture : all future texture functions will modify this texture
+glBindTexture(GL_TEXTURE_2D, textureID);
+
+// Give the image to OpenGL
+glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, width, height, 0, GL_BGR, GL_UNSIGNED_BYTE, data);
+
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+
+
+*/
 
 
 
