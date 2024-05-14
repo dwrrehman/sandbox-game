@@ -1,0 +1,6 @@
+/Users/dwrr/Documents/projects/block_game/metal_experiment/metal_cpp_example/sdl-metal-cpp-example/build-dir/CMakeFiles/sdl-metal.dir
+/Users/dwrr/Documents/projects/block_game/metal_experiment/metal_cpp_example/sdl-metal-cpp-example/build-dir/CMakeFiles/edit_cache.dir
+/Users/dwrr/Documents/projects/block_game/metal_experiment/metal_cpp_example/sdl-metal-cpp-example/build-dir/CMakeFiles/rebuild_cache.dir
+/Users/dwrr/Documents/projects/block_game/metal_experiment/metal_cpp_example/sdl-metal-cpp-example/build-dir/metal-cpp/CMakeFiles/MetalCPP.dir
+/Users/dwrr/Documents/projects/block_game/metal_experiment/metal_cpp_example/sdl-metal-cpp-example/build-dir/metal-cpp/CMakeFiles/edit_cache.dir
+/Users/dwrr/Documents/projects/block_game/metal_experiment/metal_cpp_example/sdl-metal-cpp-example/build-dir/metal-cpp/CMakeFiles/rebuild_cache.dir

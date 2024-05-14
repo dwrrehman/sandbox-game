@@ -1,0 +1,3 @@
+# Hashes of file build rules.
+e683a59b99bebef7971193c794f50ffd triangle.metallib
+2b87ea1a0a4d6837f148c4f3a612781d triangle_metallib.h
