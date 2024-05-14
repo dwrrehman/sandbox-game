@@ -30,7 +30,7 @@ static const float znear = 0.01f;
 static const float zfar = 1000.0f;
 
 static const float camera_sensitivity = 0.005f;
-static const float camera_accel = 0.00000003f;
+static const float camera_accel = 0.000000003f;
 static const float drag = 0.95f;
 
 // static const int32_t ms_delay_per_frame = 8;
@@ -38,27 +38,91 @@ static const float drag = 0.95f;
 static const char* vertex_shader_code = "        			\n\
 #version 330 core							\n\
 									\n\
-layout(location = 0) in vec3 position;					\n\
+layout(location = 0) in vec3 pos;					\n\
+layout(location = 1) in vec2 tex;					\n\
+                      							\n\
+out vec2 UV;                      					\n\
+                                          				\n\
+uniform mat4 matrix;                      				\n\
                                           				\n\
 void main() {                                				\n\
-	gl_Position = vec4(position, 1.0);              	\n\
+	gl_Position = matrix * vec4(pos, 1.0);           		\n\
+	UV = tex; 							\n\
 }                                                       		\n";
 
 static const char* fragment_shader_code = "				\n\
 #version 330 core							\n\
 									\n\
+in vec2 UV;								\n\
 out vec3 color;								\n\
 									\n\
+uniform sampler2D atlas_texture;					\n\
+									\n\
 void main() {								\n\
-	color = vec3(1,0,0);						\n\
+	 color = texture( atlas_texture, UV ).rgb;			\n\
 }									\n";
 
 // 
+
+
+// texture( atlas_texture, UV ).rgb
+
+
+
+
 // sampler2D uTexture
 // void main() {
 // 	vec4 textureColor = texture(uTexture, aTexCoords);
 //
 //}
+
+/*
+#version 330 core
+
+// Input vertex data, different for all executions of this shader.
+layout(location = 0) in vec3 vertexPosition_modelspace;
+layout(location = 1) in vec2 vertexUV;
+
+// Output data ; will be interpolated for each fragment.
+out vec2 UV;
+
+// Values that stay constant for the whole mesh.
+uniform mat4 MVP;
+
+void main(){
+
+    // Output position of the vertex, in clip space : MVP * position
+    gl_Position =  MVP * vec4(vertexPosition_modelspace,1);
+
+    // UV of the vertex. No special space for this one.
+    UV = vertexUV;
+}
+
+
+
+
+#version 330 core
+
+// Interpolated values from the vertex shaders
+in vec2 UV;
+
+// Ouput data
+out vec3 color;
+
+// Values that stay constant for the whole mesh.
+uniform sampler2D myTextureSampler;
+
+void main(){
+
+    // Output color = color of the texture at the specified UV
+    color = texture( myTextureSampler, UV ).rgb;
+}
+
+
+
+
+
+
 
 
 
@@ -106,6 +170,9 @@ void main() {								\n\
 		16,17,18, 18,17,19,	
 		20,21,22, 22,21,23
 	};
+
+
+*/
 
 
 static void printGLInfo(void) {
@@ -218,7 +285,7 @@ static float aspect = 1.6f;
 static float delta = 0.0; // delete this
 
 static float pitch = 0.0f, yaw = 0.0f;
-static struct vec3 position = {10, 5, 10};
+static struct vec3 position = {0, 0, 3};
 static struct vec3 velocity = {0, 0, 0};
 
 static struct vec3 forward = 	{0, 0, -1};
@@ -274,8 +341,8 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
 		first = false;
 	}
 
-	yaw += camera_sensitivity * (lasty - y);
-	pitch += camera_sensitivity * (x - lastx);
+	yaw += camera_sensitivity * -(x - lastx);
+	pitch += camera_sensitivity * -(lasty - y);
 
 	move_camera();
 
@@ -310,8 +377,8 @@ int main(void) {
 	if (not gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) exit(1);
 
 	GLuint vertex_array;
-	glGenVertexArrays(1, &vertex_array);
-	glBindVertexArray(vertex_array);
+	glGenVertexArrays(1, &vertex_array);cc;
+	glBindVertexArray(vertex_array);cc;
 
 	glEnable(GL_DEPTH_TEST); cc;
 	glFrontFace(GL_CCW); cc;
@@ -320,7 +387,6 @@ int main(void) {
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); //GL_FRONT  cc;
 
 	printf("glGetString(GL_VERSION) = %s\n", glGetString(GL_VERSION)); // debug
-
 	printGLInfo();
 	puts("");
 	listGLExtensions();
@@ -328,16 +394,6 @@ int main(void) {
 
 	straight = cross(right, up);
 	perspective(perspective_matrix, fovy, aspect, znear, zfar);
-
-
-
-	// An array of 3 vectors which represents 3 vertices
-	static const GLfloat g_vertex_buffer_data[] = {
-	   -1.0f, -1.0f, 0.0f,
-	   1.0f, -1.0f, 0.0f,
-	   0.0f,  1.0f, 0.0f,
-	};
-
 
 	
 	GLint success = 0;
@@ -389,15 +445,271 @@ int main(void) {
 	glUseProgram(program);
 	cc;
 
+	GLint matrix_uniform = glGetUniformLocation(program, "matrix");
+	cc;
 
-	GLuint vertexbuffer;
-	glGenBuffers(1, &vertexbuffer);cc;
-	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);cc;
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);cc;
+	GLint texture_uniform = glGetUniformLocation(program, "atlas_texture");
+	cc;
 
-	glEnableVertexAttribArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glUniform1i(texture_uniform, 0);
+	cc;
+
+	glBindAttribLocation(program, 0, "pos");cc;
+	glBindAttribLocation(program, 1, "tex");cc;
+	glBindFragDataLocation(program, 0, "color");cc;
+
+
+
+
+
+
+	uint32_t texture_id;
+	glGenTextures(1, &texture_id);
+	cc;
+
+	glActiveTexture(GL_TEXTURE0); 
+	cc;
+
+	glBindTexture(GL_TEXTURE_2D, texture_id);
+	cc;
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	cc;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	cc;
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	cc;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	cc;
+
+	uint8_t pixel_bytes[64 * 64 * 4] = {0};
+	for (unsigned i = 0; i < 64 * 64; i++) {
+		pixel_bytes[i * 4 + 0] = 0xff & (atlas[i] >> 16);
+		pixel_bytes[i * 4 + 1] = 0xff & (atlas[i] >> 8);
+		pixel_bytes[i * 4 + 2] = 0xff & (atlas[i] >> 0);
+		pixel_bytes[i * 4 + 3] = 0xff;
+	}
+
+	GLint internal_format = GL_RGBA32F;
+	GLsizei width = 64;
+	GLsizei height = 64;
+	uint32_t format = GL_RGBA;
+	uint32_t type = GL_UNSIGNED_BYTE;
+	
+	glTexImage2D(
+		GL_TEXTURE_2D, 0, internal_format, 
+		width, height, 0, format, type, pixel_bytes
+	); 
+	cc;
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+	const float e = 1.0 / 8;
+	const float c = 4 * e;
+	const float r = 3 * e;
+
+	const float verticies[] = {
+	   0, 0, 0,    c + 0, r + 0,
+	   1, 0, 0,    c + e, r + 0,
+	   1, 1, 0,    c + e, r + e,
+	   0, 0, 0,    c + 0, r + 0,
+	   1, 1, 0,    c + e, r + e,
+	   0, 1, 0,    c + 0, r + e,
+	};
+
+	unsigned int vertex_count = 3 * 2;
+
+
+							confirmed working vertex data!
+
+*/
+
+
+
+
+
+
+
+
+
+	const int s = 20;
+	const int space_count = s * s * s;
+	int8_t* space = calloc(space_count, 1);
+
+
+	// set a flat world:
+	for (int x = 1; x < s; x++) {
+		for (int z = 1; z < s; z++) {
+			const int y = 0;
+			space[s * s * x + s * y + z] = 1;
+		}
+	}
+
+	// // make a 2x2 box:
+	space[s * s * 1 + s * 1 + 1] = 1;
+	space[s * s * 1 + s * 1 + 2] = 1;
+	space[s * s * 1 + s * 2 + 1] = 1;
+	space[s * s * 1 + s * 2 + 2] = 1;
+	space[s * s * 2 + s * 1 + 1] = 1;
+	space[s * s * 2 + s * 1 + 2] = 1;
+	space[s * s * 2 + s * 2 + 1] = 1;
+	space[s * s * 2 + s * 2 + 2] = 1;
+
+
+	
+	// and a random block:
+	space[s * s * 4 + s * 4 + 4] = 1;
+
+	
+
+	//space[s * s * 0 + s * 0 + 0] = 1;
+
+
+
+#define push_vertex(xo, yo, zo, u, v) 			\
+	verticies[raw_count++] = (float)x + xo;		\
+	verticies[raw_count++] = (float)y + yo;		\
+	verticies[raw_count++] = (float)z + zo;		\
+	verticies[raw_count++] = (float) u;		\
+	verticies[raw_count++] = (float) v;		\
+	vertex_count++;
+
+
+	GLsizei vertex_count = 0, raw_count = 0;//, index_count = 0;
+
+	//unsigned* indicies = malloc(sizeof(unsigned) * space_count * 144);	
+	float* verticies = malloc(sizeof(float) * space_count * 144);
+
+
+	//float top_x[256] 	= {	0	};
+	//float top_y[256] 	= {	0	};
+
+	//float bottom_x[256] 	= {	0	};
+	//float bottom_y[256] 	= {	0	};
+	//float sides_x[256] 	= {	1	};
+	//float sides_y[256] 	= {	0	};
+
+
+	for (int x = 0; x < s; x++) {
+		for (int y = 0; y < s; y++) {
+			for (int z = 0; z < s; z++) {
+				int8_t block = space[s * s * x + s * y + z];
+				if (not block) continue;
+				block--;
+
+				const float ut = 0;		//(float) top_x[block] / 64.0f;
+				const float vt = 0;		//(float) top_y[block] / 64.0f;
+
+				//const float ub = (float) bottom_x[block] / 64.0f;
+				//const float vb = (float) bottom_y[block] / 64.0f;
+				//const float us = (float) sides_x[block] / 64.0f;
+				//const float vs = (float) sides_y[block] / 64.0f;
+				
+				const float e = 1.0 / 8.0;
+				const float _ = 0;
+				
+				if (not z or not space[s * s * (x) + s * (y) + (z - 1)]) {
+					push_vertex(0,0,0, ut+_,vt+_);
+					push_vertex(0,1,0, ut+_,vt+e);
+					push_vertex(1,0,0, ut+e,vt+_);
+					push_vertex(1,1,0, ut+e,vt+e);
+					push_vertex(1,0,0, ut+e,vt+_);
+					push_vertex(0,1,0, ut+_,vt+e);
+				}
+
+				if (z >= s - 1 or not space[s * s * (x) + s * (y) + (z + 1)]) {
+					push_vertex(0,0,1, ut+_,vt+_);
+					push_vertex(1,0,1, ut+_,vt+e);
+					push_vertex(0,1,1, ut+e,vt+_);
+					push_vertex(1,1,1, ut+e,vt+e);
+					push_vertex(0,1,1, ut+e,vt+_);
+					push_vertex(1,0,1, ut+_,vt+e);
+				}
+
+				if (x >= s - 1 or not space[s * s * (x + 1) + s * (y) + (z)]) {
+					push_vertex(1,1,1, ut+_,vt+_);
+					push_vertex(1,0,0, ut+_,vt+e);
+					push_vertex(1,1,0, ut+e,vt+_);
+					push_vertex(1,1,1, ut+e,vt+e);
+					push_vertex(1,0,1, ut+e,vt+_);
+					push_vertex(1,0,0, ut+_,vt+e);
+				}
+
+				if (not x or not space[s * s * (x - 1) + s * (y) + (z)]) {
+					push_vertex(0,1,1, ut+_,vt+_);
+					push_vertex(0,1,0, ut+_,vt+e);
+					push_vertex(0,0,0, ut+e,vt+_);
+					push_vertex(0,1,1, ut+e,vt+e);
+					push_vertex(0,0,0, ut+e,vt+_);
+					push_vertex(0,0,1, ut+_,vt+e);
+				}
+
+				if (not y or not space[s * s * (x) + s * (y - 1) + (z)]) {
+					push_vertex(1,0,1, ut+_,vt+_);
+					push_vertex(0,0,1, ut+_,vt+e);
+					push_vertex(1,0,0, ut+e,vt+_);
+					push_vertex(0,0,0, ut+e,vt+e);
+					push_vertex(1,0,0, ut+e,vt+_);
+					push_vertex(0,0,1, ut+_,vt+e);
+				}
+
+				if (y >= s - 1 or not space[s * s * (x) + s * (y + 1) + (z)]) {
+					push_vertex(1,1,1, ut+_,vt+_);
+					push_vertex(1,1,0, ut+_,vt+e);
+					push_vertex(0,1,1, ut+e,vt+_);
+					push_vertex(0,1,0, ut+e,vt+e);
+					push_vertex(0,1,1, ut+e,vt+_);
+					push_vertex(1,1,0, ut+_,vt+e);
+				}
+			}
+		}
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	GLuint vertex_array_buffer;
+	glGenBuffers(1, &vertex_array_buffer);cc;
+	glBindBuffer(GL_ARRAY_BUFFER, vertex_array_buffer);cc;
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);cc;
+	glEnableVertexAttribArray(0);cc;
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));cc;
+	glEnableVertexAttribArray(1);cc;
+	
+
 
 	while (not glfwWindowShouldClose(window)) {
 
@@ -460,8 +772,20 @@ int main(void) {
 		multiply_matrix(matrix, copy, perspective_matrix);
 
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);cc;
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);cc;
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); cc;
+
+		glUniformMatrix4fv(matrix_uniform, 1, GL_FALSE, matrix);
+		cc;
+
+		glBufferData(
+			GL_ARRAY_BUFFER, 
+			(GLsizeiptr)((size_t) vertex_count * 5 * sizeof(float)), 
+			verticies, 
+			GL_STATIC_DRAW
+		);
+		cc;
+
+		glDrawArrays(GL_TRIANGLES, 0, vertex_count); cc;
 		glfwSwapBuffers(window);
 		
 		velocity.x *= drag;
@@ -646,8 +970,6 @@ static const char *fragmentShader1Source = "#version 330 core\n"
     "{\n"
     "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
     "}\n\0";
-
-
 
 
 	unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
