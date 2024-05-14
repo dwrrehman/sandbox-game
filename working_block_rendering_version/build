@@ -1,0 +1,20 @@
+#!/bin/zsh
+
+if [ "release" = "$1" ]; then
+	clang -Ofast -I /opt/homebrew/include/ -L /opt/homebrew/lib/ client.c -o run -lSDL2 -framework Opengl
+	clang -Ofast server.c -o start
+
+elif [ "clean" = "$1" ]; then
+	rm -rf run
+	rm -rf run.dSYM
+	rm -rf start
+	rm -rf start.dSYM
+
+elif [ "" = "$1" ]; then 
+	clang -g -O0 -Wno-poison-system-directories -Weverything -Wno-documentation-unknown-command -Wno-declaration-after-statement -Wno-padded -Wno-reserved-identifier -Wno-reserved-id-macro -Wno-deprecated-declarations -fsanitize=address,undefined -I /opt/homebrew/include/ -L /opt/homebrew/lib/ client.c -o run -lSDL2 -framework Opengl
+	clang -g -O0 -Weverything -Wno-poison-system-directories -Wno-declaration-after-statement -fsanitize=address,undefined server.c -o start
+
+else 
+	echo "build: unknown target: $1"
+fi
+

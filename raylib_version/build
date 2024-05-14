@@ -7,7 +7,7 @@ elif [ "clean" = "$1" ]; then
 	echo unimplemented
 
 elif [ "" = "$1" ]; then 
-	clang -g -O0 -I /opt/homebrew/Cellar/raylib/5.0/include/ client.c -Weverything -fsanitize=address,undefined -Wno-declaration-after-statement -o run -L /opt/homebrew/Cellar/raylib/5.0/lib/ -lraylib
+	clang -g -O0 -I /opt/homebrew/Cellar/raylib/5.0/include/ client.c -Weverything -fsanitize=address,undefined -Wno-declaration-after-statement -o run -L /opt/homebrew/Cellar/raylib/5.0/lib/ -lraylib -ferror-limit=2
 
 else 
 	echo "build: unknown target: $1"

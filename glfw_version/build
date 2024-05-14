@@ -1,0 +1,24 @@
+#!/bin/zsh
+
+if [ "release" = "$1" ]; then
+
+	clang -Ofast -I /opt/homebrew/include/ -L /opt/homebrew/lib/ client.c glad/glad.c -o run -lglfw3 -framework CoreVideo -framework OpenGL -framework IOKit -framework Cocoa -framework Carbon -Wno-deprecated-declarations -Wno-macro-redefined
+
+	clang -Ofast server.c -o start
+
+elif [ "clean" = "$1" ]; then
+	rm -rf run
+	rm -rf run.dSYM
+	rm -rf start
+	rm -rf start.dSYM
+
+elif [ "" = "$1" ]; then 
+
+	clang -g -O0 -Weverything -Wno-poison-system-directories -Wno-macro-redefined -Wno-declaration-after-statement -Wno-documentation -Wno-documentation-unknown-command -Wno-deprecated-declarations -fsanitize=address,undefined -I /opt/homebrew/include/ -L /opt/homebrew/lib/ client.c glad/glad.c -o run -lglfw3 -framework CoreVideo -framework OpenGL -framework IOKit -framework Cocoa -framework Carbon -ferror-limit=1
+
+	clang -g -O0 -Weverything -Wno-poison-system-directories -Wno-declaration-after-statement -fsanitize=address,undefined server.c -o start
+
+else 
+	echo "build: unknown target: $1"
+fi
+
