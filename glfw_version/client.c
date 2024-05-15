@@ -26,7 +26,7 @@ static const float fovy = 1.22173f /*radians*/;
 static const float znear = 0.01f;
 static const float zfar = 1000.0f;
 static const float camera_sensitivity = 0.005f;
-static const float camera_accel = 0.000006f;
+static const float camera_accel = 0.00006f;
 // static const int32_t ms_delay_per_frame = 8;
 
 struct vec3 {float x,y,z;};
@@ -45,8 +45,11 @@ static float aspect = 1280.0f / 720.0f;
 
 static float delta = 0.0; 
 static float pitch = 0.0f, yaw = 0.0f;
+
 static struct vec3 position = {20, 25, 20};
 static struct vec3 velocity = {0, 0, 0};
+static struct vec3 acceleration = {0, 0, 0};
+
 static struct vec3 forward = 	{0, 0, -1};
 static struct vec3 straight = 	{0, 0, 1};
 static struct vec3 up = 	{0, 1, 0};
@@ -642,7 +645,7 @@ enum blocks {
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));cc;
 	glEnableVertexAttribArray(1);cc;
 	
-	const float jump_accel = 0.0002f;
+	const float jump_accel = 0.0001f;
 
 	bool y_collides = 0, x_collides = 0, z_collides = 0, 
 
@@ -659,8 +662,6 @@ enum blocks {
 
 		;
 
-
-	
 	while (not glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
@@ -680,16 +681,8 @@ enum blocks {
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-			if (y_collides) {
-				printf("JUMPED");
-				velocity.x += delta * jump_accel * up.x;
-				velocity.y += delta * jump_accel * up.y;
-				velocity.z += delta * jump_accel * up.z;
-			} 
-			//else  {
-
-			//	printf("could not jump becuase @(%u,%u,%u), ie below you, was air..\n", (int)(position.x), (int)(position.y - 2), (int)(position.z));
-			//}
+			printf("JUMPED");
+			velocity.y += delta * camera_accel;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
@@ -752,6 +745,105 @@ enum blocks {
 		glDrawArrays(render_lines ? GL_LINES : GL_TRIANGLES, 0, vertex_count); cc;
 		glfwSwapBuffers(window);
 		
+		// velocity.y -= 0.02; 
+
+		velocity.x *= 0.90f; 
+		velocity.x *= 0.90f; 
+		velocity.z *= 0.90f; 
+
+		position.x += velocity.x; 
+		position.y += velocity.y; 
+		position.z += velocity.z; 
+
+		const int space_size = 200;
+		if (position.x < 0) position.x = 0;
+		if (position.y < 0) position.y = 0;
+		if (position.z < 0) position.z = 0;
+		if (position.x >= space_size) position.x = 199;
+		if (position.y >= space_size) position.y = 199;
+		if (position.z >= space_size) position.z = 199;
+	
+		const clock_t end_time = clock();
+		delta = (float) (end_time - begin_time);
+		usleep(16000); // todo: convert elapsed to seconds, and use it. 
+
+		printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
+		printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
+
+		//printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
+		//printf("forward = {%3.3lf, %3.3lf, %3.3lf}\n", (double)forward.x,(double)forward.y,(double)forward.z);
+		//printf("right = {%3.3lf, %3.3lf, %3.3lf}\n", (double)right.x,(double)right.y,(double)right.z);
+		//printf("up = {%3.3lf, %3.3lf, %3.3lf}\n", (double)up.x,(double)up.y,(double)up.z);
+
+		printf("\033[%um[still]\033[0m | \033[%um[x]\033[0m \033[%um[y]\033[0m \033[%um[z]\033[0m\n", 
+			still_collides ? 32 : 1, 
+			x_collides ? 32 : 1, 
+			y_collides ? 32 : 1, 
+			z_collides ? 32 : 1
+		);
+	}
+	glfwTerminate();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//if (still_collides_ym) {
+
+
+	//	if (RectA.X1 < RectB.X2 && RectA.X2 > RectB.X1 &&
+    	//		RectA.Y1 < RectB.Y2 && RectA.Y2 > RectB.Y1) 
+
+
+
+
+
+/*
+
+//} 
+			//else  {
+
+			//	printf("could not jump becuase @(%u,%u,%u), ie below you, was air..\n", 
+					(int)(position.x), (int)(position.y - 1), (int)(position.z));
+			//}
+
+
+
+
+
 
 
 
@@ -789,6 +881,10 @@ enum blocks {
 					still_collides_zp or still_collides_zm ;
 		
 		
+
+
+
+
 
 		y_collides =
 			!!space[s * s * (int)(position.x - 0.5) + 
@@ -867,118 +963,31 @@ enum blocks {
 	
 
 
-		
-		if (not still_collides) { 
-			velocity.y -= 0.01; // gravity
-			velocity.x *= 0.90f; // drag
-			velocity.z *= 0.90f; // drag
 
-			if (not x_collides) position.x += velocity.x; else velocity.x *= -0.5;
-			if (not y_collides) position.y += velocity.y; else velocity.y *= -0.5;
-			if (not z_collides) position.z += velocity.z; else velocity.z *= -0.5;
-			
-			
-		} else {
+
+	//	if (not still_collides) { 
+			//if (not x_collides) 			
+			//else velocity.x *= -0.5;
+			//if (not y_collides) 
+			//else velocity.y *= -0.5;
+			//if (not z_collides) 
+			//else velocity.z *= -0.5;
+	//	} else {
 			//if (not still_collides and x_collides) velocity.x = 0;
 			//if (not still_collides and y_collides) velocity.y = 0;
 			//if (not still_collides and z_collides) velocity.z = 0;
 		}
+
+	//	if (still_collides_xp) position.x -= 0.001;
+	//	if (still_collides_xm) position.x += 0.001;
 		
+	//	if (still_collides_yp) position.y -= 0.001;
+	//	if (still_collides_ym) position.y += 0.001;
 
+	//	if (still_collides_zp) position.z -= 0.001;
+	//	if (still_collides_zm) position.z += 0.001;
 
-		if (still_collides_xp) position.x -= 0.001;
-		if (still_collides_xm) position.x += 0.001;
-		
-		if (still_collides_yp) position.y -= 0.001;
-		if (still_collides_ym) position.y += 0.001;
-
-		if (still_collides_zp) position.z -= 0.001;
-		if (still_collides_zm) position.z += 0.001;
-
-
-		const int space_size = 200;
-	
-		if (position.x < 0) position.x = 0;
-		if (position.y < 0) position.y = 0;
-		if (position.z < 0) position.z = 0;
-
-		if (position.x >= space_size) position.x = 199;
-		if (position.y >= space_size) position.y = 199;
-		if (position.z >= space_size) position.z = 199;
-	
-
-
-		
-
-
-
-		
-
-		const clock_t end_time = clock();
-		delta = (float) (end_time - begin_time);
-		usleep(16000); // todo: convert elapsed to seconds, and use it. 
-
-		printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
-		printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
-
-
-		//printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
-		//printf("forward = {%3.3lf, %3.3lf, %3.3lf}\n", (double)forward.x,(double)forward.y,(double)forward.z);
-		//printf("right = {%3.3lf, %3.3lf, %3.3lf}\n", (double)right.x,(double)right.y,(double)right.z);
-		//printf("up = {%3.3lf, %3.3lf, %3.3lf}\n", (double)up.x,(double)up.y,(double)up.z);
-
-
-		printf("\033[%um[still]\033[0m | \033[%um[x]\033[0m \033[%um[y]\033[0m \033[%um[z]\033[0m\n", 
-			still_collides ? 32 : 1, 
-			x_collides ? 32 : 1, 
-			y_collides ? 32 : 1, 
-			z_collides ? 32 : 1
-		);
-
-
-	}
-	glfwTerminate();
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+		*/
 
 
 
