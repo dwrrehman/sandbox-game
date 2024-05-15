@@ -26,7 +26,7 @@ static const float fovy = 1.22173f /*radians*/;
 static const float znear = 0.01f;
 static const float zfar = 1000.0f;
 static const float camera_sensitivity = 0.005f;
-static const float camera_accel = 0.00006f;
+static const float camera_accel = 0.00001f;
 // static const int32_t ms_delay_per_frame = 8;
 
 struct vec3 {float x,y,z;};
@@ -76,7 +76,7 @@ out vec3 color;								\n\
 uniform sampler2D atlas_texture;					\n\
 									\n\
 void main() {								\n\
-	 color = texture( atlas_texture, UV ).rgb;			\n\
+	 color = texture(atlas_texture, UV).rgb;			\n\
 }									\n";
 
 static void printGLInfo(void) {
@@ -208,11 +208,6 @@ static void mouse_button_callback(__attribute__((unused)) GLFWwindow* window, in
 		puts("left mouse button clicked!!");
 }
 
-
-
-
-
-
 static int seed = 42;
 
 static int hash[] = {
@@ -236,25 +231,25 @@ static int noise2(int x, int y) {
 }
 
 static float lin_inter(float x, float y, float s) {
-    return x + s * (y - x);
+	return x + s * (y - x);
 }
 
 static float smooth_inter(float x, float y, float s) {
-    return lin_inter(x, y, s * s * ( 3 - 2 * s ));
+	return lin_inter(x, y, s * s * ( 3 - 2 * s ));
 }
 
 static float noise2d(float x, float y) {
-    int x_int = x;
-    int y_int = y;
-    float x_frac = x - x_int;
-    float y_frac = y - y_int;
-    int s = noise2(x_int, y_int);
-    int t = noise2(x_int+1, y_int);
-    int u = noise2(x_int, y_int+1);
-    int v = noise2(x_int+1, y_int+1);
-    float low = smooth_inter(s, t, x_frac);
-    float high = smooth_inter(u, v, x_frac);
-    return smooth_inter(low, high, y_frac);
+	int x_int = x;
+	int y_int = y;
+	float x_frac = x - x_int;
+	float y_frac = y - y_int;
+	int s = noise2(x_int, y_int);
+	int t = noise2(x_int+1, y_int);
+	int u = noise2(x_int, y_int+1);
+	int v = noise2(x_int+1, y_int+1);
+	float low = smooth_inter(s, t, x_frac);
+	float high = smooth_inter(u, v, x_frac);
+	return smooth_inter(low, high, y_frac);
 }
 
 static float perlin2d(float x, float y, float freq, int depth) {
@@ -264,7 +259,7 @@ static float perlin2d(float x, float y, float freq, int depth) {
 	float fin = 0;
 	float div = 0.0;
 
-	for(int i = 0; i < depth; i++) {
+	for (int i = 0; i < depth; i++) {
 		div += 256 * amp;
 		fin += noise2d(xa, ya) * amp;
 		amp /= 2;
@@ -273,9 +268,6 @@ static float perlin2d(float x, float y, float freq, int depth) {
 	}
 	return fin / div;
 }
-
-
-
 
 int main(void) {
 	srand((unsigned)time(NULL));
@@ -430,8 +422,6 @@ enum blocks {
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
 
-
-
 	for (int x = 0; x < s; x++) {
 		for (int z = 0; z < s; z++) {
 
@@ -494,28 +484,22 @@ enum blocks {
 	space[s * s * 2 + s * 21 + 2] = rand() % block_count;
 
 */
-	// and a random block:
-	space[s * s * 3 + s * 15 + 4] = air_block;
-	space[s * s * 3 + s * 15 + 6] = grass_block;
-	space[s * s * 3 + s * 15 + 8] = dirt_block;
-	space[s * s * 3 + s * 15 + 10] = stone_block;
-	space[s * s * 3 + s * 15 + 12] = granite_block;
-	space[s * s * 3 + s * 15 + 14] = wood_block;
-	space[s * s * 3 + s * 15 + 16] = leaves_block;
-	space[s * s * 3 + s * 15 + 18] = water_block;
-	space[s * s * 3 + s * 15 + 20] = moss_block;
-	space[s * s * 3 + s * 15 + 22] = iron_ore_block;
-	space[s * s * 3 + s * 15 + 24] = off_cell_block;
-	space[s * s * 3 + s * 15 + 26] = on_cell_block;
-	space[s * s * 3 + s * 15 + 28] = off_path_block;
-	space[s * s * 3 + s * 15 + 30] = on_path_block;
-	space[s * s * 3 + s * 15 + 32] = glass_block;
 
-
-
-
-
-
+	space[s * s * 50 + s * 50 + 4] = air_block;
+	space[s * s * 50 + s * 50 + 6] = grass_block;
+	space[s * s * 50 + s * 50 + 8] = dirt_block;
+	space[s * s * 50 + s * 50 + 10] = stone_block;
+	space[s * s * 50 + s * 50 + 12] = granite_block;
+	space[s * s * 50 + s * 50 + 14] = wood_block;
+	space[s * s * 50 + s * 50 + 16] = leaves_block;
+	space[s * s * 50 + s * 50 + 18] = water_block;
+	space[s * s * 50 + s * 50 + 20] = moss_block;
+	space[s * s * 50 + s * 50 + 22] = iron_ore_block;
+	space[s * s * 50 + s * 50 + 24] = off_cell_block;
+	space[s * s * 50 + s * 50 + 26] = on_cell_block;
+	space[s * s * 50 + s * 50 + 28] = off_path_block;
+	space[s * s * 50 + s * 50 + 30] = on_path_block;
+	space[s * s * 50 + s * 50 + 32] = glass_block;
 
 
 #define push_vertex(xo, yo, zo, u, v) 			\
@@ -681,14 +665,11 @@ enum blocks {
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-			printf("JUMPED");
 			velocity.y += delta * camera_accel;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			velocity.x -= delta * camera_accel * up.x;
 			velocity.y -= delta * camera_accel * up.y;
-			velocity.z -= delta * camera_accel * up.z;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
@@ -728,7 +709,7 @@ enum blocks {
 		memcpy(copy, matrix, 64);
 		multiply_matrix(matrix, copy, perspective_matrix);
 
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);cc;
+		glClearColor(0.2f, 0.3f, 1.0f, 1.0f);cc;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);cc;
 
 		glUniformMatrix4fv(matrix_uniform, 1, GL_FALSE, matrix);cc;
@@ -747,40 +728,40 @@ enum blocks {
 		
 		// velocity.y -= 0.02; 
 
-		velocity.x *= 0.90f; 
-		velocity.x *= 0.90f; 
-		velocity.z *= 0.90f; 
+		velocity.x *= 0.95f; 
+		velocity.y *= 0.95f; 
+		velocity.z *= 0.95f; 
 
 		position.x += velocity.x; 
 		position.y += velocity.y; 
 		position.z += velocity.z; 
 
-		const int space_size = 200;
+
 		if (position.x < 0) position.x = 0;
 		if (position.y < 0) position.y = 0;
 		if (position.z < 0) position.z = 0;
-		if (position.x >= space_size) position.x = 199;
-		if (position.y >= space_size) position.y = 199;
-		if (position.z >= space_size) position.z = 199;
+		if (position.x >= s) position.x = s - 0.01;
+		if (position.y >= s) position.y = s - 0.01;
+		if (position.z >= s) position.z = s - 0.01;
 	
 		const clock_t end_time = clock();
 		delta = (float) (end_time - begin_time);
-		usleep(16000); // todo: convert elapsed to seconds, and use it. 
+		usleep(16666); // todo: convert elapsed to seconds, and use it. 
 
-		printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
-		printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
+		//printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
+		//printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
 
 		//printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
 		//printf("forward = {%3.3lf, %3.3lf, %3.3lf}\n", (double)forward.x,(double)forward.y,(double)forward.z);
 		//printf("right = {%3.3lf, %3.3lf, %3.3lf}\n", (double)right.x,(double)right.y,(double)right.z);
 		//printf("up = {%3.3lf, %3.3lf, %3.3lf}\n", (double)up.x,(double)up.y,(double)up.z);
 
-		printf("\033[%um[still]\033[0m | \033[%um[x]\033[0m \033[%um[y]\033[0m \033[%um[z]\033[0m\n", 
-			still_collides ? 32 : 1, 
-			x_collides ? 32 : 1, 
-			y_collides ? 32 : 1, 
-			z_collides ? 32 : 1
-		);
+		//printf("\033[%um[still]\033[0m | \033[%um[x]\033[0m \033[%um[y]\033[0m \033[%um[z]\033[0m\n", 
+		//	still_collides ? 32 : 1, 
+		//	x_collides ? 32 : 1, 
+		//	y_collides ? 32 : 1, 
+		//	z_collides ? 32 : 1
+		//);
 	}
 	glfwTerminate();
 }

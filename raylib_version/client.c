@@ -144,6 +144,7 @@ static Mesh generate_mesh(void) {
 			space[s * s * x + s * height + z] = grass_block;
 		}
 	}
+
 	space[s * s * 50 + s * 50 + 4] = air_block;
 	space[s * s * 50 + s * 50 + 6] = grass_block;
 	space[s * s * 50 + s * 50 + 8] = dirt_block;
