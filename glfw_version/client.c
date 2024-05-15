@@ -26,8 +26,7 @@ static const float fovy = 1.22173f /*radians*/;
 static const float znear = 0.01f;
 static const float zfar = 1000.0f;
 static const float camera_sensitivity = 0.005f;
-static const float camera_accel = 0.000000002f;
-static const float drag = 0.90f;
+static const float camera_accel = 0.000006f;
 // static const int32_t ms_delay_per_frame = 8;
 
 struct vec3 {float x,y,z;};
@@ -46,7 +45,7 @@ static float aspect = 1280.0f / 720.0f;
 
 static float delta = 0.0; 
 static float pitch = 0.0f, yaw = 0.0f;
-static struct vec3 position = {20, 20, 20};
+static struct vec3 position = {20, 25, 20};
 static struct vec3 velocity = {0, 0, 0};
 static struct vec3 forward = 	{0, 0, -1};
 static struct vec3 straight = 	{0, 0, 1};
@@ -206,6 +205,75 @@ static void mouse_button_callback(__attribute__((unused)) GLFWwindow* window, in
 		puts("left mouse button clicked!!");
 }
 
+
+
+
+
+
+static int seed = 42;
+
+static int hash[] = {
+	208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247,247,40,
+	185,248,251,245,28,124,204,204,76,36,1,107,28,234,163,202,224,245,128,167,204,
+	9,92,217,54,239,174,173,102,193,189,190,121,100,108,167,44,43,77,180,204,8,81,
+	70,223,11,38,24,254,210,210,177,32,81,195,243,125,8,169,112,32,97,53,195,13,
+	203,9,47,104,125,117,114,124,165,203,181,235,193,206,70,180,174,0,167,181,41,
+	164,30,116,127,198,245,146,87,224,149,206,57,4,192,210,65,210,129,240,178,105,
+	228,108,245,148,140,40,35,195,38,58,65,207,215,253,65,85,208,76,62,3,237,55,89,
+	232,50,217,64,244,157,199,121,252,90,17,212,203,149,152,140,187,234,177,73,174,
+	193,100,192,143,97,53,145,135,19,103,13,90,135,151,199,91,239,247,33,39,145,
+	101,120,99,3,186,86,99,41,237,203,111,79,220,135,158,42,30,154,120,67,87,167,
+	135,176,183,191,253,115,184,21,233,58,129,233,142,39,128,211,118,137,139,255,
+	114,20,218,113,154,27,127,246,250,1,8,198,250,209,92,222,173,21,88,102,219
+};
+
+static int noise2(int x, int y) {
+    int tmp = hash[(y + seed) % 256];
+    return hash[(tmp + x) % 256];
+}
+
+static float lin_inter(float x, float y, float s) {
+    return x + s * (y - x);
+}
+
+static float smooth_inter(float x, float y, float s) {
+    return lin_inter(x, y, s * s * ( 3 - 2 * s ));
+}
+
+static float noise2d(float x, float y) {
+    int x_int = x;
+    int y_int = y;
+    float x_frac = x - x_int;
+    float y_frac = y - y_int;
+    int s = noise2(x_int, y_int);
+    int t = noise2(x_int+1, y_int);
+    int u = noise2(x_int, y_int+1);
+    int v = noise2(x_int+1, y_int+1);
+    float low = smooth_inter(s, t, x_frac);
+    float high = smooth_inter(u, v, x_frac);
+    return smooth_inter(low, high, y_frac);
+}
+
+static float perlin2d(float x, float y, float freq, int depth) {
+	float xa = x*freq;
+	float ya = y*freq;
+	float amp = 1.0;
+	float fin = 0;
+	float div = 0.0;
+
+	for(int i = 0; i < depth; i++) {
+		div += 256 * amp;
+		fin += noise2d(xa, ya) * amp;
+		amp /= 2;
+		xa *= 2;
+		ya *= 2;
+	}
+	return fin / div;
+}
+
+
+
+
 int main(void) {
 	srand((unsigned)time(NULL));
 	if (not glfwInit()) exit(1);
@@ -359,6 +427,29 @@ enum blocks {
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
 
+
+
+	for (int x = 0; x < s; x++) {
+		for (int z = 0; z < s; z++) {
+
+			const float f = perlin2d(x, z, 0.01, 20);
+			const int height = f * 50;
+			//printf("height = %u, n = %f\n", height, f);
+
+			const int divide = height / 2;
+			for (int y = 0; y < height; y++) {
+				if (y >= divide) space[s * s * x + s * y + z] = dirt_block;
+				if (y < divide) space[s * s * x + s * y + z] = stone_block + (rand() % 2) * (rand() % 2);
+
+			}
+			space[s * s * x + s * height + z] = grass_block;
+		}
+	}
+
+
+
+
+/*
 	// set a flat world:
 	for (int x = 0; x < s; x++) {
 		for (int z = 0; z < s; z++) {
@@ -399,6 +490,7 @@ enum blocks {
 	space[s * s * 2 + s * 21 + 1] = rand() % block_count;
 	space[s * s * 2 + s * 21 + 2] = rand() % block_count;
 
+*/
 	// and a random block:
 	space[s * s * 3 + s * 15 + 4] = air_block;
 	space[s * s * 3 + s * 15 + 6] = grass_block;
@@ -415,6 +507,12 @@ enum blocks {
 	space[s * s * 3 + s * 15 + 28] = off_path_block;
 	space[s * s * 3 + s * 15 + 30] = on_path_block;
 	space[s * s * 3 + s * 15 + 32] = glass_block;
+
+
+
+
+
+
 
 
 #define push_vertex(xo, yo, zo, u, v) 			\
@@ -544,6 +642,25 @@ enum blocks {
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));cc;
 	glEnableVertexAttribArray(1);cc;
 	
+	const float jump_accel = 0.0002f;
+
+	bool y_collides = 0, x_collides = 0, z_collides = 0, 
+
+		still_collides = 0,
+
+		still_collides_xp = 0,
+		still_collides_xm = 0,
+
+		still_collides_yp = 0,
+		still_collides_ym = 0,
+
+		still_collides_zp = 0,
+		still_collides_zm = 0
+
+		;
+
+
+	
 	while (not glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
@@ -563,9 +680,16 @@ enum blocks {
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-			velocity.x += delta * camera_accel * up.x;
-			velocity.y += delta * camera_accel * up.y;
-			velocity.z += delta * camera_accel * up.z;
+			if (y_collides) {
+				printf("JUMPED");
+				velocity.x += delta * jump_accel * up.x;
+				velocity.y += delta * jump_accel * up.y;
+				velocity.z += delta * jump_accel * up.z;
+			} 
+			//else  {
+
+			//	printf("could not jump becuase @(%u,%u,%u), ie below you, was air..\n", (int)(position.x), (int)(position.y - 2), (int)(position.z));
+			//}
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
@@ -628,24 +752,190 @@ enum blocks {
 		glDrawArrays(render_lines ? GL_LINES : GL_TRIANGLES, 0, vertex_count); cc;
 		glfwSwapBuffers(window);
 		
-		velocity.x *= drag;
-		velocity.y *= drag;
-		velocity.z *= drag;
 
-		position.x += delta * velocity.x;
-		position.y += delta * velocity.y;
-		position.z += delta * velocity.z;
+
+
+		still_collides_xp =
+			!!space[s * s * (int)(position.x + 0.5) + 
+			            s * (int)(position.y) + 
+			                (int)(position.z)];
+		still_collides_xm =
+			!!space[s * s * (int)(position.x - 0.5) + 
+			            s * (int)(position.y) + 
+			                (int)(position.z)];
+
+		still_collides_yp =
+			!!space[s * s * (int)(position.x) + 
+			            s * (int)(position.y + 1.0) + 
+			                (int)(position.z)];
+		still_collides_ym =
+			!!space[s * s * (int)(position.x) + 
+			            s * (int)(position.y - 1.0) + 
+			                (int)(position.z)];
+
+
+		still_collides_zp =
+			!!space[s * s * (int)(position.x) + 
+			            s * (int)(position.y) + 
+			                (int)(position.z + 0.5)];
+		still_collides_zm =
+			!!space[s * s * (int)(position.x) + 
+			            s * (int)(position.y) + 
+			                (int)(position.z - 0.5)];
+
+
+		still_collides = 	still_collides_xp or still_collides_xm or  
+					still_collides_yp or still_collides_ym or  
+					still_collides_zp or still_collides_zm ;
+		
+		
+
+		y_collides =
+			!!space[s * s * (int)(position.x - 0.5) + 
+			            s * (int)(position.y - 1.0 + velocity.y) + 
+			                (int)(position.z - 0.5)]
+
+		||
+			!!space[s * s * (int)(position.x + 0.5) + 
+			            s * (int)(position.y - 1.0 + velocity.y) + 
+			                (int)(position.z - 0.5)]
+
+		||
+			!!space[s * s * (int)(position.x - 0.5) + 
+			            s * (int)(position.y - 1.0 + velocity.y) + 
+			                (int)(position.z + 0.5)]
+
+		||
+			!!space[s * s * (int)(position.x + 0.5) + 
+			            s * (int)(position.y - 1.0 + velocity.y) + 
+			                (int)(position.z + 0.5)];
+
+
+
+
+
+
+		x_collides =
+			!!space[s * s * (int)(position.x - 0.5 + velocity.x) + 
+			            s * (int)(position.y - 1.0) + 
+			                (int)(position.z - 0.5)]
+
+
+		||
+			!!space[s * s * (int)(position.x + 0.5 + velocity.x) + 
+			            s * (int)(position.y - 1.0) + 
+			                (int)(position.z - 0.5)]
+
+
+		||
+			!!space[s * s * (int)(position.x - 0.5 + velocity.x) + 
+			            s * (int)(position.y - 1.0) + 
+			                (int)(position.z + 0.5)]
+
+
+		||
+			!!space[s * s * (int)(position.x + 0.5 + velocity.x) + 
+			            s * (int)(position.y - 1.0) + 
+			                (int)(position.z + 0.5)];
+
+			
+
+
+
+
+
+		z_collides =
+			!!space[s * s * (int)(position.x - 0.5) + 
+			            s * (int)(position.y - 1.0) + 
+			                (int)(position.z - 0.5 + velocity.z)]
+
+		||
+			!!space[s * s * (int)(position.x + 0.5) + 
+			            s * (int)(position.y - 1.0) + 
+			                (int)(position.z - 0.5 + velocity.z)]
+
+
+		||
+			!!space[s * s * (int)(position.x - 0.5) + 
+			            s * (int)(position.y - 1.0) + 
+			                (int)(position.z + 0.5 + velocity.z)]
+
+		||
+			!!space[s * s * (int)(position.x + 0.5) + 
+			            s * (int)(position.y - 1.0) + 
+			                (int)(position.z + 0.5 + velocity.z)];
+	
+
+
+		
+		if (not still_collides) { 
+			velocity.y -= 0.01; // gravity
+			velocity.x *= 0.90f; // drag
+			velocity.z *= 0.90f; // drag
+
+			if (not x_collides) position.x += velocity.x; else velocity.x *= -0.5;
+			if (not y_collides) position.y += velocity.y; else velocity.y *= -0.5;
+			if (not z_collides) position.z += velocity.z; else velocity.z *= -0.5;
+			
+			
+		} else {
+			//if (not still_collides and x_collides) velocity.x = 0;
+			//if (not still_collides and y_collides) velocity.y = 0;
+			//if (not still_collides and z_collides) velocity.z = 0;
+		}
+		
+
+
+		if (still_collides_xp) position.x -= 0.001;
+		if (still_collides_xm) position.x += 0.001;
+		
+		if (still_collides_yp) position.y -= 0.001;
+		if (still_collides_ym) position.y += 0.001;
+
+		if (still_collides_zp) position.z -= 0.001;
+		if (still_collides_zm) position.z += 0.001;
+
+
+		const int space_size = 200;
+	
+		if (position.x < 0) position.x = 0;
+		if (position.y < 0) position.y = 0;
+		if (position.z < 0) position.z = 0;
+
+		if (position.x >= space_size) position.x = 199;
+		if (position.y >= space_size) position.y = 199;
+		if (position.z >= space_size) position.z = 199;
+	
+
+
+		
+
+
+
+		
 
 		const clock_t end_time = clock();
 		delta = (float) (end_time - begin_time);
 		usleep(16000); // todo: convert elapsed to seconds, and use it. 
 
-		//printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
-		//printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
+		printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
+		printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
+
+
 		//printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
 		//printf("forward = {%3.3lf, %3.3lf, %3.3lf}\n", (double)forward.x,(double)forward.y,(double)forward.z);
 		//printf("right = {%3.3lf, %3.3lf, %3.3lf}\n", (double)right.x,(double)right.y,(double)right.z);
 		//printf("up = {%3.3lf, %3.3lf, %3.3lf}\n", (double)up.x,(double)up.y,(double)up.z);
+
+
+		printf("\033[%um[still]\033[0m | \033[%um[x]\033[0m \033[%um[y]\033[0m \033[%um[z]\033[0m\n", 
+			still_collides ? 32 : 1, 
+			x_collides ? 32 : 1, 
+			y_collides ? 32 : 1, 
+			z_collides ? 32 : 1
+		);
+
+
 	}
 	glfwTerminate();
 }
@@ -2478,6 +2768,125 @@ void main(){
 
 */
 
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+
+
+int
+main(int argc, char *argv[])
+{
+    int x, y;
+    for(y=0; y<4000; y++)
+        for(x=0; x<4000; x++)
+            perlin2d(x, y, 0.1, 4);
+
+    return 0;
+}
+
+*/
+
+
+
+
+
+
+
+
+
+/*
+
+
+
+
+
+
+static float Noise2D(float x, float y) {
+	unsigned int n = (int) ((x + y) * 57);
+	n = (n << 13) ^ n;
+	return (1.0 - ( (n * ((n * n * 15731) + 789221) +  1376312589) & 0x7fffffff) / 1073741824.0f);
+}
+
+
+float PerlinNoise2D(float x, float y, int seed) {
+	float floor_x = floor(x), floor_y = floor(y);
+	auto s = Noise2D(floor_x, floor_y);
+	auto t = Noise2D(floor_x + 1, floor_y);
+	auto u = Noise2D(floor_x, floor_y + 1);
+	auto v = Noise2D(floor_x +  1, floor_y + 1);
+
+	auto frac_x = x- floor_x;
+	auto frac_y = y - floor_y;
+	auto value = s * (1 - frac_x) + t * frac_x;
+	value += (u - s) * frac_y * (1 - frac_x);
+	value += (v - t) * frac_x * frac_y;
+	return  value;
+}
+
+
+
+
+
+static float perlin_2d(int x, int y, float gain, int octaves, int hgrid) {
+
+	float total = 0.0f;
+	float frequency = 1.0f / (float) hgrid;
+	float amplitude = gain;
+	float lacunarity = 2.0;
+
+	for (int i = 0; i < octaves; ++i) {
+		total += noise((float)x * frequency, (float)y * frequency) * amplitude;         
+		frequency *= lacunarity;
+		amplitude *= gain;
+	} 
+
+	return (total);
+}
+
+
+static float perlin_2d(float x, float y, float gain, int octaves) {
+
+	float total = 0.0f;
+	float frequency = 0.005;
+	float amplitude = 1.0;
+	float lacunarity = 2.0;
+
+	for (int i = 0; i < octaves; ++i) {
+		total += noise((float)x * frequency, (float)y * frequency) * amplitude;         
+		frequency *= lacunarity;
+		amplitude *= 0.5;
+	} 
+
+	return total;
+}
+
+
+function FractalBrownianMotion(x, y, numOctaves) {
+	let result = 0.0;
+	let amplitude = 1.0;
+	let frequency = 0.005;
+
+	for (let octave = 0; octave < numOctaves; octave++) {
+		const n = amplitude * Noise2D(x * frequency, y * frequency);
+		result += n;
+		
+		amplitude *= 0.5;
+		frequency *= 2.0;
+	}
+
+	return result;
+}*/
 
 
 
