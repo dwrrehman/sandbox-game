@@ -25,10 +25,8 @@ static uint32_t err = 0;
 static const float fovy = 1.22173f /*radians*/;
 static const float znear = 0.01f;
 static const float zfar = 1000.0f;
-static const float camera_sensitivity = 0.004f;
-static const float forward_accel = 0.040f;
-static const float strafe_accel = 0.028f;
-static const float jump_accel = 0.23f;
+static const float camera_sensitivity = 0.005f;
+static const float camera_accel = 0.00001f;
 // static const int32_t ms_delay_per_frame = 8;
 
 struct vec3 {float x,y,z;};
@@ -209,15 +207,6 @@ static void mouse_button_callback(__attribute__((unused)) GLFWwindow* window, in
 		puts("left mouse button clicked!!");
 }
 
-
-static void key_callback(__attribute__((unused)) GLFWwindow* window, 
-			int key, __attribute__((unused)) int scancode, 
-			int action, __attribute__((unused)) int mods
-) {
-	if (key == GLFW_KEY_E && action == GLFW_PRESS) {
-		
-	}
-}
 static int seed = 42;
 
 static int hash[] = {
@@ -306,7 +295,6 @@ int main(void) {
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetMouseButtonCallback(window, mouse_button_callback);
-	glfwSetKeyCallback(window, key_callback);
 
 	if (not gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) exit(1);
 
@@ -429,6 +417,8 @@ enum blocks {
 	block_count,
 };
 
+#define at(x,y,z)  space[s * s * (x) + s * (y) + (y)]
+
 	const int s = 200;
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
@@ -442,32 +432,34 @@ enum blocks {
 
 			const int divide = H / 2;
 			for (int y = 0; y < H; y++) {
-				if (y >= divide) space[s * s * x + s * y + z] = dirt_block;
-				if (y < divide) space[s * s * x + s * y + z] = stone_block + (rand() % 2) * (rand() % 2);
+				if (y >= divide) at(x,y,z) = dirt_block;
+				if (y < divide) at(x,y,z) = stone_block + (rand() % 2) * (rand() % 2);
 
 			}
-			space[s * s * x + s * H + z] = grass_block;
+			at(x,H,z) = grass_block;
 		}
 	}
 
 
 
 
-	space[s * s * 50 + s * 50 + 4] = air_block;
-	space[s * s * 50 + s * 50 + 6] = grass_block;
-	space[s * s * 50 + s * 50 + 8] = dirt_block;
-	space[s * s * 50 + s * 50 + 10] = stone_block;
-	space[s * s * 50 + s * 50 + 12] = granite_block;
-	space[s * s * 50 + s * 50 + 14] = wood_block;
-	space[s * s * 50 + s * 50 + 16] = leaves_block;
-	space[s * s * 50 + s * 50 + 18] = water_block;
-	space[s * s * 50 + s * 50 + 20] = moss_block;
-	space[s * s * 50 + s * 50 + 22] = iron_ore_block;
-	space[s * s * 50 + s * 50 + 24] = off_cell_block;
-	space[s * s * 50 + s * 50 + 26] = on_cell_block;
-	space[s * s * 50 + s * 50 + 28] = off_path_block;
-	space[s * s * 50 + s * 50 + 30] = on_path_block;
-	space[s * s * 50 + s * 50 + 32] = glass_block;
+
+	at(50,50,4) = air_block;
+	at(50,50,6) = grass_block;
+	at(50,50,8) = dirt_block;
+	at(50,50,10) = stone_block;
+	at(50,50,12) = granite_block;
+	at(50,50,14) = wood_block;
+	at(50,50,16) = leaves_block;
+	at(50,50,18) = water_block;
+	at(50,50,20) = moss_block;
+	at(50,50,22) = iron_ore_block;
+	at(50,50,24) = off_cell_block;
+	at(50,50,26) = on_cell_block;
+	at(50,50,38) = off_path_block;
+	at(50,50,30) = on_path_block;
+	at(50,50,32) = glass_block;
+
 
 
 #define push_vertex(xo, yo, zo, u, v) 			\
@@ -477,6 +469,7 @@ enum blocks {
 	verticies[raw_count++] = (float) u;		\
 	verticies[raw_count++] = (float) v;		\
 	vertex_count++;
+
 
 	GLsizei vertex_count = 0, raw_count = 0;//, index_count = 0;
 
@@ -504,7 +497,7 @@ enum blocks {
 	for (int x = 0; x < s; x++) {
 		for (int y = 0; y < s; y++) {
 			for (int z = 0; z < s; z++) {
-				int8_t block = space[s * s * x + s * y + z];
+				int8_t block = at(x,y,z);
 				if (not block) continue;
 
 				block--;
@@ -512,7 +505,7 @@ enum blocks {
 				const float e = 1.0 / 8.0;
 				const float _ = 0;
 
-				if (not z or not space[s * s * (x) + s * (y) + (z - 1)]) { 
+				if (not z or not at(x,y,z-1)) { 
 					// LEFT
 					const float ut = e * left_x[block];
 					const float vt = e * left_y[block];
@@ -524,7 +517,7 @@ enum blocks {
 					push_vertex(0,1,0, ut+e,vt+_);
 				}
 
-				if (z >= s - 1 or not space[s * s * (x) + s * (y) + (z + 1)]) {
+				if (z + 1 >= s or not at(x,y,z+1)) {
 					//RIGHT
 					const float ut = e * right_x[block];
 					const float vt = e * right_y[block];
@@ -536,7 +529,7 @@ enum blocks {
 					push_vertex(1,0,1, ut+_,vt+e);
 				} 
 
-				if (x >= s - 1 or not space[s * s * (x + 1) + s * (y) + (z)]) {
+				if (x + 1 >= s or not at(x+1,y,z)) {
 					// BACK
 					const float ut = e * back_x[block];
 					const float vt = e * back_y[block];
@@ -548,7 +541,7 @@ enum blocks {
 					push_vertex(1,0,0, ut+_,vt+e); // back bottom left
 				}
 
-				if (not x or not space[s * s * (x - 1) + s * (y) + (z)]) {
+				if (not x or not at(x-1,y,z)) {
 					// FRONT
 					const float ut = e * front_x[block];
 					const float vt = e * front_y[block];
@@ -560,7 +553,7 @@ enum blocks {
 					push_vertex(0,0,1, ut+_,vt+e); //top left
 				}
 
-				if (not y or not space[s * s * (x) + s * (y - 1) + (z)]) {
+				if (not y or not at(x,y-1,z)) {
 					// DOWN
 					const float ut = e * down_x[block];
 					const float vt = e * down_y[block];
@@ -572,7 +565,7 @@ enum blocks {
 					push_vertex(0,0,1, ut+_,vt+e);
 				}
 
-				if (y >= s - 1 or not space[s * s * (x) + s * (y + 1) + (z)]) {
+				if (y + 1 >= s or not at(x,y+1,z)) {
 					// UP
 					const float ut = e * up_x[block];
 					const float vt = e * up_y[block];
@@ -586,8 +579,6 @@ enum blocks {
 			}
 		}
 	}
-
-
 	GLuint vertex_array_buffer;
 	glGenBuffers(1, &vertex_array_buffer);cc;
 	glBindBuffer(GL_ARRAY_BUFFER, vertex_array_buffer);cc;
@@ -596,7 +587,7 @@ enum blocks {
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));cc;
 	glEnableVertexAttribArray(1);cc;
 	
-	bool in_air = false;
+	// const float jump_accel = 0.0001f;
 
 	while (not glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -616,54 +607,36 @@ enum blocks {
 			glfwSetWindowMonitor(window, NULL, 50, 50, 1280, 720, 0);
 		}
 
-		else if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-			
-			if (
-				not in_air and (
-				space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
-				space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)] or
-				space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
-				space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)])
-			) {
-				velocity.y += jump_accel;
-				in_air = true;
-			}
+		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+			velocity.y += delta * camera_accel;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			if (
-				not in_air and (
-				space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
-				space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)] or
-				space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
-				space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)])
-			) {
-				velocity.y -= forward_accel * up.y;
-			}
+			velocity.y -= delta * camera_accel * up.y;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			velocity.x += strafe_accel * right.x;
-			velocity.y += strafe_accel * right.y;
-			velocity.z += strafe_accel * right.z;
+			velocity.x += delta * camera_accel * right.x;
+			velocity.y += delta * camera_accel * right.y;
+			velocity.z += delta * camera_accel * right.z;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
-			velocity.x -= strafe_accel * right.x;
-			velocity.y -= strafe_accel * right.y;
-			velocity.z -= strafe_accel * right.z;
+			velocity.x -= delta * camera_accel * right.x;
+			velocity.y -= delta * camera_accel * right.y;
+			velocity.z -= delta * camera_accel * right.z;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
-			velocity.x += forward_accel * straight.x;
-			velocity.y += forward_accel * straight.y;
-			velocity.z += forward_accel * straight.z;
+			velocity.x += delta * camera_accel * straight.x;
+			velocity.y += delta * camera_accel * straight.y;
+			velocity.z += delta * camera_accel * straight.z;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			velocity.x -= forward_accel * straight.x;
-			velocity.y -= forward_accel * straight.y;
-			velocity.z -= forward_accel * straight.z;
+			velocity.x -= delta * camera_accel * straight.x;
+			velocity.y -= delta * camera_accel * straight.y;
+			velocity.z -= delta * camera_accel * straight.z;
 		}
 
 		look_at(view_matrix, position, forward, up);
@@ -679,7 +652,7 @@ enum blocks {
 		memcpy(copy, matrix, 64);
 		multiply_matrix(matrix, copy, perspective_matrix);
 
-		glClearColor(0.5f, 0.6f, 1.0f, 1.0f);cc;
+		glClearColor(0.2f, 0.3f, 1.0f, 1.0f);cc;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);cc;
 
 		glUniformMatrix4fv(matrix_uniform, 1, GL_FALSE, matrix);cc;
@@ -696,39 +669,19 @@ enum blocks {
 		glDrawArrays(render_lines ? GL_LINES : GL_TRIANGLES, 0, vertex_count); cc;
 		glfwSwapBuffers(window);
 		
-		velocity.y -= 0.017f;
-		velocity.x *= 0.75f;
-		velocity.z *= 0.75f;
+		// velocity.y -= 0.02; 
+
+		velocity.x *= 0.95f; 
+		velocity.y *= 0.95f; 
+		velocity.z *= 0.95f; 
 
 		position.x += velocity.x; 
 		position.y += velocity.y; 
 		position.z += velocity.z;
 
-		if (space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] or 
-		    space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] or
-		    space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)] or
-		    space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)]) {
-			const float overlap = 1.0f - (position.y - 1.9f) + floorf(position.y - 1.9f);
-			position.y += overlap;
-			velocity.y = 0.0f;
-			in_air = false;
-		}
-
-		if (space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] or 
-		    space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)]) {
-			const float overlap = 1.0f - (position.x - 0.4f) + floorf(position.x - 0.4f);
-			position.x += overlap;
-			velocity.x = 0.0f;
-		}
 
 
-		if (space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] or
-		    space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)]) {
-			const float overlap = 1.0f - (position.z - 0.4f) + floorf(position.z - 0.4f);
-			position.z += overlap;
-			velocity.z = 0.0f;
-		}
-	
+
 
 		if (position.x < 0) position.x = 0;
 		if (position.y < 0) position.y = 0;
@@ -736,46 +689,23 @@ enum blocks {
 		if (position.x >= s) position.x = (float)s - 0.01f;
 		if (position.y >= s) position.y = (float)s - 0.01f;
 		if (position.z >= s) position.z = (float)s - 0.01f;
+	
+
+
 
 		const clock_t end_time = clock();
 		delta = (float) (end_time - begin_time);
 		usleep(16666); // todo: convert elapsed to seconds, and use it. 
 
-
 		printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
 		printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
 
 		printf("\033[%um[x0z0]\033[0m \033[%um[x1z0]\033[0m \033[%um[x0z1]\033[0m \033[%um[x1z1]\033[0m\n", 
-			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] ? 32 : 1,
-			space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] ? 32 : 1,
-			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)] ? 32 : 1,
-			space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)] ? 32 : 1
+			at((int)(position.x - 0.5f), (int)(position.y - 1.0f), (int)(position.z - 0.5f)) ? 32 : 1,
+			at((int)(position.x - 0.5f), (int)(position.y - 1.0f), (int)(position.z - 0.5f)) ? 32 : 1,
+			at((int)(position.x - 0.5f), (int)(position.y - 1.0f), (int)(position.z - 0.5f)) ? 32 : 1,
+			at((int)(position.x - 0.5f), (int)(position.y - 1.0f), (int)(position.z - 0.5f)) ? 32 : 1
 		);
-
-		printf("x0z0: collision: overlap: [xo=%lf, yo=%lf, zo=%lf]\n",
-			
-			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 0.9f) + (int)(position.z - 0.4f)] ?
-				(double) (1.0f - (position.x - 0.4f) + floorf(position.x - 0.4f)) : 0.0,
-
-			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 0.9f) + (int)(position.z - 0.4f)] ?
-				(double) (1.0f - (position.y - 0.9f) + floorf(position.y - 0.9f)) : 0.0,
-
-			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 0.9f) + (int)(position.z - 0.4f)] ?
-				(double) (1.0f - (position.z - 0.4f) + floorf(position.z - 0.4f)) : 0.0
-
-		);
-
-		printf("can jump? %s\n", 
-		not in_air and (
-		space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z - 0.4f)] or
-		space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z + 0.4f)] or
-		space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z - 0.4f)] or
-		space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z + 0.4f)])
-			? 
-			"\033[32myes\033[0m" : "\033[31mno\033[0m"
-
-		);
-
 	}
 	glfwTerminate();
 }
@@ -804,122 +734,12 @@ enum blocks {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-		if (space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z)]) {
-			const float overlap = 1.0f - (position.x + 0.4f) + floorf(position.x + 0.4f);
-			position.x += overlap;
-			velocity.x = 0.0f;
-		}
-
-
-
-
-		if (space[s*s*(int)(position.x) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)]) {
-			const float overlap = 1.0f - (position.z + 0.4f) + floorf(position.z + 0.4f);
-			position.z += overlap;
-			velocity.z = 0.0f;
-		}
-*/
-
-
-
-/*
-
-
-
-
-
-
-
-		if (space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)]) {
-			const float overlapx = 1.0f - (position.x - 0.4f) + floorf(position.x - 0.4f);
-			const float overlapz = 1.0f - (position.z - 0.4f) + floorf(position.z - 0.4f);
-			if (overlapx < overlapz) {
-				position.z += overlapz;
-				velocity.z = 0.0f;
-			} else {
-				position.x += overlapx;
-				velocity.x = 0.0f;
-			}
-			
-		}
-
-
-
-*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-		//printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
-		//printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
-
-		//printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
+//printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
 		//printf("forward = {%3.3lf, %3.3lf, %3.3lf}\n", (double)forward.x,(double)forward.y,(double)forward.z);
 		//printf("right = {%3.3lf, %3.3lf, %3.3lf}\n", (double)right.x,(double)right.y,(double)right.z);
 		//printf("up = {%3.3lf, %3.3lf, %3.3lf}\n", (double)up.x,(double)up.y,(double)up.z);
 
-		//printf("\033[%um[still]\033[0m | \033[%um[x]\033[0m \033[%um[y]\033[0m \033[%um[z]\033[0m\n", 
-		//	still_collides ? 32 : 1, 
-		//	x_collides ? 32 : 1, 
-		//	y_collides ? 32 : 1, 
-		//	z_collides ? 32 : 1
-		//);
+
 
 
 
@@ -3049,14 +2869,12 @@ function FractalBrownianMotion(x, y, numOctaves) {
 
 
 
-
-
 /*
 	// set a flat world:
 	for (int x = 0; x < s; x++) {
 		for (int z = 0; z < s; z++) {
 			for (int y = 0; y < 5; y++) {
-				space[s * s * x + s * y + z] = stone_block;
+				at(x,y,z) = stone_block;
 			}
 		}
 	}
@@ -3093,7 +2911,5 @@ function FractalBrownianMotion(x, y, numOctaves) {
 	space[s * s * 2 + s * 21 + 2] = rand() % block_count;
 
 */
-
-
 
 
