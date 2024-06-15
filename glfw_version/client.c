@@ -17,22 +17,37 @@
 #include "atlas.h"
 #include "glad/glad.h"
 
-// temporary:
-
-static uint32_t err = 0;
-#define cc	do { err = glGetError(); if (err != GL_NO_ERROR) { printf("%s: line%u: err%u\n", __FILE__, __LINE__, err);  exit(1); } } while(0);
 
 static const float fovy = 1.22173f /*radians*/;
 static const float znear = 0.01f;
 static const float zfar = 1000.0f;
 static const float camera_sensitivity = 0.004f;
-static const float forward_accel = 0.040f;
-static const float strafe_accel = 0.028f;
-static const float jump_accel = 0.23f;
-// static const int32_t ms_delay_per_frame = 8;
 
-struct vec3 {float x,y,z;};
+enum blocks {
+	air_block,
+	grass_block,
+	dirt_block,
+	stone_block,
+	granite_block,
+	wood_block,
+	leaves_block,
+	water_block,
+	moss_block,
+	iron_ore_block,
+	off_cell_block,
+	on_cell_block,
+	off_path_block,
+	on_path_block,
+	glass_block,
+	block_count,
+};
+
+static const float speed = 0.15f;
+
+struct vec3 { float x, y, z; };
+struct nat3 { nat x, y, z; };
 typedef float* mat4;
+typedef uint64_t nat;
 
 static float view_matrix[16] = {0};
 static float perspective_matrix[16] = {0};
@@ -48,13 +63,20 @@ static float aspect = 1280.0f / 720.0f;
 static float delta = 0.0; 
 static float pitch = 0.0f, yaw = 0.0f;
 
-static struct vec3 position = {20, 25, 20};
-static struct vec3 velocity = {0, 0, 0};
+static struct vec3 position = {0, 0, 0};
 
 static struct vec3 forward = 	{0, 0, -1};
 static struct vec3 straight = 	{0, 0, 1};
 static struct vec3 up = 	{0, 1, 0};
 static struct vec3 right = 	{-1, 0, 0};
+
+// temporary:
+
+static uint32_t err = 0;
+#define cc	do { err = glGetError(); if (err != GL_NO_ERROR) { printf("%s: line%u: err%u\n", __FILE__, __LINE__, err);  exit(1); } } while(0);
+
+
+
 
 static const char* vertex_shader_code = "        			\n\
 #version 330 core							\n\
@@ -215,9 +237,13 @@ static void key_callback(__attribute__((unused)) GLFWwindow* window,
 			int action, __attribute__((unused)) int mods
 ) {
 	if (key == GLFW_KEY_E && action == GLFW_PRESS) {
-		
+		puts("something happened!");
 	}
 }
+
+
+
+
 static int seed = 42;
 
 static int hash[] = {
@@ -240,12 +266,8 @@ static int noise2(int x, int y) {
     return hash[(tmp + x) % 256];
 }
 
-static float lin_inter(float x, float y, float s) {
-	return x + s * (y - x);
-}
-
 static float smooth_inter(float x, float y, float s) {
-	return lin_inter(x, y, s * s * ( 3 - 2 * s ));
+	return x + (s * s * ( 3 - 2 * s )) * (y - x);
 }
 
 static float noise2d(float x, float y) {
@@ -409,26 +431,6 @@ int main(void) {
 		width, height, 0, format, type, pixel_bytes
 	);cc;
 
-
-enum blocks {
-	air_block,
-	grass_block,
-	dirt_block,
-	stone_block,
-	granite_block,
-	wood_block,
-	leaves_block,
-	water_block,
-	moss_block,
-	iron_ore_block,
-	off_cell_block,
-	on_cell_block,
-	off_path_block,
-	on_path_block,
-	glass_block,
-	block_count,
-};
-
 	const int s = 200;
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
@@ -450,9 +452,6 @@ enum blocks {
 		}
 	}
 
-
-
-
 	space[s * s * 50 + s * 50 + 4] = air_block;
 	space[s * s * 50 + s * 50 + 6] = grass_block;
 	space[s * s * 50 + s * 50 + 8] = dirt_block;
@@ -470,6 +469,12 @@ enum blocks {
 	space[s * s * 50 + s * 50 + 32] = glass_block;
 
 
+	position.x = 20;
+	position.y = 25;
+	position.z = 20;
+	space[s * s * 20 + s * 25 + 20] = on_cell_block;
+
+
 #define push_vertex(xo, yo, zo, u, v) 			\
 	verticies[raw_count++] = (float)x + xo;		\
 	verticies[raw_count++] = (float)y + yo;		\
@@ -481,7 +486,6 @@ enum blocks {
 	GLsizei vertex_count = 0, raw_count = 0;//, index_count = 0;
 
 	float* verticies = malloc(sizeof(float) * space_count * 144);
-
 
 	unsigned short front_x[256] 	= {1,0,3,4,5,6,7,2,3,4,5,6,7,1};
 	unsigned short front_y[256] 	= {0,0,0,0,0,0,0,1,1,1,1,1,1,1};
@@ -504,6 +508,7 @@ enum blocks {
 	for (int x = 0; x < s; x++) {
 		for (int y = 0; y < s; y++) {
 			for (int z = 0; z < s; z++) {
+
 				int8_t block = space[s * s * x + s * y + z];
 				if (not block) continue;
 
@@ -587,7 +592,6 @@ enum blocks {
 		}
 	}
 
-
 	GLuint vertex_array_buffer;
 	glGenBuffers(1, &vertex_array_buffer);cc;
 	glBindBuffer(GL_ARRAY_BUFFER, vertex_array_buffer);cc;
@@ -595,16 +599,20 @@ enum blocks {
 	glEnableVertexAttribArray(0);cc;
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));cc;
 	glEnableVertexAttribArray(1);cc;
-	
-	bool in_air = false;
 
 	while (not glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
 		const clock_t begin_time = clock();
 
+		const nat position_x = (nat) position.x;
+		const nat position_y = (nat) position.y;
+		const nat position_z = (nat) position.z;
+
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
+
 		if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); 
+
 		if (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); 
 
 		if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
@@ -616,55 +624,53 @@ enum blocks {
 			glfwSetWindowMonitor(window, NULL, 50, 50, 1280, 720, 0);
 		}
 
-		else if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-			
-			if (
-				not in_air and (
-				space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
-				space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)] or
-				space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
-				space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)])
-			) {
-				velocity.y += jump_accel;
-				in_air = true;
-			}
+		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+			position.x += speed * up.x;
+			position.y += speed * up.y;
+			position.z += speed * up.z;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			if (
-				not in_air and (
-				space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
-				space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)] or
-				space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
-				space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)])
-			) {
-				velocity.y -= forward_accel * up.y;
-			}
+			position.x -= speed * up.x;
+			position.y -= speed * up.y;
+			position.z -= speed * up.z;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			velocity.x += strafe_accel * right.x;
-			velocity.y += strafe_accel * right.y;
-			velocity.z += strafe_accel * right.z;
+			
+			const nat px = (nat) position.x + speed * right.x;
+			const nat py = (nat) position.y + speed * right.y;
+			const nat pz = (nat) position.z + speed * right.z;
+			if (space[s * s * px + s * py + pz] == air_block) {
+				space[s * s * position_x + s * position_y + position_z] = air_block;
+				space[s * s * px + s * py + pz] = on_cell_block;
+				position.x += speed * right.x;
+				position.y += speed * right.y;
+				position.z += speed * right.z;
+			}
+			
+			
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
-			velocity.x -= strafe_accel * right.x;
-			velocity.y -= strafe_accel * right.y;
-			velocity.z -= strafe_accel * right.z;
+			position.x -= speed * right.x;
+			position.y -= speed * right.y;
+			position.z -= speed * right.z;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
-			velocity.x += forward_accel * straight.x;
-			velocity.y += forward_accel * straight.y;
-			velocity.z += forward_accel * straight.z;
+			position.x += speed * straight.x;
+			position.y += speed * straight.y;
+			position.z += speed * straight.z;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			velocity.x -= forward_accel * straight.x;
-			velocity.y -= forward_accel * straight.y;
-			velocity.z -= forward_accel * straight.z;
+			position.x -= speed * straight.x;
+			position.y -= speed * straight.y;
+			position.z -= speed * straight.z;
 		}
+
+
 
 		look_at(view_matrix, position, forward, up);
 
@@ -692,18 +698,121 @@ enum blocks {
 		);cc;
 
 		const bool render_lines = glfwGetKey(window, GLFW_KEY_BACKSLASH) == GLFW_PRESS;
-
 		glDrawArrays(render_lines ? GL_LINES : GL_TRIANGLES, 0, vertex_count); cc;
 		glfwSwapBuffers(window);
-		
-		velocity.y -= 0.017f;
-		velocity.x *= 0.75f;
-		velocity.z *= 0.75f;
+	
 
-		position.x += velocity.x; 
-		position.y += velocity.y; 
-		position.z += velocity.z;
+		if (position.x < 0) position.x = 0;
+		if (position.y < 0) position.y = 0;
+		if (position.z < 0) position.z = 0;
+		if (position.x >= s) position.x = (float)s - 0.01f;
+		if (position.y >= s) position.y = (float)s - 0.01f;
+		if (position.z >= s) position.z = (float)s - 0.01f;
 
+		const clock_t end_time = clock();
+		delta = (float) (end_time - begin_time);
+		usleep(16666); // todo: convert elapsed to seconds, and use it. 
+
+
+		printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
+
+	}
+	glfwTerminate();
+}
+
+
+
+
+
+
+
+
+
+
+
+		// printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
+
+		/*printf("\033[%um[x0z0]\033[0m \033[%um[x1z0]\033[0m \033[%um[x0z1]\033[0m \033[%um[x1z1]\033[0m\n", 
+			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] ? 32 : 1,
+			space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] ? 32 : 1,
+			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)] ? 32 : 1,
+			space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)] ? 32 : 1
+		);*/
+
+		/*printf("x0z0: collision: overlap: [xo=%lf, yo=%lf, zo=%lf]\n",
+			
+			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 0.9f) + (int)(position.z - 0.4f)] ?
+				(double) (1.0f - (position.x - 0.4f) + floorf(position.x - 0.4f)) : 0.0,
+
+			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 0.9f) + (int)(position.z - 0.4f)] ?
+				(double) (1.0f - (position.y - 0.9f) + floorf(position.y - 0.9f)) : 0.0,
+
+			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 0.9f) + (int)(position.z - 0.4f)] ?
+				(double) (1.0f - (position.z - 0.4f) + floorf(position.z - 0.4f)) : 0.0
+
+		);*/
+
+		/*printf("can jump? %s\n", 
+		not in_air and (
+		space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z - 0.4f)] or
+		space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z + 0.4f)] or
+		space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z - 0.4f)] or
+		space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z + 0.4f)])
+			? 
+			"\033[32myes\033[0m" : "\033[31mno\033[0m"
+
+		);*/
+
+
+
+// static const float forward_accel = 0.040f;
+// static const float strafe_accel = 0.028f;
+// static const float jump_accel = 0.23f;
+// static const int32_t ms_delay_per_frame = 8;
+// static struct vec3 velocity = {0, 0, 0};
+
+
+
+
+
+
+
+
+//if (
+				//not in_air and (
+				//space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
+				//space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)] or
+				//space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
+				//space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)])
+			//) {
+				
+			//}
+
+//if (
+				//not in_air and (
+				//space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
+				//space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)] or
+				//space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z - 0.4f)] or
+				//space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.90001f) + (int)(position.z + 0.4f)])
+			//) {
+				
+			//}
+
+
+
+
+
+
+		//velocity.y -= 0.017f;
+		//velocity.x *= 0.75f;
+		//velocity.z *= 0.75f;
+
+		//position.x += velocity.x; 
+		//position.y += velocity.y; 
+		//position.z += velocity.z;
+
+
+		/*
 		if (space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] or 
 		    space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] or
 		    space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)] or
@@ -728,61 +837,8 @@ enum blocks {
 			position.z += overlap;
 			velocity.z = 0.0f;
 		}
-	
 
-		if (position.x < 0) position.x = 0;
-		if (position.y < 0) position.y = 0;
-		if (position.z < 0) position.z = 0;
-		if (position.x >= s) position.x = (float)s - 0.01f;
-		if (position.y >= s) position.y = (float)s - 0.01f;
-		if (position.z >= s) position.z = (float)s - 0.01f;
-
-		const clock_t end_time = clock();
-		delta = (float) (end_time - begin_time);
-		usleep(16666); // todo: convert elapsed to seconds, and use it. 
-
-
-		printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
-		printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
-
-		printf("\033[%um[x0z0]\033[0m \033[%um[x1z0]\033[0m \033[%um[x0z1]\033[0m \033[%um[x1z1]\033[0m\n", 
-			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] ? 32 : 1,
-			space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z - 0.4f)] ? 32 : 1,
-			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)] ? 32 : 1,
-			space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.9f) + (int)(position.z + 0.4f)] ? 32 : 1
-		);
-
-		printf("x0z0: collision: overlap: [xo=%lf, yo=%lf, zo=%lf]\n",
-			
-			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 0.9f) + (int)(position.z - 0.4f)] ?
-				(double) (1.0f - (position.x - 0.4f) + floorf(position.x - 0.4f)) : 0.0,
-
-			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 0.9f) + (int)(position.z - 0.4f)] ?
-				(double) (1.0f - (position.y - 0.9f) + floorf(position.y - 0.9f)) : 0.0,
-
-			space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 0.9f) + (int)(position.z - 0.4f)] ?
-				(double) (1.0f - (position.z - 0.4f) + floorf(position.z - 0.4f)) : 0.0
-
-		);
-
-		printf("can jump? %s\n", 
-		not in_air and (
-		space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z - 0.4f)] or
-		space[s*s*(int)(position.x - 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z + 0.4f)] or
-		space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z - 0.4f)] or
-		space[s*s*(int)(position.x + 0.4f) + s * (int)(position.y - 1.91f) + (int)(position.z + 0.4f)])
-			? 
-			"\033[32myes\033[0m" : "\033[31mno\033[0m"
-
-		);
-
-	}
-	glfwTerminate();
-}
-
-
-
-
+		*/
 
 
 
