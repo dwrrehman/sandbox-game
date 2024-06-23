@@ -29,7 +29,7 @@ int main(void) {
 	struct sockaddr_in6 address = {0};
 	address.sin6_family = AF_INET6;
 	address.sin6_port = htons(12000);
-	inet_pton(AF_INET6, "2601:1c2:4901:1430:1823:9c1c:cc30:57ce", &address.sin6_addr); // ::1 for localhost.
+	inet_pton(AF_INET6, "2601:1c2:4901:1430:915:d663:e227:ea46", &address.sin6_addr); // ::1 for localhost.
 	
 	char* message = strdup("HIIII ITS MEE LOLOOL THIS IS COOL");
 	ssize_t n = sendto(connection, message, strlen(message), 
