@@ -1,0 +1,31 @@
+#!/bin/zsh 
+
+# todo: remove the dependancy on the "xxd" program, my reading in the .metallib file manually programmatically. 
+
+
+if [ "release" = "$1" ]; then
+
+	# clang -Ofast c.c -o editor
+
+	../tools/bin/metal -std=macos-metal2.2 triangle.metal -o triangle.metallib
+	xxd -i triangle.metallib > triangle_metallib.h
+
+	clang++ -std=c++17 -Ofast -ferror-limit=2 -I ./libraries main.cpp libraries/MetalCPP.cpp -fsanitize=address,undefined `sdl2-config --cflags --libs` -framework Metal -framework QuartzCore -framework Foundation -o run 
+
+elif [ "clean" = "$1" ]; then
+	rm -rf run
+	rm -rf run.dSYM
+
+elif [ "" = "$1" ]; then 
+
+	# clang -g -O0 -Weverything -Wno-declaration-after-statement -fsanitize=address,undefined c.c -o editor -ferror-limit=4
+
+	../tools/bin/metal -std=macos-metal2.2 triangle.metal -o triangle.metallib
+	xxd -i triangle.metallib > triangle_metallib.h      
+
+	clang++ -g -std=c++17 -O2 -ferror-limit=2 -I ./libraries main.cpp libraries/MetalCPP.cpp -fsanitize=address,undefined `sdl2-config --cflags --libs` -framework Metal -framework QuartzCore -framework Foundation -o run 
+
+else 
+	echo "build: unknown target: $1"
+fi
+

@@ -1,4 +1,0 @@
-clang -g -O0 -std=c11 -Weverything client.c -o run_client -fsanitize=address,undefined -ferror-limit=2 -Wno-declaration-after-statement -Wno-poison-system-directories
-
-clang -g -O0 -std=c11 -Weverything server.c -o run_server -fsanitize=address,undefined -ferror-limit=2 -Wno-declaration-after-statement -Wno-poison-system-directories
-

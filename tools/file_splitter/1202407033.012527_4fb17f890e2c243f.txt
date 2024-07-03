@@ -1,0 +1,15 @@
+how to split or combine halfs of the metal exec file:
+
+
+to split the file, for commiting use:
+
+	./form many metal_half0 metal_half1 metal
+
+
+to combine the halfs for use, use this:
+
+	./form one metal_result metal_half0 metal_half1
+	chmod 755 metal_result
+
+
+yay

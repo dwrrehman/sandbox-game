@@ -1,0 +1,2 @@
+gcc -O3 client.c -o run_client
+gcc -O3 server.c -o run_server
