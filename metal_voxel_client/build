@@ -20,7 +20,14 @@ elif [ "" = "$1" ]; then
 
 	# clang -g -O0 -Weverything -Wno-declaration-after-statement -fsanitize=address,undefined c.c -o editor -ferror-limit=4
 
+	../tools/file_splitter/form one ../tools/bin/metal ../tools/bin/metal_half0 ../tools/bin/metal_half1
+
+	chmod 755 ../tools/bin/metal
+
 	../tools/bin/metal -std=macos-metal2.2 triangle.metal -o triangle.metallib
+
+	rm ../tools/bin/metal
+
 	xxd -i triangle.metallib > triangle_metallib.h      
 
 	clang++ -g -std=c++17 -O2 -ferror-limit=2 -I ./libraries main.cpp libraries/MetalCPP.cpp -fsanitize=address,undefined `sdl2-config --cflags --libs` -framework Metal -framework QuartzCore -framework Foundation -o run 
