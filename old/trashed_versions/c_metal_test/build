@@ -1,0 +1,31 @@
+#!/bin/zsh
+
+clang -g -O2 -ferror-limit=2 -I ./cmt/include/ c.c ./cmt/src/*.m ./cmt/src/kernels/*.m ./cmt/src/memory/*.m ./cmt/src/compute/*.m ./cmt/src/reflection/*.m ./cmt/src/rendering/*.m ./cmt/src/utils/*.m -fsanitize=address,undefined `sdl2-config --cflags --libs` -framework Metal -framework Foundation -o run
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#	src/*.m src/kernels/*.m src/memory/*.m src/compute/*.m src/reflection/*.m src/rendering/*.m src/utils/*.m
+
+
+
+# clang -g -std=c++17 -O2 -ferror-limit=2 -I ./libraries main.cpp libraries/MetalCPP.cpp -fsanitize=address,undefined `sdl2-config --cflags --libs` -framework Metal -framework QuartzCore -framework Foundation -o run 
+
+
+
+
+
+#	src/reflection/argument.m src/reflection/pointer_type.m src/reflection/descriptor.m src/compute/compute-pipeline.m src/kernels/attribute.m src/kernels/attribute_vertex.m src/kernels/constant_values.m src/kernels/compile-opts.m src/kernels/function.m src/kernels/library.m src/memory/buffer.m src/memory/heap-descriptor.m src/memory/heap.m src/memory/vertex.m src/rendering/depthstencil.m src/rendering/rpass.m src/rendering/rpip.m src/utils/conversion.m src/argument_descriptor.m src/argument_encoder.m src/cmt.m src/command_buf.m src/command_buf_indirect.m src/command_queue.m src/command_enc.m src/command_enc_render.m src/command_enc_compute.m src/command_enc_blit.m src/device.m src/error.m src/event.m src/resource.m
+
+
