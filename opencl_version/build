@@ -1,19 +1,26 @@
 #!/bin/zsh
 
 if [ "release" = "$1" ]; then
-	# clang -Ofast main.c -o run
-	clang -Ofast -Weverything -Wno-declaration-after-statement c.c -o run -framework OpenCL
 
-
+	clang -Ofast -Weverything -Wno-declaration-after-statement c.c `sdl2-config --cflags --libs` -framework OpenCL -o run
 
 elif [ "clean" = "$1" ]; then
 	rm -rf run
 	rm -rf run.dSYM
 
 elif [ "" = "$1" ]; then 
-	# clang -g -O0 -Weverything -fsanitize=address,undefined main.c -o run
-	clang -g -O0 -Weverything -Wno-declaration-after-statement -fsanitize=address,undefined c.c -o run -framework OpenCL
+
+	clang -g -O0 -ferror-limit=1 -Weverything -Wno-declaration-after-statement c.c -fsanitize=address,undefined `sdl2-config --cflags --libs` -framework OpenCL -o run
 
 else 
 	echo "build: unknown target: $1"
 fi
+
+
+
+
+
+	# clang -g -O0 -Weverything -fsanitize=address,undefined main.c -o run
+	# clang -g -O0 -Weverything -Wno-declaration-after-statement -fsanitize=address,undefined c.c -o run -framework OpenCL
+	# clang -Ofast main.c -o run
+

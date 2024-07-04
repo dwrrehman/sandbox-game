@@ -1,4 +1,38 @@
+/*
+
+
+
+
+
+202407033.213313:
+
+		
+
+
+	currently we are doing well in terms of performance-   with a kernel that does 10000 iterations per pixel, and executing it over 3456 * 2234 pixels, ie, 7 million ish, 
+
+				the real time taken by the GPU kernael execution calls        is only  7553 microseconds, which 
+
+										1 / 0.007553    =   132 frames per second, which is more than the refresh rate of this screen, which is 120 lol. so yeah. 
+
+
+			we are definitely in a good spot in terms of performance, i think, 
+
+
+			we just now need to get our SDL code into this file, and then figure out how we can pass the write buffer of the pixels data  from SDL, into the write buffer for the kernel's output array, which will in actuality be an array of float4's ie, colors ie pixels. so yeah.  
+
+			pretty interesting! this definitely seems like the optimal way of doing things, i think.   its definitely wayyy more promising than i thought lol. everything is superrrrr easy because its all in C, and really simple to work with lol. 
+
+
+			lets integrade the sdl code now too.  shouldnt be hard at all lol. 
+
+
+YAYYY
+
+*/
+
 #include <time.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +43,15 @@
 #include <sys/stat.h>
 #include <iso646.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <iso646.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <math.h>
+#include <assert.h>
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -16,7 +59,43 @@
 #include <CL/cl.h>
 #endif
 
+
+#include <SDL.h>
+
 typedef uint64_t nat;
+
+static int window_width = 1600;
+static int window_height = 1000;
+static float aspect = 1.6f;
+static const float fovy = 1.22173f;
+static const float znear = 0.01f;
+static const float zfar = 1000.0f;
+static const float camera_sensitivity = 0.005f;
+static const float camera_accel = 0.00003f;
+static const float drag = 0.95f;
+static const int32_t ms_delay_per_frame = 8;
+static bool debug = false;
+static bool quit = false;
+static bool tab = false;
+static bool should_move_camera = true;
+static bool is_fullscreen = false;
+static int counter = 0;
+static float delta = 0.0;
+static float pitch = 0.0f, yaw = 0.0f;
+
+struct vec3 { float x,y,z; };
+
+static struct vec3 position = {10, 5, 10};
+static struct vec3 velocity = {0, 0, 0};
+static struct vec3 forward = 	{0, 0, -1};
+static struct vec3 straight = 	{0, 0, 1};
+static struct vec3 up = 	{0, 1, 0};
+static struct vec3 right = 	{-1, 0, 0};
+
+
+
+
+
 
 //static const nat debug = 0;
 //#define lightblue "\033[38;5;67m"
@@ -30,26 +109,23 @@ typedef uint64_t nat;
 //#define reset 	"\x1B[0m"
 //#define DATA_SIZE (1024 * 1024)
 
-#define DATA_SIZE (1024 * 1024 * 1024 - 256)
+// #define DATA_SIZE (1024 * 1024 * 1024 - 256)         // max possible size.
 
-
-
+#define DATA_SIZE (3456 * 2234)         // pixel count on this screen. 
 
 
 
 static const char* source_code = 
-"__kernel void execute_z_value(__global unsigned int* input, __global unsigned int* output) {\n"
+"__kernel void execute_z_value(__global float* input, __global float* output) {\n"
 "	int global_id = get_global_id(0);\n"
+"	for (int i = 0; i < 10000; i++) {\n"
+"		float x = input[global_id] / (float) (i + 1);\n"
+"		if (x > 10000.0f) continue;\n"
+"	}\n"
 "	output[global_id] = input[global_id] * input[global_id];\n"
 "	\n"
 "}\n"
 ;
-
-
-
-
-
-
 
 
 static
@@ -195,11 +271,6 @@ static const char *opencl_errstr(cl_int err) {
     }
 }
 
-
-
-
-
-
 #define check(statement) \
 	do {\
 		printf("opencl: calling: ");\
@@ -215,9 +286,6 @@ static const char *opencl_errstr(cl_int err) {
 		}\
 	} while(0);
 
-
-
-
 #define check_arg(statement, condition) \
 	do {\
 		printf("opencl: calling: ");\
@@ -232,32 +300,6 @@ static const char *opencl_errstr(cl_int err) {
 			getchar();\
 		}\
 	} while(0);
-
-
-
-/*
-static char* read_file(const char* filename) {
-	FILE* file = fopen(filename, "r");
-	if (not file) {
-		fprintf(stderr, bold red "error:" reset bold " ");
-		perror(filename);
-		fprintf(stderr, reset);
-		exit(1);
-	}
-	fseek(file, 0, SEEK_END);
-        size_t length = (size_t) ftell(file); 
-	char* text = calloc(length + 1, 1);
-        fseek(file, 0, SEEK_SET); 
-	fread(text, 1, length, file);
-	fclose(file); 
-
-	printf("info: file \"%s\": read %lu bytes\n", filename, length);
-	return text;
-}
-*/
-
-
-
 
 
 int main(void) {
@@ -333,19 +375,16 @@ int main(void) {
 
 	int err = 0; 
 	puts("calling: calloc"); 
-	unsigned int* data    = calloc(DATA_SIZE, sizeof(unsigned int));
+	float* data    = calloc(DATA_SIZE, sizeof(unsigned int));
 	if (!data) {
 		printf("could not allocate memory using calloc, erroring...\n");
 		return 1;
 	}
-	unsigned int* results = calloc(DATA_SIZE, sizeof(unsigned int));
+	float* results = calloc(DATA_SIZE, sizeof(unsigned int));
 	if (!results) {
 		printf("could not allocate memory using calloc, erroring...\n");
 		return 1;
 	}
-
-	size_t global = 0;
-	size_t local = 0;
 
 	cl_device_id device_id;
 	cl_context context;
@@ -357,12 +396,11 @@ int main(void) {
 	puts("calling: (filling up loop with random data/contents...)"); 
 
 	nat count = DATA_SIZE;
-	for (nat i = 0; i < count; i++) data[i] = (unsigned int) rand();
+	for (nat i = 0; i < count; i++) data[i] = (float) (rand() % 100);
 
 	check(clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, 1, &device_id, NULL));
 	check_arg(context = clCreateContext(0, 1, &device_id, NULL, NULL, &err), context);
 	check_arg(commands = clCreateCommandQueue(context, device_id, 0, &err), commands);
-	
 	
 	check_arg(program = clCreateProgramWithSource(context, 1, (const char **) &file_contents, NULL, &err), program);
     
@@ -386,43 +424,313 @@ int main(void) {
 		getchar();
 	}
 	
-	check_arg(input = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(unsigned int) * count, NULL, NULL), input);
-	check_arg(output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(unsigned int) * count, NULL, NULL), output);
+	check_arg(input = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(float) * count, NULL, NULL), input);
+	check_arg(output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float) * count, NULL, NULL), output);
 
-	clock_t begin = clock();
-	check(clEnqueueWriteBuffer(commands, input, CL_TRUE, 0, sizeof(unsigned int) * count, data, 0, NULL, NULL));
+
+
+
+
+
+
+
+
+
+
+
+	srand((unsigned)time(NULL));
+
+	const int s = 20;
+	const int space_count = s * s * s;
+	int8_t* space = (int8_t*) calloc(space_count, 1);
+
+	for (int x = 1; x < s; x++) {
+		for (int z = 1; z < s; z++) {
+			const int y = 0;
+			space[s * s * x + s * y + z] = rand() % 2;
+		}
+	}
+	space[s * s * 1 + s * 1 + 1] = 1;
+	space[s * s * 1 + s * 1 + 2] = 1;
+	space[s * s * 1 + s * 2 + 1] = 1;
+	space[s * s * 1 + s * 2 + 2] = 1;
+	space[s * s * 2 + s * 1 + 1] = 1;
+	space[s * s * 2 + s * 1 + 2] = 1;
+	space[s * s * 2 + s * 2 + 1] = 1;
+	space[s * s * 2 + s * 2 + 2] = 1;
+	space[s * s * 4 + s * 4 + 4] = 1;
+
+
+
+
+
+
+
+
+
+	// SDL_SetHint(SDL_HINT_RENDER_DRIVER, "metal");
+
+	if (SDL_Init(SDL_INIT_EVERYTHING)) 
+		exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
+
+	SDL_Window *window = SDL_CreateWindow(
+		"voxel game", 
+		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+		window_width, window_height, 
+		SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
+	);
+	
+	SDL_SetRelativeMouseMode(SDL_TRUE);
+
+	//SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
+
+
+	SDL_Surface* surface = SDL_GetWindowSurface(window);
+
+
+	
+
+	printf("surface pixels = %p, format = %s, dimensions = %d x %d.\n", 
+		surface->pixels,
+		SDL_GetPixelFormatName(surface->format),
+		surface->w, surface->h
+	);
+	//getchar();
+
+
+	printf("Window pixel format %s\n", SDL_GetPixelFormatName(SDL_GetWindowPixelFormat(window)));
+	printf("Surface pixel format %s\n", SDL_GetPixelFormatName(surface->format));
+
+
+	// clock_t begin = clock();
+
+
+	struct timeval st, et;
+	gettimeofday(&st,NULL);
+
+	
+
+	check(clEnqueueWriteBuffer(commands, input, CL_TRUE, 0, sizeof(float) * count, data, 0, NULL, NULL));
 	check(clSetKernelArg(kernel, 0, sizeof(cl_mem), &input));
 	check(clSetKernelArg(kernel, 1, sizeof(cl_mem), &output));
-	check(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
 
-	global = count;
+	
+	
+	size_t local = 32;
+	//check(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
+
+	size_t global = count;
 
 	printf("info: local_group_size = %lu, global_group_size = %lu\n",  local, global);
 	check(clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global, &local, 0, NULL, NULL));
 	clFinish(commands);
-	check(clEnqueueReadBuffer(commands, output, CL_TRUE, 0, sizeof(unsigned int) * count, results, 0, NULL, NULL ));
+	check(clEnqueueReadBuffer(commands, output, CL_TRUE, 0, sizeof(float) * count, results, 0, NULL, NULL ));
 
-	clock_t end = clock();
-	double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-	printf("spent %5.5lf seconds on the gpu/opencl...\n", time_spent);
+	//clock_t end = clock();
+	//double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+	//printf("spent %5.5lf seconds on the gpu/opencl...\n", time_spent);
 
 
-	begin = clock();
+	gettimeofday(&et,NULL);
+	long elapsed = ((et.tv_sec - st.tv_sec) * 1000000) + (et.tv_usec - st.tv_usec);
+	printf("elapsed time: %ld microseconds\n", elapsed);
+
+
+
+
+
+	//begin = clock();
 	puts("calling: (verifying results manually...)"); 
 	nat correct = 0;
 	for (nat i = 0; i < count; i++) {
-		if (results[i] == data[i] * data[i]) correct++;
+		if (results[i] <= data[i] * data[i]) correct++;
 		else {
-			printf("incorrect values! expected %u but obtained %u...\n", data[i] * data[i], results[i]);
+			printf("incorrect values! expected %lf but obtained %lf...\n", (double) (data[i] * data[i]), (double) (results[i]));
 			break;
 		}
 	}
-	end = clock();
-	time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-	printf("spent %5.5lf seconds verifying on cpu...\n", time_spent);
+
+	//end = clock();
+	//time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+	//printf("spent %5.5lf seconds verifying on cpu...\n", time_spent);
 
 	printf("Computed '%llu/%llu' correct values!\n", correct, count);
-	puts("calling: clRelease*****"); 
+	puts("calling: clRelease"); 
+
+
+
+
+	bool quit = false;
+	while (not quit) {
+
+		uint32_t start = SDL_GetTicks();
+
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+
+			const Uint8* key = SDL_GetKeyboardState(0);
+
+			if (event.type == SDL_QUIT) quit = true;
+
+			else if (event.type == SDL_WINDOWEVENT_RESIZED) {     // <--------- why is this not getting called...!?!?!
+				printf("window was resized!!\n");
+				int w=0,h=0;
+				SDL_GetWindowSize(window, &w, &h);
+				printf("width = %d, height = %d", w,h);
+				window_width = w;
+				window_height = h;
+				aspect = (float) window_width / (float) window_height;
+
+				// perspective(perspective_matrix, fovy, aspect, znear, zfar);
+			}
+
+			else if (event.type == SDL_MOUSEMOTION and should_move_camera) {
+				
+    				float dx = (float) event.motion.xrel;
+    				float dy = (float) event.motion.yrel;
+
+				yaw -= camera_sensitivity * dx;
+				pitch += camera_sensitivity * dy;
+	
+				// move_camera();
+			}
+
+			else if (event.type == SDL_KEYDOWN) {
+				if (key[SDL_SCANCODE_ESCAPE]) quit = true; 		// temporary, for debugging. 
+				if (tab and key[SDL_SCANCODE_Q]) quit = true; 
+				if (tab and key[SDL_SCANCODE_0]) debug = !debug;
+				if (tab and key[SDL_SCANCODE_1]) { // pause game.
+					should_move_camera = not should_move_camera;
+					SDL_SetRelativeMouseMode((SDL_bool) should_move_camera);
+				}
+
+				if (tab and key[SDL_SCANCODE_2]) {
+					is_fullscreen = not is_fullscreen;
+					SDL_SetWindowFullscreen(window, is_fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
+					int w = 0, h = 0;
+					SDL_GetWindowSize(window, &w, &h);
+
+					printf("width = %d, height = %d", w,h);
+					window_width = w;
+					window_height = h;
+					aspect = (float) window_width / (float) window_height;
+					// perspective(perspective_matrix, fovy, aspect, znear, zfar);
+				}
+			}
+		}
+
+		const Uint8* key = SDL_GetKeyboardState(0);
+		
+		tab = !!key[SDL_SCANCODE_TAB];
+
+		if (key[SDL_SCANCODE_SPACE]) {
+			velocity.x += delta * camera_accel * up.x;
+			velocity.y += delta * camera_accel * up.y;
+			velocity.z += delta * camera_accel * up.z;
+		}
+
+		if (key[SDL_SCANCODE_A]) { 
+			velocity.x -= delta * camera_accel * up.x;
+			velocity.y -= delta * camera_accel * up.y;
+			velocity.z -= delta * camera_accel * up.z;
+		}
+
+		if (key[SDL_SCANCODE_E]) { 
+			velocity.x += delta * camera_accel * straight.x;
+			velocity.y += delta * camera_accel * straight.y;
+			velocity.z += delta * camera_accel * straight.z;
+		}
+		if (key[SDL_SCANCODE_D]) { 
+			velocity.x -= delta * camera_accel * straight.x;
+			velocity.y -= delta * camera_accel * straight.y;
+			velocity.z -= delta * camera_accel * straight.z;
+		}
+
+		if (key[SDL_SCANCODE_S]) {
+			velocity.x += delta * camera_accel * right.x;
+			velocity.y += delta * camera_accel * right.y;
+			velocity.z += delta * camera_accel * right.z;
+		}
+		
+		if (key[SDL_SCANCODE_F]) {
+			velocity.x -= delta * camera_accel * right.x;
+			velocity.y -= delta * camera_accel * right.y;
+			velocity.z -= delta * camera_accel * right.z;
+		}
+
+		if (key[SDL_SCANCODE_L]) { 
+			yaw -= 0.08f;
+			// move_camera();
+		}
+		if (key[SDL_SCANCODE_J]) { 
+			yaw += 0.08f;
+			// move_camera();
+		}
+		if (key[SDL_SCANCODE_I]) { 
+			pitch -= 0.08f;
+			// move_camera();
+		}
+		if (key[SDL_SCANCODE_K]) { 
+			pitch += 0.08f;
+			// move_camera();
+		}
+
+
+
+
+		SDL_LockSurface(surface);
+		for (nat x = 100; x < 300; x++) {
+			for (nat y = 100; y < 300; y++) {
+				((uint32_t*)surface->pixels)[(y * 2) * surface->w + (x * 2)] = (uint32_t) rand();
+			}
+		}
+		SDL_UnlockSurface(surface);
+
+		SDL_UpdateWindowSurface(window);
+	
+
+
+
+
+		velocity.x *= drag;
+		velocity.y *= drag;
+		velocity.z *= drag;
+
+		position.x += delta * velocity.x;
+		position.y += delta * velocity.y;
+		position.z += delta * velocity.z;
+
+		delta = (float) ((int32_t) SDL_GetTicks() - (int32_t) start);
+
+		nanosleep((const struct timespec[]){{0, 8000000L}}, NULL);
+
+		if (counter == 200) counter = 0;
+		else counter++;
+
+		if (counter == 0) {
+			double fps = 1 / ((double) (SDL_GetTicks() - start) / 1000.0);
+			printf("fps = %10.10lf\n", fps);
+		}
+
+		if (debug) {
+			printf("DEBUG: [%s]\n", tab ? "tab" : "   ");
+			printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
+			printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
+			printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
+			printf("forward = {%3.3lf, %3.3lf, %3.3lf}\n", (double)forward.x,(double)forward.y,(double)forward.z);
+			printf("right = {%3.3lf, %3.3lf, %3.3lf}\n", (double)right.x,(double)right.y,(double)right.z);
+			printf("up = {%3.3lf, %3.3lf, %3.3lf}\n", (double)up.x,(double)up.y,(double)up.z);
+		}	
+	}
+
+	SDL_FreeSurface(surface);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
+
+
+
+
 
 	clReleaseMemObject(input);
 	clReleaseMemObject(output);
@@ -456,108 +764,48 @@ int main(void) {
 
 
 
+
+
+
+
+
+
+
+
+
+
 /*
 
-Number of platforms                               1
-  Platform Name                                   Apple
-  Platform Vendor                                 Apple
-  Platform Version                                OpenCL 1.2 (Mar  4 2023 12:44:59)
-  Platform Profile                                FULL_PROFILE
-  Platform Extensions                             cl_APPLE_SetMemObjectDestructor cl_APPLE_ContextLoggingFunctions cl_APPLE_clut cl_APPLE_query_kernel_names cl_APPLE_gl_sharing cl_khr_gl_event
 
-  Platform Name                                   Apple
-Number of devices                                 1
-  Device Name                                     Apple M1 Max
-  Device Vendor                                   Apple
-  Device Vendor ID                                0x1027f00
-  Device Version                                  OpenCL 1.2 
-  Driver Version                                  1.2 1.0
-  Device OpenCL C Version                         OpenCL C 1.2 
-  Device Type                                     GPU
-  Device Profile                                  FULL_PROFILE
-  Device Available                                Yes
-  Compiler Available                              Yes
-  Linker Available                                Yes
-  Max compute units                               32
-  Max clock frequency                             1000MHz
-  Device Partition                                (core)
-    Max number of sub-devices                     0
-    Supported partition types                     None
-    Supported affinity domains                    (n/a)
-  Max work item dimensions                        3
-  Max work item sizes                             256x256x256
-  Max work group size                             256
-  Preferred work group size multiple (kernel)     32
-  Preferred / native vector sizes                 
-    char                                                 1 / 1       
-    short                                                1 / 1       
-    int                                                  1 / 1       
-    long                                                 1 / 1       
-    half                                                 0 / 0        (n/a)
-    float                                                1 / 1       
-    double                                               1 / 1        (n/a)
-  Half-precision Floating-point support           (n/a)
-  Single-precision Floating-point support         (core)
-    Denormals                                     No
-    Infinity and NANs                             Yes
-    Round to nearest                              Yes
-    Round to zero                                 Yes
-    Round to infinity                             Yes
-    IEEE754-2008 fused multiply-add               Yes
-    Support is emulated in software               No
-    Correctly-rounded divide and sqrt operations  Yes
-  Double-precision Floating-point support         (n/a)
-  Address bits                                    64, Little-Endian
-  Global memory size                              51539607552 (48GiB)
-  Error Correction support                        No
-  Max memory allocation                           9663676416 (9GiB)
-  Unified memory for Host and Device              Yes
-  Minimum alignment for any data type             1 bytes
-  Alignment of base address                       32768 bits (4096 bytes)
-  Global Memory cache type                        None
-  Image support                                   Yes
-    Max number of samplers per kernel             32
-    Max size for 1D images from buffer            268435456 pixels
-    Max 1D or 2D image array size                 2048 images
-    Base address alignment for 2D image buffers   256 bytes
-    Pitch alignment for 2D image buffers          256 pixels
-    Max 2D image size                             16384x16384 pixels
-    Max 3D image size                             2048x2048x2048 pixels
-    Max number of read image args                 128
-    Max number of write image args                8
-  Local memory type                               Local
-  Local memory size                               32768 (32KiB)
-  Max number of constant args                     31
-  Max constant buffer size                        1073741824 (1024MiB)
-  Max size of kernel argument                     4096 (4KiB)
-  Queue properties                                
-    Out-of-order execution                        No
-    Profiling                                     Yes
-  Prefer user sync for interop                    Yes
-  Profiling timer resolution                      1000ns
-  Execution capabilities                          
-    Run OpenCL kernels                            Yes
-    Run native kernels                            No
-  printf() buffer size                            1048576 (1024KiB)
-  Built-in kernels                                (n/a)
-  Device Extensions                               cl_APPLE_SetMemObjectDestructor cl_APPLE_ContextLoggingFunctions cl_APPLE_clut cl_APPLE_query_kernel_names cl_APPLE_gl_sharing cl_khr_gl_event cl_khr_byte_addressable_store cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_3d_image_writes cl_khr_image2d_from_buffer cl_khr_depth_images 
+		// matrix stuff?
 
-NULL platform behavior
-  clGetPlatformInfo(NULL, CL_PLATFORM_NAME, ...)  Apple
-  clGetDeviceIDs(NULL, CL_DEVICE_TYPE_ALL, ...)   Success [P0]
-  clCreateContext(NULL, ...) [default]            Success [P0]
-  clCreateContextFromType(NULL, CL_DEVICE_TYPE_DEFAULT)  Success (1)
-    Platform Name                                 Apple
-    Device Name                                   Apple M1 Max
-  clCreateContextFromType(NULL, CL_DEVICE_TYPE_CPU)  No devices found in platform
-  clCreateContextFromType(NULL, CL_DEVICE_TYPE_GPU)  Success (1)
-    Platform Name                                 Apple
-    Device Name                                   Apple M1 Max
-  clCreateContextFromType(NULL, CL_DEVICE_TYPE_ACCELERATOR)  No devices found in platform
-  clCreateContextFromType(NULL, CL_DEVICE_TYPE_CUSTOM)  Invalid device type for platform
-  clCreateContextFromType(NULL, CL_DEVICE_TYPE_ALL)  Success (1)
-    Platform Name                                 Apple
-    Device Name                                   Apple M1 Max
+		auto drawable = swapchain->nextDrawable();
+		auto pass = MTL::make_owned(MTL::RenderPassDescriptor::renderPassDescriptor());
+
+		auto color_attachment = pass->colorAttachments()->object(0);
+		color_attachment->setLoadAction(MTL::LoadAction::LoadActionClear);
+		color_attachment->setStoreAction(MTL::StoreAction::StoreActionStore);
+		color_attachment->setTexture(drawable->texture());
+
+		const vector_uint2 viewport = { (unsigned int) window_width, (unsigned int) window_height };
+
+		printf("view port = width(x) = %u, height(y) = %u\n", window_width, window_height);
+
+		auto buffer = MTL::make_owned(queue->commandBuffer());
+		auto encoder = MTL::make_owned(buffer->renderCommandEncoder(pass.get()));
+		encoder->setViewport(MTL::Viewport { 
+			(double) window_width / 2.0, (double) window_height / 2.0, 
+			(double) window_width, (double) window_height, 
+			-0.001, 10000.0
+		});
+		encoder->setRenderPipelineState(pipeline.get());
+		//encoder->setVertexBytes(triangleVertices, sizeof(triangleVertices), 0);
+		//encoder->setVertexBytes(&viewport, sizeof(viewport), 1);
+		encoder->drawPrimitives(MTL::PrimitiveType::PrimitiveTypeTriangle, NS::UInteger(0), 4);
+		encoder->endEncoding();
+		buffer->presentDrawable(drawable);
+		buffer->commit();
+		drawable->release();
 
 
 
@@ -565,6 +813,263 @@ NULL platform behavior
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+int main(void) { 
+	srand((unsigned)time(NULL));
+
+	const int s = 20;
+	const int space_count = s * s * s;
+	int8_t* space = (int8_t*) calloc(space_count, 1);
+
+	for (int x = 1; x < s; x++) {
+		for (int z = 1; z < s; z++) {
+			const int y = 0;
+			space[s * s * x + s * y + z] = rand() % 2;
+		}
+	}
+	space[s * s * 1 + s * 1 + 1] = 1;
+	space[s * s * 1 + s * 1 + 2] = 1;
+	space[s * s * 1 + s * 2 + 1] = 1;
+	space[s * s * 1 + s * 2 + 2] = 1;
+	space[s * s * 2 + s * 1 + 1] = 1;
+	space[s * s * 2 + s * 1 + 2] = 1;
+	space[s * s * 2 + s * 2 + 1] = 1;
+	space[s * s * 2 + s * 2 + 2] = 1;
+	space[s * s * 4 + s * 4 + 4] = 1;
+
+
+	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "metal");
+	if (SDL_Init(SDL_INIT_EVERYTHING)) exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
+	SDL_Window *window = SDL_CreateWindow("block game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+				window_width, window_height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	SDL_SetRelativeMouseMode(SDL_TRUE);
+
+	auto swapchain = (CA::MetalLayer*)SDL_RenderGetMetalLayer(renderer);
+	auto device = swapchain->device();
+	auto name = device->name();
+	printf("using device: \"%s\"...\n", name->utf8String());
+
+	auto library_data = dispatch_data_create(&triangle_metallib[0], triangle_metallib_len, dispatch_get_main_queue(), ^{});
+	NS::Error* err;
+
+	auto library = MTL::make_owned(device->newLibrary(library_data, &err));
+	if (not library) { printf("Failed to create library"); exit(1); } 
+
+	auto vertex_function_name = NS::String::string("vertexShader", NS::ASCIIStringEncoding);
+	auto vertex_function = MTL::make_owned(library->newFunction(vertex_function_name));
+
+	auto fragment_function_name = NS::String::string("fragmentShader", NS::ASCIIStringEncoding);
+	auto fragment_function = MTL::make_owned(library->newFunction(fragment_function_name));
+
+	auto pipeline_descriptor = MTL::make_owned(MTL::RenderPipelineDescriptor::alloc()->init());
+	pipeline_descriptor->setVertexFunction(vertex_function.get());
+	pipeline_descriptor->setFragmentFunction(fragment_function.get());
+
+	auto color_attachment_descriptor = pipeline_descriptor->colorAttachments()->object(0);
+	color_attachment_descriptor->setPixelFormat(swapchain->pixelFormat());
+
+	auto pipeline = MTL::make_owned(device->newRenderPipelineState(pipeline_descriptor.get(), &err));
+	if (not pipeline) { printf("Failed to create pipeline"); exit(1); } 
+
+	auto queue = MTL::make_owned(device->newCommandQueue());
+	
+
+	
+	bool quit = false;
+	while (not quit) {
+
+		uint32_t start = SDL_GetTicks();
+
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+
+			const Uint8* key = SDL_GetKeyboardState(0);
+
+			if (event.type == SDL_QUIT) quit = true;
+
+			else if (event.type == SDL_WINDOWEVENT_RESIZED) {     // <--------- why is this not getting called...!?!?!
+				printf("window was resized!!\n");
+				int w=0,h=0;
+				SDL_GetWindowSize(window, &w, &h);
+				printf("width = %d, height = %d", w,h);
+				window_width = w;
+				window_height = h;
+				aspect = (float) window_width / (float) window_height;
+
+				// perspective(perspective_matrix, fovy, aspect, znear, zfar);
+			}
+
+			else if (event.type == SDL_MOUSEMOTION and should_move_camera) {
+				
+    				float dx = (float) event.motion.xrel;
+    				float dy = (float) event.motion.yrel;
+
+				yaw -= camera_sensitivity * dx;
+				pitch += camera_sensitivity * dy;
+	
+				// move_camera();
+			}
+
+			else if (event.type == SDL_KEYDOWN) {
+				if (key[SDL_SCANCODE_ESCAPE]) quit = true; 		// temporary, for debugging. 
+				if (tab and key[SDL_SCANCODE_Q]) quit = true; 
+				if (tab and key[SDL_SCANCODE_0]) debug = !debug;
+				if (tab and key[SDL_SCANCODE_1]) { // pause game.
+					should_move_camera = not should_move_camera;
+					SDL_SetRelativeMouseMode((SDL_bool) should_move_camera);
+				}
+
+				if (tab and key[SDL_SCANCODE_2]) {
+					is_fullscreen = not is_fullscreen;
+					SDL_SetWindowFullscreen(window, is_fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
+					int w = 0, h = 0;
+					SDL_GetWindowSize(window, &w, &h);
+
+					printf("width = %d, height = %d", w,h);
+					window_width = w;
+					window_height = h;
+					aspect = (float) window_width / (float) window_height;
+					// perspective(perspective_matrix, fovy, aspect, znear, zfar);
+				}
+			}
+		}
+
+		const Uint8* key = SDL_GetKeyboardState(0);
+		
+		tab = !!key[SDL_SCANCODE_TAB];
+
+		if (key[SDL_SCANCODE_SPACE]) {
+			velocity.x += delta * camera_accel * up.x;
+			velocity.y += delta * camera_accel * up.y;
+			velocity.z += delta * camera_accel * up.z;
+		}
+
+		if (key[SDL_SCANCODE_A]) { 
+			velocity.x -= delta * camera_accel * up.x;
+			velocity.y -= delta * camera_accel * up.y;
+			velocity.z -= delta * camera_accel * up.z;
+		}
+
+		if (key[SDL_SCANCODE_E]) { 
+			velocity.x += delta * camera_accel * straight.x;
+			velocity.y += delta * camera_accel * straight.y;
+			velocity.z += delta * camera_accel * straight.z;
+		}
+		if (key[SDL_SCANCODE_D]) { 
+			velocity.x -= delta * camera_accel * straight.x;
+			velocity.y -= delta * camera_accel * straight.y;
+			velocity.z -= delta * camera_accel * straight.z;
+		}
+
+		if (key[SDL_SCANCODE_S]) {
+			velocity.x += delta * camera_accel * right.x;
+			velocity.y += delta * camera_accel * right.y;
+			velocity.z += delta * camera_accel * right.z;
+		}
+		
+		if (key[SDL_SCANCODE_F]) {
+			velocity.x -= delta * camera_accel * right.x;
+			velocity.y -= delta * camera_accel * right.y;
+			velocity.z -= delta * camera_accel * right.z;
+		}
+
+		if (key[SDL_SCANCODE_L]) { 
+			yaw -= 0.08f;
+			// move_camera();
+		}
+		if (key[SDL_SCANCODE_J]) { 
+			yaw += 0.08f;
+			// move_camera();
+		}
+		if (key[SDL_SCANCODE_I]) { 
+			pitch -= 0.08f;
+			// move_camera();
+		}
+		if (key[SDL_SCANCODE_K]) { 
+			pitch += 0.08f;
+			// move_camera();
+		}
+
+
+		// matrix stuff?
+
+		auto drawable = swapchain->nextDrawable();
+		auto pass = MTL::make_owned(MTL::RenderPassDescriptor::renderPassDescriptor());
+
+		auto color_attachment = pass->colorAttachments()->object(0);
+		color_attachment->setLoadAction(MTL::LoadAction::LoadActionClear);
+		color_attachment->setStoreAction(MTL::StoreAction::StoreActionStore);
+		color_attachment->setTexture(drawable->texture());
+
+		const vector_uint2 viewport = { (unsigned int) window_width, (unsigned int) window_height };
+
+		printf("view port = width(x) = %u, height(y) = %u\n", window_width, window_height);
+
+		auto buffer = MTL::make_owned(queue->commandBuffer());
+		auto encoder = MTL::make_owned(buffer->renderCommandEncoder(pass.get()));
+		encoder->setViewport(MTL::Viewport { 
+			(double) window_width / 2.0, (double) window_height / 2.0, 
+			(double) window_width, (double) window_height, 
+			-0.001, 10000.0
+		});
+		encoder->setRenderPipelineState(pipeline.get());
+		//encoder->setVertexBytes(triangleVertices, sizeof(triangleVertices), 0);
+		//encoder->setVertexBytes(&viewport, sizeof(viewport), 1);
+		encoder->drawPrimitives(MTL::PrimitiveType::PrimitiveTypeTriangle, NS::UInteger(0), 4);
+		encoder->endEncoding();
+		buffer->presentDrawable(drawable);
+		buffer->commit();
+		drawable->release();
+
+
+
+
+		velocity.x *= drag;
+		velocity.y *= drag;
+		velocity.z *= drag;
+
+		position.x += delta * velocity.x;
+		position.y += delta * velocity.y;
+		position.z += delta * velocity.z;
+
+
+		delta = (float) ((int32_t) SDL_GetTicks() - (int32_t) start);
+
+		if (counter == 200) counter = 0;
+		else counter++;
+
+		if (counter == 0) {
+			double fps = 1 / ((double) (SDL_GetTicks() - start) / 1000.0);
+			printf("fps = %10.10lf\n", fps);
+		}
+
+		if (debug) {
+			printf("DEBUG: [%s]\n", tab ? "tab" : "   ");
+			printf("position = {%3.3lf, %3.3lf, %3.3lf}\n", (double)position.x,(double)position.y,(double)position.z);
+			printf("velocity = {%3.3lf, %3.3lf, %3.3lf}\n", (double)velocity.x,(double)velocity.y,(double)velocity.z);
+			printf("yaw = %3.3lf, pitch = %3.3lf\n", (double)yaw, (double)pitch);
+			printf("forward = {%3.3lf, %3.3lf, %3.3lf}\n", (double)forward.x,(double)forward.y,(double)forward.z);
+			printf("right = {%3.3lf, %3.3lf, %3.3lf}\n", (double)right.x,(double)right.y,(double)right.z);
+			printf("up = {%3.3lf, %3.3lf, %3.3lf}\n", (double)up.x,(double)up.y,(double)up.z);
+		}	
+	}
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
+}
 
 
 */

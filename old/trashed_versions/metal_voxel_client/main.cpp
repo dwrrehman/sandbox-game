@@ -31,6 +31,8 @@
 
 
 
+        clang++ -g -std=c++17 -O2 -ferror-limit=2 -I ./libraries main.cpp libraries/MetalCPP.cpp -fsanitize=address,undefined `sdl2-config --cflags --libs` -framework Metal -framework QuartzCore -framework Foundation -o run 
+
 
 
 
