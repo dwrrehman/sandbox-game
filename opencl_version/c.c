@@ -94,9 +94,6 @@ static struct vec3 right = 	{-1, 0, 0};
 
 
 
-
-
-
 //static const nat debug = 0;
 //#define lightblue "\033[38;5;67m"
 //#define red   	"\x1B[31m"
@@ -304,22 +301,87 @@ static const char *opencl_errstr(cl_int err) {
 
 int main(void) {
 
-    char* value;
-    size_t valueSize;
+
+	srand((unsigned)time(NULL));
+
+	const int s = 20;
+	const int space_count = s * s * s;
+	int8_t* space = (int8_t*) calloc(space_count, 1);
+
+	for (int x = 1; x < s; x++) {
+		for (int z = 1; z < s; z++) {
+			const int y = 0;
+			space[s * s * x + s * y + z] = rand() % 2;
+		}
+	}
+	space[s * s * 1 + s * 1 + 1] = 1;
+	space[s * s * 1 + s * 1 + 2] = 1;
+	space[s * s * 1 + s * 2 + 1] = 1;
+	space[s * s * 1 + s * 2 + 2] = 1;
+	space[s * s * 2 + s * 1 + 1] = 1;
+	space[s * s * 2 + s * 1 + 2] = 1;
+	space[s * s * 2 + s * 2 + 1] = 1;
+	space[s * s * 2 + s * 2 + 2] = 1;
+	space[s * s * 4 + s * 4 + 4] = 1;
+
+
+
+
+	// SDL_SetHint(SDL_HINT_RENDER_DRIVER, "metal");
+
+	if (SDL_Init(SDL_INIT_EVERYTHING)) 
+		exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
+
+	SDL_Window *window = SDL_CreateWindow(
+		"voxel game", 
+		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+		window_width, window_height, 
+		SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
+	);
+	
+	SDL_SetRelativeMouseMode(SDL_TRUE);
+
+	//SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
+
+
+	SDL_Surface* surface = SDL_GetWindowSurface(window);
+
+
+	
+
+	printf("surface pixels = %p, format = %s, dimensions = %d x %d.\n", 
+		surface->pixels,
+		SDL_GetPixelFormatName(surface->format),
+		surface->w, surface->h
+	);
+	//getchar();
+
+
+	printf("Window pixel format %s\n", SDL_GetPixelFormatName(SDL_GetWindowPixelFormat(window)));
+	printf("Surface pixel format %s\n", SDL_GetPixelFormatName(surface->format));
+
+
+
+
+
+
+	char* value;
+	size_t valueSize;
     
-    cl_platform_id* platforms;
-    cl_uint deviceCount;
-    cl_device_id* devices;
-    cl_uint maxComputeUnits;
+	cl_platform_id* platforms;
+	cl_uint deviceCount;
+	cl_device_id* devices;
+	cl_uint maxComputeUnits;
 
     // get all platforms
 
-    cl_uint platformCount;
-    clGetPlatformIDs(0, NULL, &platformCount);
-    platforms = (cl_platform_id*) malloc(sizeof(cl_platform_id) * platformCount);
-    clGetPlatformIDs(platformCount, platforms, NULL);
+	cl_uint platformCount;
+	clGetPlatformIDs(0, NULL, &platformCount);
+	platforms = (cl_platform_id*) malloc(sizeof(cl_platform_id) * platformCount);
+	clGetPlatformIDs(platformCount, platforms, NULL);
 
-    for (cl_uint i = 0; i < platformCount; i++) {
+	for (cl_uint i = 0; i < platformCount; i++) {
 
 	unsigned int type = CL_DEVICE_TYPE_ALL;
         clGetDeviceIDs(platforms[i], type, 0, NULL, &deviceCount);
@@ -428,88 +490,9 @@ int main(void) {
 	check_arg(output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float) * count, NULL, NULL), output);
 
 
-
-
-
-
-
-
-
-
-
-
-	srand((unsigned)time(NULL));
-
-	const int s = 20;
-	const int space_count = s * s * s;
-	int8_t* space = (int8_t*) calloc(space_count, 1);
-
-	for (int x = 1; x < s; x++) {
-		for (int z = 1; z < s; z++) {
-			const int y = 0;
-			space[s * s * x + s * y + z] = rand() % 2;
-		}
-	}
-	space[s * s * 1 + s * 1 + 1] = 1;
-	space[s * s * 1 + s * 1 + 2] = 1;
-	space[s * s * 1 + s * 2 + 1] = 1;
-	space[s * s * 1 + s * 2 + 2] = 1;
-	space[s * s * 2 + s * 1 + 1] = 1;
-	space[s * s * 2 + s * 1 + 2] = 1;
-	space[s * s * 2 + s * 2 + 1] = 1;
-	space[s * s * 2 + s * 2 + 2] = 1;
-	space[s * s * 4 + s * 4 + 4] = 1;
-
-
-
-
-
-
-
-
-
-	// SDL_SetHint(SDL_HINT_RENDER_DRIVER, "metal");
-
-	if (SDL_Init(SDL_INIT_EVERYTHING)) 
-		exit(printf("SDL_Init failed: %s\n", SDL_GetError()));
-
-	SDL_Window *window = SDL_CreateWindow(
-		"voxel game", 
-		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
-		window_width, window_height, 
-		SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
-	);
-	
-	SDL_SetRelativeMouseMode(SDL_TRUE);
-
-	//SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-
-
-
-	SDL_Surface* surface = SDL_GetWindowSurface(window);
-
-
-	
-
-	printf("surface pixels = %p, format = %s, dimensions = %d x %d.\n", 
-		surface->pixels,
-		SDL_GetPixelFormatName(surface->format),
-		surface->w, surface->h
-	);
-	//getchar();
-
-
-	printf("Window pixel format %s\n", SDL_GetPixelFormatName(SDL_GetWindowPixelFormat(window)));
-	printf("Surface pixel format %s\n", SDL_GetPixelFormatName(surface->format));
-
-
-	// clock_t begin = clock();
-
-
 	struct timeval st, et;
 	gettimeofday(&st,NULL);
 
-	
 
 	check(clEnqueueWriteBuffer(commands, input, CL_TRUE, 0, sizeof(float) * count, data, 0, NULL, NULL));
 	check(clSetKernelArg(kernel, 0, sizeof(cl_mem), &input));
@@ -537,9 +520,6 @@ int main(void) {
 	printf("elapsed time: %ld microseconds\n", elapsed);
 
 
-
-
-
 	//begin = clock();
 	puts("calling: (verifying results manually...)"); 
 	nat correct = 0;
@@ -557,8 +537,6 @@ int main(void) {
 
 	printf("Computed '%llu/%llu' correct values!\n", correct, count);
 	puts("calling: clRelease"); 
-
-
 
 
 	bool quit = false;
@@ -677,21 +655,15 @@ int main(void) {
 		}
 
 
-
-
 		SDL_LockSurface(surface);
 		for (nat x = 100; x < 300; x++) {
 			for (nat y = 100; y < 300; y++) {
-				((uint32_t*)surface->pixels)[(y * 2) * surface->w + (x * 2)] = (uint32_t) rand();
+				((uint32_t*)surface->pixels)[(y) * surface->w + (x)] = rand() % 2 == 0 ? 0 : (uint32_t) ~0;
 			}
 		}
 		SDL_UnlockSurface(surface);
 
 		SDL_UpdateWindowSurface(window);
-	
-
-
-
 
 		velocity.x *= drag;
 		velocity.y *= drag;
@@ -724,20 +696,16 @@ int main(void) {
 		}	
 	}
 
-	SDL_FreeSurface(surface);
-	SDL_DestroyWindow(window);
-	SDL_Quit();
-
-
-
-
-
 	clReleaseMemObject(input);
 	clReleaseMemObject(output);
 	clReleaseProgram(program);
 	clReleaseKernel(kernel);
 	clReleaseCommandQueue(commands);
 	clReleaseContext(context);
+
+	SDL_FreeSurface(surface);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
 }
 
 
