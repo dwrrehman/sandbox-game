@@ -73,13 +73,13 @@ srand((unsigned)time(NULL));
 	int8_t* space = calloc(space_count, 1);
 
 	for (int i = 0; i < space_count; i++) {
-		space[i] = (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 12);
+		space[i] = (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 40);
 	}
 
 	for (int x = 1; x < 10; x++) {
 		for (int z = 1; z < 10; z++) {
 			const int y = 0;
-			if (rand() % 2) space[s * s * x + s * y + z] = rand() % 3;
+			space[s * s * x + s * y + z] = 1;
 		}
 	}
 
@@ -276,14 +276,25 @@ srand((unsigned)time(NULL));
 
 				struct vec3 ray = position;
 
-				for (int n = 0; n < 300; n++) {
+				for (int n = 0; n < 400; n++) {      
+
+
+					// NEXT STEP:    DO   the DDA ALGORITHM  don't step 0.1 per 
+					//             ray step, step a whole block, always!!! nice. 
+
+
+					// thennnn think about doing gpu stuff. 
+					// honestly we could even just make this more efficient by other means first, though. 
+					// doing it on the gpu is probably the last step. yay. 
+
+
+
+
 
 					int px = (int) ray.x;
 					int py = (int) ray.y;
 					int pz = (int) ray.z;
-					px = (px + s * 3) % s;
-					py = (py + s * 3) % s;
-					pz = (pz + s * 3) % s;
+					
 					const int8_t block = space[s * s * pz + s * py + px];
 					
 					if (block) {
@@ -291,9 +302,9 @@ srand((unsigned)time(NULL));
 						break;
 					}
 
-					ray.x += step.x;
-					ray.y += step.y;
-					ray.z += step.z;
+					ray.x = fmodf(ray.x + step.x + (float)s, (float)s);
+					ray.y = fmodf(ray.y + step.y + (float)s, (float)s);
+					ray.z = fmodf(ray.z + step.z + (float)s, (float)s);
 				}
 
 				for (int i = 0; i < 5; i++) {
@@ -308,18 +319,18 @@ srand((unsigned)time(NULL));
 
 		SDL_UnlockSurface(surface);
 		SDL_UpdateWindowSurface(window);
-		nanosleep((const struct timespec[]){{0, 4000000L}}, NULL);
+		nanosleep((const struct timespec[]){{0, 16000000L}}, NULL);
 
-		velocity.x *= 0.95f;
-		velocity.y *= 0.95f;
-		velocity.z *= 0.95f;
+		velocity.x *= 0.96f;
+		velocity.y *= 0.96f;
+		velocity.z *= 0.96f;
 		position.x += velocity.x;
 		position.y += velocity.y;
 		position.z += velocity.z;
 
-		if (position.x >= s) position.x = 0;
-		if (position.y >= s) position.y = 0;
-		if (position.z >= s) position.z = 0;
+		position.x = fmodf(position.x + (float)s, (float)s);
+		position.y = fmodf(position.y + (float)s, (float)s);
+		position.z = fmodf(position.z + (float)s, (float)s);
 	}
 	SDL_DestroyWindow(window);
 	SDL_Quit();
