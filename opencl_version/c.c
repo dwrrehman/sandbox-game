@@ -61,19 +61,213 @@ static inline struct vec3 cross(struct vec3 x, struct vec3 y) {
 }
 
 
+#define DATA_SIZE  (3456 * 2234)         // pixel count on this screen. 
+
+
+
+static const char* source_code = 
+"__kernel void compute_pixel(__global float* input, __global float* output) {\n"
+"	int global_id = get_global_id(0);\n"
+"	for (int i = 0; i < 10000; i++) {\n"
+"		float x = input[global_id] / (float) (i + 1);\n"
+"		if (x > 10000.0f) continue;\n"
+"	}\n"
+"	output[global_id] = input[global_id] * input[global_id];\n"
+"	\n"
+"}\n"
+;
+
+
+
+static
+const char* getErrorString(cl_int error) {
+switch(error) {
+    case 0: return "CL_SUCCESS";
+    case -1: return "CL_DEVICE_NOT_FOUND";
+    case -2: return "CL_DEVICE_NOT_AVAILABLE";
+    case -3: return "CL_COMPILER_NOT_AVAILABLE";
+    case -4: return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
+    case -5: return "CL_OUT_OF_RESOURCES";
+    case -6: return "CL_OUT_OF_HOST_MEMORY";
+    case -7: return "CL_PROFILING_INFO_NOT_AVAILABLE";
+    case -8: return "CL_MEM_COPY_OVERLAP";
+    case -9: return "CL_IMAGE_FORMAT_MISMATCH";
+    case -10: return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
+    case -11: return "CL_BUILD_PROGRAM_FAILURE";
+    case -12: return "CL_MAP_FAILURE";
+    case -13: return "CL_MISALIGNED_SUB_BUFFER_OFFSET";
+    case -14: return "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST";
+    case -15: return "CL_COMPILE_PROGRAM_FAILURE";
+    case -16: return "CL_LINKER_NOT_AVAILABLE";
+    case -17: return "CL_LINK_PROGRAM_FAILURE";
+    case -18: return "CL_DEVICE_PARTITION_FAILED";
+    case -19: return "CL_KERNEL_ARG_INFO_NOT_AVAILABLE";
+
+    // compile-time errors
+    case -30: return "CL_INVALID_VALUE";
+    case -31: return "CL_INVALID_DEVICE_TYPE";
+    case -32: return "CL_INVALID_PLATFORM";
+    case -33: return "CL_INVALID_DEVICE";
+    case -34: return "CL_INVALID_CONTEXT";
+    case -35: return "CL_INVALID_QUEUE_PROPERTIES";
+    case -36: return "CL_INVALID_COMMAND_QUEUE";
+    case -37: return "CL_INVALID_HOST_PTR";
+    case -38: return "CL_INVALID_MEM_OBJECT";
+    case -39: return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
+    case -40: return "CL_INVALID_IMAGE_SIZE";
+    case -41: return "CL_INVALID_SAMPLER";
+    case -42: return "CL_INVALID_BINARY";
+    case -43: return "CL_INVALID_BUILD_OPTIONS";
+    case -44: return "CL_INVALID_PROGRAM";
+    case -45: return "CL_INVALID_PROGRAM_EXECUTABLE";
+    case -46: return "CL_INVALID_KERNEL_NAME";
+    case -47: return "CL_INVALID_KERNEL_DEFINITION";
+    case -48: return "CL_INVALID_KERNEL";
+    case -49: return "CL_INVALID_ARG_INDEX";
+    case -50: return "CL_INVALID_ARG_VALUE";
+    case -51: return "CL_INVALID_ARG_SIZE";
+    case -52: return "CL_INVALID_KERNEL_ARGS";
+    case -53: return "CL_INVALID_WORK_DIMENSION";
+    case -54: return "CL_INVALID_WORK_GROUP_SIZE";
+    case -55: return "CL_INVALID_WORK_ITEM_SIZE";
+    case -56: return "CL_INVALID_GLOBAL_OFFSET";
+    case -57: return "CL_INVALID_EVENT_WAIT_LIST";
+    case -58: return "CL_INVALID_EVENT";
+    case -59: return "CL_INVALID_OPERATION";
+    case -60: return "CL_INVALID_GL_OBJECT";
+    case -61: return "CL_INVALID_BUFFER_SIZE";
+    case -62: return "CL_INVALID_MIP_LEVEL";
+    case -63: return "CL_INVALID_GLOBAL_WORK_SIZE";
+    case -64: return "CL_INVALID_PROPERTY";
+    case -65: return "CL_INVALID_IMAGE_DESCRIPTOR";
+    case -66: return "CL_INVALID_COMPILER_OPTIONS";
+    case -67: return "CL_INVALID_LINKER_OPTIONS";
+    case -68: return "CL_INVALID_DEVICE_PARTITION_COUNT";
+
+    // extension errors
+    case -1000: return "CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR";
+    case -1001: return "CL_PLATFORM_NOT_FOUND_KHR";
+    case -1002: return "CL_INVALID_D3D10_DEVICE_KHR";
+    case -1003: return "CL_INVALID_D3D10_RESOURCE_KHR";
+    case -1004: return "CL_D3D10_RESOURCE_ALREADY_ACQUIRED_KHR";
+    case -1005: return "CL_D3D10_RESOURCE_NOT_ACQUIRED_KHR";
+    default: return "Unknown OpenCL error";
+    }
+}
+ 
+
+#define CaseReturnString(x) case x: return #x;
+
+static const char *opencl_errstr(cl_int err) {
+    switch (err) {
+        CaseReturnString(CL_SUCCESS                        )                                  
+        CaseReturnString(CL_DEVICE_NOT_FOUND               )
+        CaseReturnString(CL_DEVICE_NOT_AVAILABLE           )
+        CaseReturnString(CL_COMPILER_NOT_AVAILABLE         ) 
+        CaseReturnString(CL_MEM_OBJECT_ALLOCATION_FAILURE  )
+        CaseReturnString(CL_OUT_OF_RESOURCES               )
+        CaseReturnString(CL_OUT_OF_HOST_MEMORY             )
+        CaseReturnString(CL_PROFILING_INFO_NOT_AVAILABLE   )
+        CaseReturnString(CL_MEM_COPY_OVERLAP               )
+        CaseReturnString(CL_IMAGE_FORMAT_MISMATCH          )
+        CaseReturnString(CL_IMAGE_FORMAT_NOT_SUPPORTED     )
+        CaseReturnString(CL_BUILD_PROGRAM_FAILURE          )
+        CaseReturnString(CL_MAP_FAILURE                    )
+        CaseReturnString(CL_MISALIGNED_SUB_BUFFER_OFFSET   )
+        CaseReturnString(CL_COMPILE_PROGRAM_FAILURE        )
+        CaseReturnString(CL_LINKER_NOT_AVAILABLE           )
+        CaseReturnString(CL_LINK_PROGRAM_FAILURE           )
+        CaseReturnString(CL_DEVICE_PARTITION_FAILED        )
+        CaseReturnString(CL_KERNEL_ARG_INFO_NOT_AVAILABLE  )
+        CaseReturnString(CL_INVALID_VALUE                  )
+        CaseReturnString(CL_INVALID_DEVICE_TYPE            )
+        CaseReturnString(CL_INVALID_PLATFORM               )
+        CaseReturnString(CL_INVALID_DEVICE                 )
+        CaseReturnString(CL_INVALID_CONTEXT                )
+        CaseReturnString(CL_INVALID_QUEUE_PROPERTIES       )
+        CaseReturnString(CL_INVALID_COMMAND_QUEUE          )
+        CaseReturnString(CL_INVALID_HOST_PTR               )
+        CaseReturnString(CL_INVALID_MEM_OBJECT             )
+        CaseReturnString(CL_INVALID_IMAGE_FORMAT_DESCRIPTOR)
+        CaseReturnString(CL_INVALID_IMAGE_SIZE             )
+        CaseReturnString(CL_INVALID_SAMPLER                )
+        CaseReturnString(CL_INVALID_BINARY                 )
+        CaseReturnString(CL_INVALID_BUILD_OPTIONS          )
+        CaseReturnString(CL_INVALID_PROGRAM                )
+        CaseReturnString(CL_INVALID_PROGRAM_EXECUTABLE     )
+        CaseReturnString(CL_INVALID_KERNEL_NAME            )
+        CaseReturnString(CL_INVALID_KERNEL_DEFINITION      )
+        CaseReturnString(CL_INVALID_KERNEL                 )
+        CaseReturnString(CL_INVALID_ARG_INDEX              )
+        CaseReturnString(CL_INVALID_ARG_VALUE              )
+        CaseReturnString(CL_INVALID_ARG_SIZE               )
+        CaseReturnString(CL_INVALID_KERNEL_ARGS            )
+        CaseReturnString(CL_INVALID_WORK_DIMENSION         )
+        CaseReturnString(CL_INVALID_WORK_GROUP_SIZE        )
+        CaseReturnString(CL_INVALID_WORK_ITEM_SIZE         )
+        CaseReturnString(CL_INVALID_GLOBAL_OFFSET          )
+        CaseReturnString(CL_INVALID_EVENT_WAIT_LIST        )
+        CaseReturnString(CL_INVALID_EVENT                  )
+        CaseReturnString(CL_INVALID_OPERATION              )
+        CaseReturnString(CL_INVALID_GL_OBJECT              )
+        CaseReturnString(CL_INVALID_BUFFER_SIZE            )
+        CaseReturnString(CL_INVALID_MIP_LEVEL              )
+        CaseReturnString(CL_INVALID_GLOBAL_WORK_SIZE       )
+        CaseReturnString(CL_INVALID_PROPERTY               )
+        CaseReturnString(CL_INVALID_IMAGE_DESCRIPTOR       )
+        CaseReturnString(CL_INVALID_COMPILER_OPTIONS       )
+        CaseReturnString(CL_INVALID_LINKER_OPTIONS         )
+        CaseReturnString(CL_INVALID_DEVICE_PARTITION_COUNT )
+        default: return "Unknown OpenCL error code";
+    }
+}
+
+#define check(statement) \
+	do {\
+		printf("opencl: calling: ");\
+		puts(#statement);\
+		err = statement;\
+		if (err != CL_SUCCESS) {\
+			printf("opencl: error:   ");\
+			puts(#statement);\
+        		printf("Error number: %d", err);\
+	        	printf(" : %s (\"%s\")\n", getErrorString(err), opencl_errstr(err));\
+			puts("[press enter to continue]");\
+			getchar();\
+		}\
+	} while(0);
+
+#define check_arg(statement, condition) \
+	do {\
+		printf("opencl: calling: ");\
+		puts(#statement);\
+		statement;\
+		if (!condition) {\
+			printf("opencl: error:   ");\
+			puts(#statement);\
+        		printf("Error number: %d", err);\
+	        	printf(" : %s (\"%s\")\n", getErrorString(err), opencl_errstr(err));\
+			puts("[press enter to continue]");\
+			getchar();\
+		}\
+	} while(0);
+
+
+
+
+
 
 
 int main(void) {
 
-
-srand((unsigned)time(NULL));
+	srand((unsigned)time(NULL));
 
 	const int s = 100;
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
 
 	for (int i = 0; i < space_count; i++) {
-		space[i] = (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 40);
+		space[i] = (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 40);
 	}
 
 	for (int x = 1; x < 10; x++) {
@@ -123,14 +317,10 @@ srand((unsigned)time(NULL));
 	bool quit = false;
 	bool resized = true;
 
-
-
-
 		//if (block == 1) { color = (uint32_t) ~0; }
 		//if (block == 2) { color = 255; }
 		//if (block == 3) { color = 255 << 8; }
 		//if (block == 4) { color = 255 << 16; }
-
 
 
 	uint32_t colors[256] = {0};
@@ -143,6 +333,186 @@ srand((unsigned)time(NULL));
 		const uint32_t A = 255U << 24U;
 		colors[i] = R | G | B | A;
 	}
+
+	// open cl testing...
+
+
+
+
+
+	char* value;
+	size_t valueSize;
+
+	cl_platform_id* platforms;
+	cl_uint deviceCount;
+	cl_device_id* devices;
+	cl_uint maxComputeUnits;
+
+	// get all platforms
+
+	cl_uint platformCount;
+	clGetPlatformIDs(0, NULL, &platformCount);
+	platforms = (cl_platform_id*) malloc(sizeof(cl_platform_id) * platformCount);
+	clGetPlatformIDs(platformCount, platforms, NULL);
+
+	for (cl_uint i = 0; i < platformCount; i++) {
+
+	unsigned int type = CL_DEVICE_TYPE_ALL;
+	clGetDeviceIDs(platforms[i], type, 0, NULL, &deviceCount);
+	devices = (cl_device_id*) malloc(sizeof(cl_device_id) * deviceCount);
+	clGetDeviceIDs(platforms[i], type, deviceCount, devices, NULL);
+
+	// for each device print critical attributes
+	for (cl_uint j = 0; j < deviceCount; j++) {
+
+	// print device name
+	clGetDeviceInfo(devices[j], CL_DEVICE_NAME, 0, NULL, &valueSize);
+	value = (char*) malloc(valueSize);
+	clGetDeviceInfo(devices[j], CL_DEVICE_NAME, valueSize, value, NULL);
+	printf("%d. Device: %s\n", j+1, value);
+	free(value);
+
+	// print hardware device version
+	clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, 0, NULL, &valueSize);
+	value = (char*) malloc(valueSize);
+	clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, valueSize, value, NULL);
+	printf(" %d.%d Hardware version: %s\n", j+1, 1, value);
+	free(value);
+
+	// print software driver version
+	clGetDeviceInfo(devices[j], CL_DRIVER_VERSION, 0, NULL, &valueSize);
+	value = (char*) malloc(valueSize);
+	clGetDeviceInfo(devices[j], CL_DRIVER_VERSION, valueSize, value, NULL);
+	printf(" %d.%d Software version: %s\n", j+1, 2, value);
+	free(value);
+
+	// print c version supported by compiler for device
+	clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, 0, NULL, &valueSize);
+	value = (char*) malloc(valueSize);
+	clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, valueSize, value, NULL);
+	printf(" %d.%d OpenCL C version: %s\n", j+1, 3, value);
+	free(value);
+
+	// print parallel compute units
+	clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS,
+	sizeof(maxComputeUnits), &maxComputeUnits, NULL);
+	printf(" %d.%d Parallel compute units: %d\n", j+1, 4, maxComputeUnits);
+
+	}
+	free(devices);
+	}
+
+	free(platforms);
+	puts("[finished device info!]\n");
+
+
+	const char* file_contents = source_code;
+
+
+	int err = 0; 
+	puts("calling: calloc"); 
+	float* data    = calloc(DATA_SIZE, sizeof(unsigned int));
+	if (!data) {
+		printf("could not allocate memory using calloc, erroring...\n");
+		return 1;
+	}
+	float* results = calloc(DATA_SIZE, sizeof(unsigned int));
+	if (!results) {
+		printf("could not allocate memory using calloc, erroring...\n");
+		return 1;
+	}
+
+	cl_device_id device_id;
+	cl_context context;
+	cl_command_queue commands; 
+	cl_program program;
+	cl_kernel kernel; 
+	cl_mem input, output;
+
+	puts("calling: (filling up loop with random data/contents...)"); 
+
+	nat count = DATA_SIZE;
+	for (nat i = 0; i < count; i++) data[i] = (float) (rand() % 100);
+
+	check(clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, 1, &device_id, NULL));
+	check_arg(context = clCreateContext(0, 1, &device_id, NULL, NULL, &err), context);
+	check_arg(commands = clCreateCommandQueue(context, device_id, 0, &err), commands);
+	
+	check_arg(program = clCreateProgramWithSource(context, 1, (const char **) &file_contents, NULL, &err), program);
+    
+	check(clBuildProgram(program, 0, NULL, NULL, NULL, NULL));
+	if (err != CL_SUCCESS) {
+		printf("Error: Failed to build program executable!\n");
+		size_t len = 0;
+		char buffer[2048];
+		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
+		printf("%s\n", buffer);
+		printf(" : %s\n", getErrorString(err));
+		puts("[press enter to continue]");
+		getchar();
+		exit(1);
+	}
+
+	check_arg(kernel = clCreateKernel(program, "compute_pixel", &err), kernel);
+	if (err != CL_SUCCESS) {
+		printf("Error: Failed to create compute_pixel kernel!\n");
+		printf(" : %s\n", getErrorString(err));
+		getchar();
+	}
+	
+	check_arg(input = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(float) * count, NULL, NULL), input);
+	check_arg(output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float) * count, NULL, NULL), output);
+
+
+	struct timeval st, et;
+	gettimeofday(&st,NULL);
+
+
+	check(clEnqueueWriteBuffer(commands, input, CL_TRUE, 0, sizeof(float) * count, data, 0, NULL, NULL));
+	check(clSetKernelArg(kernel, 0, sizeof(cl_mem), &input));
+	check(clSetKernelArg(kernel, 1, sizeof(cl_mem), &output));
+
+	
+	
+	size_t local = 32;
+	//check(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
+
+	size_t global = count;
+
+	printf("info: local_group_size = %lu, global_group_size = %lu\n",  local, global);
+	check(clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global, &local, 0, NULL, NULL));
+	clFinish(commands);
+	check(clEnqueueReadBuffer(commands, output, CL_TRUE, 0, sizeof(float) * count, results, 0, NULL, NULL ));
+
+	//clock_t end = clock();
+	//double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+	//printf("spent %5.5lf seconds on the gpu/opencl...\n", time_spent);
+
+
+	gettimeofday(&et,NULL);
+	long elapsed = ((et.tv_sec - st.tv_sec) * 1000000) + (et.tv_usec - st.tv_usec);
+	printf("elapsed time: %ld microseconds\n", elapsed);
+
+
+	//begin = clock();
+	puts("calling: (verifying results manually...)"); 
+	nat correct = 0;
+	for (nat i = 0; i < count; i++) {
+		if (results[i] <= data[i] * data[i]) correct++;
+		else {
+			printf("incorrect values! expected %lf but obtained %lf...\n", (double) (data[i] * data[i]), (double) (results[i]));
+			break;
+		}
+	}
+
+	//end = clock();
+	//time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+	//printf("spent %5.5lf seconds verifying on cpu...\n", time_spent);
+
+	printf("Computed '%llu/%llu' correct values!\n", correct, count);
+	puts("calling: clRelease"); 
+
+
 
 
 
@@ -246,10 +616,10 @@ srand((unsigned)time(NULL));
 		const int screen_w = surface->w;
 		const int screen_h = surface->h;
 
-		const float fov = 0.05f;
+		const float fov = 0.1f;
 
-		for (int y = 0; y < screen_h; y += 25) {
-			for (int x = 0; x < screen_w; x += 25) {
+		for (int y = 0; y < screen_h; y += 30) {
+			for (int x = 0; x < screen_w; x += 30) {
 
 				uint32_t color = 0;
 
@@ -259,9 +629,9 @@ srand((unsigned)time(NULL));
 				const struct vec3 top = cross(forward, right);
 
 				struct vec3 step = forward;
-				step.x /= 20;
-				step.y /= 20;
-				step.z /= 20;
+				step.x /= 10;
+				step.y /= 10;
+				step.z /= 10;
 
 				const float st_x = -fov + 2 * fov * xr;
 				const float st_y = -fov + 2 * fov * yr;
@@ -276,7 +646,7 @@ srand((unsigned)time(NULL));
 
 				struct vec3 ray = position;
 
-				for (int n = 0; n < 400; n++) {      
+				for (int n = 0; n < 100; n++) {      
 
 
 					// NEXT STEP:    DO   the DDA ALGORITHM  don't step 0.1 per 
@@ -286,10 +656,6 @@ srand((unsigned)time(NULL));
 					// thennnn think about doing gpu stuff. 
 					// honestly we could even just make this more efficient by other means first, though. 
 					// doing it on the gpu is probably the last step. yay. 
-
-
-
-
 
 					int px = (int) ray.x;
 					int py = (int) ray.y;
@@ -332,6 +698,14 @@ srand((unsigned)time(NULL));
 		position.y = fmodf(position.y + (float)s, (float)s);
 		position.z = fmodf(position.z + (float)s, (float)s);
 	}
+
+	clReleaseMemObject(input);
+	clReleaseMemObject(output);
+	clReleaseProgram(program);
+	clReleaseKernel(kernel);
+	clReleaseCommandQueue(commands);
+	clReleaseContext(context);
+
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }
