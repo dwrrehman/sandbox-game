@@ -83,28 +83,37 @@ static const char* source_code =
 "	step += top * st_y;\n"
 "	step += right * st_x;\n"
 "\n"
-"	unsigned int color = 0;\n"
-"	for (unsigned int n = 0; n < 2000; n++) {\n"
+"	unsigned short a = 0xFF;\n"
+"	unsigned short r = 0x00;\n"
+"	unsigned short b = 0x00;\n"
+"	unsigned short g = 0x00;\n"
+"	for (unsigned int n = 0; n < 2000; n++) {\n" // 2000
 "		const unsigned int px = (unsigned int) ray.x;\n"
 "		const unsigned int py = (unsigned int) ray.y;\n"
 "		const unsigned int pz = (unsigned int) ray.z;\n"
 "		const unsigned char block = space[s * s * pz + s * py + px];\n"
 "\n"
 "		if (block) {\n"
-"			if (block == 1) color = 0xdeadbeef;\n"
-"			else if (block == 2) color = 0x00ff00ff;\n"
-"			else if (block == 3) color = 0x00ffffff;\n"
-"			else if (block == 4) color = 0xffff00ff;\n"
-"			else if (block == 5) color = 0x000000ff;\n"
-"			else if (block == 6) color = 0x0000b0ff;\n"
-"			else if (block == 7) color = 0xff00ffff;\n"
-"			else if (block == 8) color = 0x75f1b3ff;\n"
-"			else if (block == 9) color = 0xccffb0ff;\n"
-"			else color = 0xffffffff;\n"
-"			break;\n"
+"			     if (block == 1) { r += 0x2F; g += 0x00; b += 0x00; }\n"
+"			else if (block == 2) { r += 0xcc; g += 0x00; b += 0x00; break; }\n"
+"			else if (block == 3) { r += 0x00; g += 0xcc; b += 0x00; break; }\n"
+"			else if (block == 4) { r += 0x00; g += 0x00; b += 0xcc; break; }\n"
+"			else if (block == 5) { r += 0xcc; g += 0xcc; b += 0x00; break; }\n"
+"			else if (block == 6) { r += 0x00; g += 0xcc; b += 0xcc; break; }\n"
+"			else if (block == 7) { r += 0xcc; g += 0x00; b += 0xcc; break; }\n"
+"			else if (block == 8) { r += 0x0c; g += 0x0c; b += 0xcc; break; }\n"
+"			else if (block == 9) { r += 0x0c; g += 0xcc; b += 0x0c; break; }\n"
+"			else                 { r += 0xFF; g += 0xFF; b += 0xFF; break; }\n"
+"			if (r >= 0xFF) r = 0xFF;\n"
+"			if (g >= 0xFF) g = 0xFF;\n"
+"			if (b >= 0xFF) b = 0xFF;\n"
 "		}\n"
-"		ray = fmod(ray + step + sf, sf);\n"
+"		next: ray = fmod(ray + step + sf, sf); continue;\n"
 "	}\n"
+"	if (r >= 0xFF) r = 0xFF;\n"
+"	if (g >= 0xFF) g = 0xFF;\n"
+"	if (b >= 0xFF) b = 0xFF;\n"
+"	const unsigned int color = (a << 24) | (r << 16) | (g << 8) | (b << 0);\n"
 "	output[id] = color;\n"
 "\n"
 "}\n" ;
@@ -296,15 +305,19 @@ static const char *opencl_errstr(cl_int err) {
 
 
 int main(void) {
-	srand((unsigned)time(NULL));
-	const int s = 100;
+	//srand((unsigned)time(NULL));
+	srand(42);
+	const int s = 500;
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
 
-	for (int i = 0; i < space_count; i++) {
-		space[i] = (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 10);
-	}
+	const int modulus = 10;
+	const int density = 8;
 
+	for (int i = 0; i < space_count; i++) {
+		space[i] = (rand() % modulus);
+		for (int _ = 0; _ < density; _++) space[i] *= (rand() % 2);
+	}
 	for (int x = 1; x < 10; x++) {
 		for (int z = 1; z < 10; z++) {
 			const int y = 0;
@@ -422,6 +435,28 @@ int main(void) {
 	data[0] = (float) surface->w;
 	data[1] = (float) surface->h;
 	data[2] = (float) s;
+
+	if (pitch > pi_over_2) pitch = pi_over_2 - 0.0001f;
+	else if (pitch < -pi_over_2) pitch = -pi_over_2 + 0.0001f;
+	forward.x = -sinf(yaw) * cosf(pitch);
+	forward.y = -sinf(pitch);
+	forward.z = -cosf(yaw) * cosf(pitch);
+	forward = normalize(forward);
+	right.x = -cosf(yaw);
+	right.y = 0.0;
+	right.z = sinf(yaw);
+	right = normalize(right);
+	straight = cross(right, up);
+	top = cross(forward, right);
+	data[6] = right.x;
+	data[7] = right.y;
+	data[8] = right.z;
+	data[9] = top.x;
+	data[10] = top.y;
+	data[11] = top.z;
+	data[12] = forward.x;
+	data[13] = forward.y;
+	data[14] = forward.z;
 
 	while (not quit) {
 		struct timeval st, et;
