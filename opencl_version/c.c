@@ -32,12 +32,10 @@
 #else
 #include <CL/cl.h>
 #endif
-
 #include <SDL.h>
 
 typedef uint64_t nat;
 struct vec3 { float x, y, z; };
-
 
 static inline float inversesqrt(float y) {
 	float x2 = y * 0.5f;
@@ -53,34 +51,65 @@ static inline struct vec3 normalize(struct vec3 v) {
 }
 
 static inline struct vec3 cross(struct vec3 x, struct vec3 y) {
-	return (struct vec3) {
-		x.y * y.z - y.y * x.z,
-		x.z * y.x - y.z * x.x,
-		x.x * y.y - y.x * x.y
-	};
+	return (struct vec3) { x.y * y.z - y.y * x.z, x.z * y.x - y.z * x.x, x.x * y.y - y.x * x.y };
 }
 
 
-#define DATA_SIZE  (3456 * 2234)         // pixel count on this screen. 
-
-
-
 static const char* source_code = 
-"__kernel void compute_pixel(__global float* input, __global float* output) {\n"
-"	int global_id = get_global_id(0);\n"
-"	for (int i = 0; i < 10000; i++) {\n"
-"		float x = input[global_id] / (float) (i + 1);\n"
-"		if (x > 10000.0f) continue;\n"
+"__kernel void compute_pixel(__constant float* input, __global unsigned int* output, __global unsigned char* space) {\n"
+"\n"
+"	const unsigned int id = get_global_id(0);\n"
+"	const float w = input[0];\n"
+"	const float h = input[1];\n"
+"	const float sf = input[2];\n"
+"	const unsigned int wi = (unsigned int) w;\n"
+"	const unsigned int hi = (unsigned int) h;\n"
+"	const unsigned int s = (unsigned int) sf;\n"
+"	const float x = (float)(id % wi);\n"
+"	const float y = (float)(id / wi);\n"
+"	const float xr = x / w;\n"
+"	const float yr = y / h;\n"
+"\n"
+"	float3 ray   = (float3) (input[3], input[4], input[5]);\n"
+"	float3 right = (float3) (input[6], input[7], input[8]);\n"
+"	float3 top   = (float3) (input[9], input[10], input[11]);\n"
+"	float3 step = (float3) (input[12], input[13], input[14]);\n"
+"\n"
+"	const float fov = 0.25;\n"
+"	const float st_x = -fov + 2 * fov * xr;\n"
+"	const float st_y = -fov + 2 * fov * yr;\n"
+"\n"
+"	step *= 0.15;\n"
+"	step += top * st_y;\n"
+"	step += right * st_x;\n"
+"\n"
+"	unsigned int color = 0;\n"
+"	for (unsigned int n = 0; n < 2000; n++) {\n"
+"		const unsigned int px = (unsigned int) ray.x;\n"
+"		const unsigned int py = (unsigned int) ray.y;\n"
+"		const unsigned int pz = (unsigned int) ray.z;\n"
+"		const unsigned char block = space[s * s * pz + s * py + px];\n"
+"\n"
+"		if (block) {\n"
+"			if (block == 1) color = 0xdeadbeef;\n"
+"			else if (block == 2) color = 0x00ff00ff;\n"
+"			else if (block == 3) color = 0x00ffffff;\n"
+"			else if (block == 4) color = 0xffff00ff;\n"
+"			else if (block == 5) color = 0x000000ff;\n"
+"			else if (block == 6) color = 0x0000b0ff;\n"
+"			else if (block == 7) color = 0xff00ffff;\n"
+"			else if (block == 8) color = 0x75f1b3ff;\n"
+"			else if (block == 9) color = 0xccffb0ff;\n"
+"			else color = 0xffffffff;\n"
+"			break;\n"
+"		}\n"
+"		ray = fmod(ray + step + sf, sf);\n"
 "	}\n"
-"	output[global_id] = input[global_id] * input[global_id];\n"
-"	\n"
-"}\n"
-;
+"	output[id] = color;\n"
+"\n"
+"}\n" ;
 
-
-
-static
-const char* getErrorString(cl_int error) {
+static const char* getErrorString(cl_int error) {
 switch(error) {
     case 0: return "CL_SUCCESS";
     case -1: return "CL_DEVICE_NOT_FOUND";
@@ -154,7 +183,6 @@ switch(error) {
     default: return "Unknown OpenCL error";
     }
 }
- 
 
 #define CaseReturnString(x) case x: return #x;
 
@@ -253,21 +281,28 @@ static const char *opencl_errstr(cl_int err) {
 	} while(0);
 
 
-
-
-
+#define qcheck(statement) \
+	do {\
+		err = statement;\
+		if (err != CL_SUCCESS) {\
+			printf("opencl: error:   ");\
+			puts(#statement);\
+        		printf("Error number: %d", err);\
+	        	printf(" : %s (\"%s\")\n", getErrorString(err), opencl_errstr(err));\
+			puts("[press enter to continue]");\
+			getchar();\
+		}\
+	} while(0);
 
 
 int main(void) {
-
 	srand((unsigned)time(NULL));
-
 	const int s = 100;
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
 
 	for (int i = 0; i < space_count; i++) {
-		space[i] = (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 40);
+		space[i] = (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 2) * (rand() % 10);
 	}
 
 	for (int x = 1; x < 10; x++) {
@@ -277,169 +312,86 @@ int main(void) {
 		}
 	}
 
-	space[s * s * 1 + s * 1 + 1] = 1;
-	space[s * s * 1 + s * 1 + 2] = 1;
-	space[s * s * 1 + s * 2 + 1] = 1;
-	space[s * s * 1 + s * 2 + 2] = 1;
-	space[s * s * 2 + s * 1 + 1] = 1;
-	space[s * s * 2 + s * 1 + 2] = 1;
-	space[s * s * 2 + s * 2 + 1] = 1;
-	space[s * s * 2 + s * 2 + 2] = 1;
-	space[s * s * 4 + s * 4 + 4] = 1;
-
+	struct vec3 position = {10, 5, 10};
+	struct vec3 velocity = {0, 0, 0};	
 	struct vec3 right =    {1, 0, 0};
 	struct vec3 up =       {0, 1, 0};
-	struct vec3 straight = {0, 0, 1};
 	struct vec3 forward =  {0, 0, 1};
-	struct vec3 position = {10, 5, 10};
-	struct vec3 velocity = {0, 0, 0};
+	struct vec3 straight = cross(right, up);
+	struct vec3 top = cross(forward, right);
 	float yaw = 0.0f, pitch = 0.0f;
-
-	const float camera_sensitivity = 0.005;
+	const float camera_sensitivity = 0.005f;
 	const float pi_over_2 = 1.57079632679f;
 	const float camera_accel = 0.05f;
 
-
 	if (SDL_Init(SDL_INIT_EVERYTHING)) exit(printf("init: %s\n", SDL_GetError()));
-
 	int window_width = 1600, window_height = 1000;
-
 	SDL_Window *window = SDL_CreateWindow(
 		"voxel game", 
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
 		window_width, window_height,
 		SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
 	);
-
 	SDL_Surface* surface = SDL_GetWindowSurface(window);
 	SDL_SetRelativeMouseMode(1);
-	
 	bool quit = false;
-	bool resized = true;
-
-		//if (block == 1) { color = (uint32_t) ~0; }
-		//if (block == 2) { color = 255; }
-		//if (block == 3) { color = 255 << 8; }
-		//if (block == 4) { color = 255 << 16; }
-
-
-	uint32_t colors[256] = {0};
-
-	for (int i = 1; i < 256; i++) {
-
-		const uint32_t R = (rand() % 256U) << 0U;
-		const uint32_t G = (rand() % 256U) << 8U;
-		const uint32_t B = (rand() % 256U) << 16U;
-		const uint32_t A = 255U << 24U;
-		colors[i] = R | G | B | A;
-	}
-
-	// open cl testing...
-
-
-
-
+	bool resized = false;
+	uint32_t frame_counter = 0;
 
 	char* value;
 	size_t valueSize;
-
 	cl_platform_id* platforms;
 	cl_uint deviceCount;
 	cl_device_id* devices;
 	cl_uint maxComputeUnits;
-
-	// get all platforms
-
 	cl_uint platformCount;
 	clGetPlatformIDs(0, NULL, &platformCount);
 	platforms = (cl_platform_id*) malloc(sizeof(cl_platform_id) * platformCount);
 	clGetPlatformIDs(platformCount, platforms, NULL);
-
 	for (cl_uint i = 0; i < platformCount; i++) {
-
 	unsigned int type = CL_DEVICE_TYPE_ALL;
 	clGetDeviceIDs(platforms[i], type, 0, NULL, &deviceCount);
 	devices = (cl_device_id*) malloc(sizeof(cl_device_id) * deviceCount);
 	clGetDeviceIDs(platforms[i], type, deviceCount, devices, NULL);
-
-	// for each device print critical attributes
 	for (cl_uint j = 0; j < deviceCount; j++) {
-
-	// print device name
 	clGetDeviceInfo(devices[j], CL_DEVICE_NAME, 0, NULL, &valueSize);
 	value = (char*) malloc(valueSize);
 	clGetDeviceInfo(devices[j], CL_DEVICE_NAME, valueSize, value, NULL);
 	printf("%d. Device: %s\n", j+1, value);
 	free(value);
-
-	// print hardware device version
 	clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, 0, NULL, &valueSize);
 	value = (char*) malloc(valueSize);
 	clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, valueSize, value, NULL);
 	printf(" %d.%d Hardware version: %s\n", j+1, 1, value);
 	free(value);
-
-	// print software driver version
 	clGetDeviceInfo(devices[j], CL_DRIVER_VERSION, 0, NULL, &valueSize);
 	value = (char*) malloc(valueSize);
 	clGetDeviceInfo(devices[j], CL_DRIVER_VERSION, valueSize, value, NULL);
 	printf(" %d.%d Software version: %s\n", j+1, 2, value);
 	free(value);
-
-	// print c version supported by compiler for device
 	clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, 0, NULL, &valueSize);
 	value = (char*) malloc(valueSize);
 	clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, valueSize, value, NULL);
 	printf(" %d.%d OpenCL C version: %s\n", j+1, 3, value);
 	free(value);
-
-	// print parallel compute units
 	clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS,
 	sizeof(maxComputeUnits), &maxComputeUnits, NULL);
 	printf(" %d.%d Parallel compute units: %d\n", j+1, 4, maxComputeUnits);
-
+	} free(devices);
 	}
-	free(devices);
-	}
-
 	free(platforms);
-	puts("[finished device info!]\n");
-
-
-	const char* file_contents = source_code;
-
-
 	int err = 0; 
-	puts("calling: calloc"); 
-	float* data    = calloc(DATA_SIZE, sizeof(unsigned int));
-	if (!data) {
-		printf("could not allocate memory using calloc, erroring...\n");
-		return 1;
-	}
-	float* results = calloc(DATA_SIZE, sizeof(unsigned int));
-	if (!results) {
-		printf("could not allocate memory using calloc, erroring...\n");
-		return 1;
-	}
-
 	cl_device_id device_id;
 	cl_context context;
 	cl_command_queue commands; 
 	cl_program program;
 	cl_kernel kernel; 
-	cl_mem input, output;
-
-	puts("calling: (filling up loop with random data/contents...)"); 
-
-	nat count = DATA_SIZE;
-	for (nat i = 0; i < count; i++) data[i] = (float) (rand() % 100);
+	cl_mem input, output, space_array;
 
 	check(clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, 1, &device_id, NULL));
 	check_arg(context = clCreateContext(0, 1, &device_id, NULL, NULL, &err), context);
 	check_arg(commands = clCreateCommandQueue(context, device_id, 0, &err), commands);
-	
-	check_arg(program = clCreateProgramWithSource(context, 1, (const char **) &file_contents, NULL, &err), program);
-    
+	check_arg(program = clCreateProgramWithSource(context, 1, (const char **) &source_code, NULL, &err), program);
 	check(clBuildProgram(program, 0, NULL, NULL, NULL, NULL));
 	if (err != CL_SUCCESS) {
 		printf("Error: Failed to build program executable!\n");
@@ -448,8 +400,6 @@ int main(void) {
 		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
 		printf("%s\n", buffer);
 		printf(" : %s\n", getErrorString(err));
-		puts("[press enter to continue]");
-		getchar();
 		exit(1);
 	}
 
@@ -457,104 +407,62 @@ int main(void) {
 	if (err != CL_SUCCESS) {
 		printf("Error: Failed to create compute_pixel kernel!\n");
 		printf(" : %s\n", getErrorString(err));
-		getchar();
-	}
-	
-	check_arg(input = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(float) * count, NULL, NULL), input);
-	check_arg(output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float) * count, NULL, NULL), output);
-
-
-	struct timeval st, et;
-	gettimeofday(&st,NULL);
-
-
-	check(clEnqueueWriteBuffer(commands, input, CL_TRUE, 0, sizeof(float) * count, data, 0, NULL, NULL));
-	check(clSetKernelArg(kernel, 0, sizeof(cl_mem), &input));
-	check(clSetKernelArg(kernel, 1, sizeof(cl_mem), &output));
-
-	
-	
-	size_t local = 32;
-	//check(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
-
-	size_t global = count;
-
-	printf("info: local_group_size = %lu, global_group_size = %lu\n",  local, global);
-	check(clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global, &local, 0, NULL, NULL));
-	clFinish(commands);
-	check(clEnqueueReadBuffer(commands, output, CL_TRUE, 0, sizeof(float) * count, results, 0, NULL, NULL ));
-
-	//clock_t end = clock();
-	//double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-	//printf("spent %5.5lf seconds on the gpu/opencl...\n", time_spent);
-
-
-	gettimeofday(&et,NULL);
-	long elapsed = ((et.tv_sec - st.tv_sec) * 1000000) + (et.tv_usec - st.tv_usec);
-	printf("elapsed time: %ld microseconds\n", elapsed);
-
-
-	//begin = clock();
-	puts("calling: (verifying results manually...)"); 
-	nat correct = 0;
-	for (nat i = 0; i < count; i++) {
-		if (results[i] <= data[i] * data[i]) correct++;
-		else {
-			printf("incorrect values! expected %lf but obtained %lf...\n", (double) (data[i] * data[i]), (double) (results[i]));
-			break;
-		}
+		exit(1);
 	}
 
-	//end = clock();
-	//time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-	//printf("spent %5.5lf seconds verifying on cpu...\n", time_spent);
+	const size_t data_size = 15;
+	float data[15] = {0};
 
-	printf("Computed '%llu/%llu' correct values!\n", correct, count);
-	puts("calling: clRelease"); 
-
-
-
-
-
-
+	SDL_GetWindowSize(window, &window_width, &window_height);
+	surface = SDL_GetWindowSurface(window);
+	size_t pixel_count = (size_t) surface->w * (size_t) surface->h;
+	check_arg(input =       clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(float) * data_size, NULL, NULL), input);
+	check_arg(space_array = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(uint8_t) * space_count, NULL, NULL), space_array);
+	check_arg(output =      clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint32_t) * pixel_count, NULL, NULL), output);
+	data[0] = (float) surface->w;
+	data[1] = (float) surface->h;
+	data[2] = (float) s;
 
 	while (not quit) {
+		struct timeval st, et;
+		gettimeofday(&st, NULL);
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			const Uint8* key = SDL_GetKeyboardState(0);
-			if (event.type == SDL_QUIT) {
-				quit = true;
-			} else if (event.type == SDL_WINDOWEVENT) {
 
+			if (event.type == SDL_QUIT) { quit = true; }
+			else if (event.type == SDL_WINDOWEVENT) {
 				if (	event.window.event == SDL_WINDOWEVENT_RESIZED or 
 					event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) resized = true;
 
 			} else if (event.type == SDL_MOUSEMOTION) {
 
-				// printf("motion %u %u : ", event.motion.x, event.motion.y);
-
-				float dx = (float) event.motion.xrel;
-    				float dy = (float) event.motion.yrel;
-
+				const float dx = (float) event.motion.xrel;
+    				const float dy = (float) event.motion.yrel;
 				yaw += camera_sensitivity * dx;
 				pitch -= camera_sensitivity * dy;
-
-				//printf("mouse:    yaw = %lf, pitch = %lf\n", yaw, pitch);
-	
 				if (pitch > pi_over_2) pitch = pi_over_2 - 0.0001f;
 				else if (pitch < -pi_over_2) pitch = -pi_over_2 + 0.0001f;
-
 				forward.x = -sinf(yaw) * cosf(pitch);
 				forward.y = -sinf(pitch);
 				forward.z = -cosf(yaw) * cosf(pitch);
 				forward = normalize(forward);
-
 				right.x = -cosf(yaw);
 				right.y = 0.0;
 				right.z = sinf(yaw);
 				right = normalize(right);
 				straight = cross(right, up);
+				top = cross(forward, right);
+				data[6] = right.x;
+				data[7] = right.y;
+				data[8] = right.z;
+				data[9] = top.x;
+				data[10] = top.y;
+				data[11] = top.z;
+				data[12] = forward.x;
+				data[13] = forward.y;
+				data[14] = forward.z;
 
 			} else if (event.type == SDL_KEYDOWN) {
 				if (key[SDL_SCANCODE_ESCAPE]) quit = true;
@@ -608,16 +516,115 @@ int main(void) {
 				window_width, window_height
 			);
 			surface = SDL_GetWindowSurface(window);
-			//SDL_UpdateWindowSurface(window);
-		}
+			pixel_count = (size_t)surface->w * (size_t)surface->h;
+			clReleaseMemObject(output);
+			check_arg(output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint32_t) * pixel_count, NULL, NULL), output);
 
+			data[0] = (float) surface->w;
+			data[1] = (float) surface->h;
+		}
+		data[3] = position.x;
+		data[4] = position.y;
+		data[5] = position.z;
+
+		qcheck(clEnqueueWriteBuffer(commands, input, CL_TRUE, 0, sizeof(float) * data_size, data, 0, NULL, NULL));
+		qcheck(clEnqueueWriteBuffer(commands, space_array, CL_TRUE, 0, sizeof(uint8_t) * space_count, space, 0, NULL, NULL));
+		qcheck(clSetKernelArg(kernel, 0, sizeof(cl_mem), &input));
+		qcheck(clSetKernelArg(kernel, 1, sizeof(cl_mem), &output));
+		qcheck(clSetKernelArg(kernel, 2, sizeof(cl_mem), &space_array));
+		
 		SDL_LockSurface(surface);
+		size_t local = 1;
+		qcheck(clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &pixel_count, &local, 0, NULL, NULL));
+		clFinish(commands);
+		qcheck(clEnqueueReadBuffer(commands, output, CL_TRUE, 0, sizeof(uint32_t) * pixel_count, surface->pixels, 0, NULL, NULL));
+		SDL_UnlockSurface(surface);
+		SDL_UpdateWindowSurface(window);
+
+		gettimeofday(&et,NULL);
+		long elapsed = ((et.tv_sec - st.tv_sec) * 1000000) + (et.tv_usec - st.tv_usec);
+		frame_counter++; 
+		if (frame_counter >= 10) { frame_counter = 0; printf("elapsed time: %ld microseconds : fps = %lf\n", elapsed, 1.0f/((float)elapsed / 1000000.0f)); }
+		nanosleep((const struct timespec[]){{0, (16000000L - elapsed * 1000 > 0 ? 16000000L - elapsed * 1000 : 0)}}, NULL);
+
+		velocity.x *= 0.96f;
+		velocity.y *= 0.96f;
+		velocity.z *= 0.96f;
+		position.x += velocity.x;
+		position.y += velocity.y;
+		position.z += velocity.z;
+		position.x = fmodf(position.x + (float)s, (float)s);
+		position.y = fmodf(position.y + (float)s, (float)s);
+		position.z = fmodf(position.z + (float)s, (float)s);
+	}
+	clReleaseMemObject(input);
+	clReleaseMemObject(space_array);
+	clReleaseMemObject(output);
+	clReleaseProgram(program);
+	clReleaseKernel(kernel);
+	clReleaseCommandQueue(commands);
+	clReleaseContext(context);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	/*			raw raycasting cpu algorithm:
+
+
+
 
 		const int screen_w = surface->w;
 		const int screen_h = surface->h;
 
 		const float fov = 0.1f;
 
+	
 		for (int y = 0; y < screen_h; y += 30) {
 			for (int x = 0; x < screen_w; x += 30) {
 
@@ -625,8 +632,6 @@ int main(void) {
 
 				const float xr = (float) x / (float) screen_w;
 				const float yr = (float) y / (float) screen_h;
-
-				const struct vec3 top = cross(forward, right);
 
 				struct vec3 step = forward;
 				step.x /= 10;
@@ -682,47 +687,15 @@ int main(void) {
 				}
 			}
 		}
-
-		SDL_UnlockSurface(surface);
-		SDL_UpdateWindowSurface(window);
-		nanosleep((const struct timespec[]){{0, 16000000L}}, NULL);
-
-		velocity.x *= 0.96f;
-		velocity.y *= 0.96f;
-		velocity.z *= 0.96f;
-		position.x += velocity.x;
-		position.y += velocity.y;
-		position.z += velocity.z;
-
-		position.x = fmodf(position.x + (float)s, (float)s);
-		position.y = fmodf(position.y + (float)s, (float)s);
-		position.z = fmodf(position.z + (float)s, (float)s);
-	}
-
-	clReleaseMemObject(input);
-	clReleaseMemObject(output);
-	clReleaseProgram(program);
-	clReleaseKernel(kernel);
-	clReleaseCommandQueue(commands);
-	clReleaseContext(context);
-
-	SDL_DestroyWindow(window);
-	SDL_Quit();
-}
+	*/
 
 
 
 
 
 
-
-
-
-
-
-
-
-
+// size_t global = pixel_count;
+		//printf("info: global_group_size = %lu\n",  pixel_count);
 
 
 			//} else if (event.type == SDL_WINDOWEVENT_FULLSCREEN) {
@@ -756,6 +729,330 @@ int main(void) {
 					SDL_UpdateWindowSurface(window);
 					}
 				*/
+
+
+
+
+
+
+/*
+
+
+
+
+	w = 3456 
+	
+	h = 2234
+
+
+
+	2200 * 3456 + 3450 = 7606650
+
+
+	7606650 % 3456 = x   ==    3,450
+
+	(7606650 / 3456)  ==   2,200.9982638889   which when considerd as an integer gives you   2200 
+
+
+
+	nice, so thast the computation to make a global_id(0) value   and turn it into the x and y coordinates, which are used for creating the notion of pixels   and ray directions. 
+
+
+
+	
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//clock_t end = clock();
+	//double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+	//printf("spent %5.5lf seconds on the gpu/opencl...\n", time_spent);
+
+
+	
+	//begin = clock();
+	//puts("calling: (verifying results manually...)"); 
+	//nat correct = 0;
+	//for (nat i = 0; i < count; i++) {
+	//	if (results[i] <= data[i] * data[i]) correct++;
+	//	else {
+	//		printf("incorrect values! expected %lf but obtained %lf...\n", (double) (data[i] * data[i]), (double) (results[i]));
+	//		break;
+	//	}
+	//}
+
+	//end = clock();
+	//time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+	//printf("spent %5.5lf seconds verifying on cpu...\n", time_spent);
+
+
+
+		//if (block == 1) { color = (uint32_t) ~0; }
+		//if (block == 2) { color = 255; }
+		//if (block == 3) { color = 255 << 8; }
+		//if (block == 4) { color = 255 << 16; }
+
+
+
+
+
+
+
+		puts("calling: (verifying results manually...)"); 
+		nat correct = 0;
+		for (nat i = 0; i < count; i++) {
+			if (results[i] <= data[i] * data[i]) correct++;
+			else {
+				printf("incorrect values! expected %lf but obtained %lf...\n", (double) (data[i] * data[i]), (double) (results[i]));
+				break;
+			}
+		}
+		printf("Computed '%llu/%llu' correct values!\n", correct, count);
+		
+
+
+
+//check(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
+
+
+
+
+
+	puts("calling: (filling up loop with random data/contents...)"); 
+
+	// nat count = DATA_SIZE;
+	// for (nat i = 0; i < count; i++) data[i] = (float) (rand() % 100);
+
+
+
+
+
+
+*/
+
+
+
+
+
+// #define DATA_SIZE  (3456 * 2234)         // pixel count on this screen. 
+
+
+/*
+
+
+"	int id = get_global_id(0);\n"
+"	const float w = input[0];\n"
+"	const float h = input[1];\n"
+"	const unsigned int wi = (unsigned int) w;\n"
+"	const unsigned int hi = (unsigned int) h;\n"
+//"	printf(\"%u %u\\n\", wi, hi);\n"
+"	output[id] = wi == 3200 ? (id % 65536) : 0;\n"
+
+
+
+	7606650 % 3456 = x   ==    3,450
+
+	(7606650 / 3456)  ==   2,200.9982638889   which when considerd as an integer gives you   2200 
+
+
+
+
+
+
+
+		//step.x += top.x * st_y;
+	//step.y += top.y * st_y;
+	//step.z += top.z * st_y;
+
+	
+
+	//step.x += right.x * st_x;
+	//step.y += right.y * st_x;
+	//step.z += right.z * st_x;
+
+	//struct vec3 ray = position;
+// NEXT STEP:    DO   the DDA ALGORITHM  don't step 0.1 per 
+		//             ray step, step a whole block, always!!! nice. 
+
+
+		// thennnn think about doing gpu stuff. 
+		// honestly we could even just make this more efficient by other means first, though. 
+		// doing it on the gpu is probably the last step. yay. 
+
+
+
+	const unsigned int id = get_global_id(0);
+	const float w = input[0];
+	const float h = input[1];
+	const float sf = input[2];
+	const unsigned int wi = (unsigned int) w;
+	const unsigned int hi = (unsigned int) h;
+	const unsigned int s = (unsigned int) sf;
+	const float x = (float)(id % wi);
+	const float y = (float)(id / wi);
+	const float xr = x / w;
+	const float yr = y / h;
+	
+	float3 ray   = (float3) (input[3], input[4], input[5]);
+	float3 right = (float3) (input[6], input[7], input[8]);
+	float3 top   = (float3) (input[9], input[10], input[11]);
+	float3 step = (float3) (input[12], input[13], input[14]);
+	
+	const float fov = 0.3;
+	const float st_x = -fov + 2 * fov * xr;
+	const float st_y = -fov + 2 * fov * yr;
+
+	step *= 0.1;
+	step += top * st_y;
+	step += right * st_x;
+
+	for (unsigned int n = 0; n < 100; n++) {
+		const unsigned int px = (unsigned int) ray.x;
+		const unsigned int py = (unsigned int) ray.y;
+		const unsigned int pz = (unsigned int) ray.z;
+		const unsigned char block = space[s * s * pz + s * py + px];
+		
+		if (block) {			
+			output[id] = 0xdeadbeef;
+			return;
+		}
+		ray = fmod(ray + step + sf, sf);		
+	}
+
+	
+	
+
+
+
+
+
+
+
+// color = colors[block];
+
+
+
+		//ray.x = fmodf(ray.x + step.x + (float)s, (float)s);
+		//ray.y = fmodf(ray.y + step.y + (float)s, (float)s);
+		//ray.z = fmodf(ray.z + step.z + (float)s, (float)s);
+
+
+
+
+
+
+	w = 3456 
+	
+	h = 2234
+
+
+
+	2200 * 3456 + 3450 = 7606650
+
+
+	7606650 % 3456 = x   ==    3,450
+
+	(7606650 / 3456)  ==   2,200.9982638889   which when considerd as an integer gives you   2200 
+
+
+
+	nice, so thast the computation to make a global_id(0) value   and turn it into the x and y coordinates, which are used for creating the notion of pixels   and ray directions. 
+
+
+
+
+
+
+
+
+
+static const char* source_code = 
+"__kernel void compute_pixel(__global unsigned int* input, __global unsigned int* output, __global const unsigned char* space) {\n"
+"	int id = get_global_id(0);\n"
+"	for (int i = 0; i < 10000; i++) {\n"
+"		unsigned int x = input[id] / (unsigned int) (i + 1);\n"
+"		if (x > 10000.0f) continue;\n"
+"	}\n"
+"	output[id] = input[id] * input[id];\n"
+"	\n"
+"}\n"
+;
+
+
+
+*/
+
+
+
+
+
+
+/*#define qcheck_arg(statement, condition) \
+	do {\
+		statement;\
+		if (!condition) {\
+			printf("opencl: error:   ");\
+			puts(#statement);\
+        		printf("Error number: %d", err);\
+	        	printf(" : %s (\"%s\")\n", getErrorString(err), opencl_errstr(err));\
+			puts("[press enter to continue]");\
+			getchar();\
+		}\
+	} while(0);
+*/
+
+
+
+
+
+
+
+
+	/*uint32_t colors[256] = {0};
+	for (int i = 1; i < 256; i++) {
+		const uint32_t R = ((uint32_t) rand() % 256U) << 0U;
+		const uint32_t G = (rand() % 256U) << 8U;
+		const uint32_t B = (rand() % 256U) << 16U;
+		const uint32_t A = 255U << 24U;
+		colors[i] = R | G | B | A;
+	}*/
+
+
+
+
+
+
+
+	//puts("calling: calloc"); 
+
+
+
+
+	//float* results = calloc(DATA_SIZE, sizeof(unsigned int));
+	//if (!results) {
+	//	printf("could not allocate memory using calloc, erroring...\n");
+	//	return 1;
+	//}
+
+
+
+
+				// printf("motion %u %u : ", event.motion.x, event.motion.y);
+				//printf("mouse:    yaw = %lf, pitch = %lf\n", yaw, pitch);
+
+
+//  printf("Resizing, now: window_width = %d,  window_height = %d\n", window_width, window_height);
 
 
 
