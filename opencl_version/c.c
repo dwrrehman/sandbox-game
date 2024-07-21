@@ -299,6 +299,7 @@ int main(void) {
 	);
 	SDL_Surface* surface = SDL_GetWindowSurface(window);
 	SDL_SetRelativeMouseMode(1);
+	bool detached = false; 
 	bool quit = false;
 	bool resized = false;
 	uint32_t frame_counter = 0;
@@ -427,8 +428,8 @@ int main(void) {
 				if (	event.window.event == SDL_WINDOWEVENT_RESIZED or 
 					event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) resized = true;
 
-			} else if (event.type == SDL_MOUSEMOTION) {
-
+			} else if (event.type == SDL_MOUSEMOTION and not detached) {
+				
 				const float dx = (float) event.motion.xrel;
     				const float dy = (float) event.motion.yrel;
 				yaw += camera_sensitivity * dx;
@@ -458,8 +459,8 @@ int main(void) {
 			} else if (event.type == SDL_KEYDOWN) {
 				if (key[SDL_SCANCODE_ESCAPE]) quit = true;
 				if (key[SDL_SCANCODE_Q]) quit = true; 
-				if (key[SDL_SCANCODE_Z]) SDL_SetRelativeMouseMode(0);
-				if (key[SDL_SCANCODE_G]) SDL_SetRelativeMouseMode(1);
+				if (key[SDL_SCANCODE_V]) { SDL_SetRelativeMouseMode(0); detached = true; }
+				if (key[SDL_SCANCODE_G]) { SDL_SetRelativeMouseMode(1); detached = false; } 
 			}
 		}
 
