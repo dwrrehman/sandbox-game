@@ -55,69 +55,6 @@ static inline struct vec3 cross(struct vec3 x, struct vec3 y) {
 }
 
 
-static const char* source_code = 
-"__kernel void compute_pixel(__constant float* input, __global unsigned int* output, __global unsigned char* space) {\n"
-"\n"
-"	const unsigned int id = get_global_id(0);\n"
-"	const float w = input[0];\n"
-"	const float h = input[1];\n"
-"	const float sf = input[2];\n"
-"	const unsigned int wi = (unsigned int) w;\n"
-"	const unsigned int hi = (unsigned int) h;\n"
-"	const unsigned int s = (unsigned int) sf;\n"
-"	const float x = (float)(id % wi);\n"
-"	const float y = (float)(id / wi);\n"
-"	const float xr = x / w;\n"
-"	const float yr = y / h;\n"
-"\n"
-"	float3 ray   = (float3) (input[3], input[4], input[5]);\n"
-"	float3 right = (float3) (input[6], input[7], input[8]);\n"
-"	float3 top   = (float3) (input[9], input[10], input[11]);\n"
-"	float3 step = (float3) (input[12], input[13], input[14]);\n"
-"\n"
-"	const float fov = 0.25;\n"
-"	const float st_x = -fov + 2 * fov * xr;\n"
-"	const float st_y = -fov + 2 * fov * yr;\n"
-"\n"
-"	step *= 0.15;\n"
-"	step += top * st_y;\n"
-"	step += right * st_x;\n"
-"\n"
-"	unsigned short a = 0xFF;\n"
-"	unsigned short r = 0x00;\n"
-"	unsigned short b = 0x00;\n"
-"	unsigned short g = 0x00;\n"
-"	for (unsigned int n = 0; n < 2000; n++) {\n" // 2000
-"		const unsigned int px = (unsigned int) ray.x;\n"
-"		const unsigned int py = (unsigned int) ray.y;\n"
-"		const unsigned int pz = (unsigned int) ray.z;\n"
-"		const unsigned char block = space[s * s * pz + s * py + px];\n"
-"\n"
-"		if (block) {\n"
-"			     if (block == 1) { r += 0x2F; g += 0x00; b += 0x00; }\n"
-"			else if (block == 2) { r += 0xcc; g += 0x00; b += 0x00; break; }\n"
-"			else if (block == 3) { r += 0x00; g += 0xcc; b += 0x00; break; }\n"
-"			else if (block == 4) { r += 0x00; g += 0x00; b += 0xcc; break; }\n"
-"			else if (block == 5) { r += 0xcc; g += 0xcc; b += 0x00; break; }\n"
-"			else if (block == 6) { r += 0x00; g += 0xcc; b += 0xcc; break; }\n"
-"			else if (block == 7) { r += 0xcc; g += 0x00; b += 0xcc; break; }\n"
-"			else if (block == 8) { r += 0x0c; g += 0x0c; b += 0xcc; break; }\n"
-"			else if (block == 9) { r += 0x0c; g += 0xcc; b += 0x0c; break; }\n"
-"			else                 { r += 0xFF; g += 0xFF; b += 0xFF; break; }\n"
-"			if (r >= 0xFF) r = 0xFF;\n"
-"			if (g >= 0xFF) g = 0xFF;\n"
-"			if (b >= 0xFF) b = 0xFF;\n"
-"		}\n"
-"		next: ray = fmod(ray + step + sf, sf); continue;\n"
-"	}\n"
-"	if (r >= 0xFF) r = 0xFF;\n"
-"	if (g >= 0xFF) g = 0xFF;\n"
-"	if (b >= 0xFF) b = 0xFF;\n"
-"	const unsigned int color = (a << 24) | (r << 16) | (g << 8) | (b << 0);\n"
-"	output[id] = color;\n"
-"\n"
-"}\n" ;
-
 static const char* getErrorString(cl_int error) {
 switch(error) {
     case 0: return "CL_SUCCESS";
@@ -304,20 +241,35 @@ static const char *opencl_errstr(cl_int err) {
 	} while(0);
 
 
+
+
+static char* read_file(const char* name) {
+	const int file = open(name, O_RDONLY, 0);
+	if (file < 0) {  perror("open"); exit(1); } 
+	const size_t length = (size_t) lseek(file, 0, SEEK_END);
+	char* string = calloc(length + 1, 1);
+	lseek(file, 0, SEEK_SET);
+	read(file, string, length);
+	close(file);
+	return string;
+}
+
+
+
 int main(void) {
 	//srand((unsigned)time(NULL));
+
 	srand(42);
 	const int s = 500;
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
 
 	const int modulus = 10;
-	const int density = 8;
+	const int density = 64;
 
-	for (int i = 0; i < space_count; i++) {
-		space[i] = (rand() % modulus);
-		for (int _ = 0; _ < density; _++) space[i] *= (rand() % 2);
-	}
+	for (int i = 0; i < space_count; i++) 
+		space[i] = rand() % density == 0 ? rand() % modulus : 0;
+	
 	for (int x = 1; x < 10; x++) {
 		for (int z = 1; z < 10; z++) {
 			const int y = 0;
@@ -404,6 +356,7 @@ int main(void) {
 	check(clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, 1, &device_id, NULL));
 	check_arg(context = clCreateContext(0, 1, &device_id, NULL, NULL, &err), context);
 	check_arg(commands = clCreateCommandQueue(context, device_id, 0, &err), commands);
+	char* source_code = read_file("kernel.cl");
 	check_arg(program = clCreateProgramWithSource(context, 1, (const char **) &source_code, NULL, &err), program);
 	check(clBuildProgram(program, 0, NULL, NULL, NULL, NULL));
 	if (err != CL_SUCCESS) {
@@ -457,6 +410,9 @@ int main(void) {
 	data[12] = forward.x;
 	data[13] = forward.y;
 	data[14] = forward.z;
+
+
+	float average_fps = 0.0;
 
 	while (not quit) {
 		struct timeval st, et;
@@ -578,9 +534,21 @@ int main(void) {
 
 		gettimeofday(&et,NULL);
 		long elapsed = ((et.tv_sec - st.tv_sec) * 1000000) + (et.tv_usec - st.tv_usec);
-		frame_counter++; 
-		if (frame_counter >= 10) { frame_counter = 0; printf("elapsed time: %ld microseconds : fps = %lf\n", elapsed, 1.0f/((float)elapsed / 1000000.0f)); }
-		nanosleep((const struct timespec[]){{0, (16000000L - elapsed * 1000 > 0 ? 16000000L - elapsed * 1000 : 0)}}, NULL);
+
+		
+		if (frame_counter >= 10) { 
+			frame_counter = 0; 
+			float fps = 1.0f / ((float) elapsed / 1000000.0f);
+
+			average_fps = average_fps * 0.8 + fps * 0.2;
+
+			printf("%lf:  elapsed time: %ld microseconds : average_fps = %lf\n", average_fps, elapsed, average_fps); 
+
+		} else frame_counter++; 
+
+
+
+		nanosleep((const struct timespec[]){{0, (8000000L - elapsed * 1000 > 0 ? 16000000L - elapsed * 1000 : 0)}}, NULL);
 
 		velocity.x *= 0.96f;
 		velocity.y *= 0.96f;
@@ -1088,6 +1056,251 @@ static const char* source_code =
 
 
 //  printf("Resizing, now: window_width = %d,  window_height = %d\n", window_width, window_height);
+
+
+
+
+
+
+/*
+
+
+
+
+
+
+
+static const char* source_code = 
+"__kernel void compute_pixel(__constant float* input, __global unsigned int* output, __global unsigned char* space) {\n"
+"\n"
+"	const unsigned int id = get_global_id(0);\n"
+"	const float w = input[0];\n"
+"	const float h = input[1];\n"
+"	const float sf = input[2];\n"
+"	const unsigned int wi = (unsigned int) w;\n"
+"	const unsigned int hi = (unsigned int) h;\n"
+"	const unsigned int s = (unsigned int) sf;\n"
+"	const float x = (float)(id % wi);\n"
+"	const float y = (float)(id / wi);\n"
+"	const float xr = x / w;\n"
+"	const float yr = y / h;\n"
+"\n"
+"	float3 ray   = (float3) (input[3], input[4], input[5]);\n"
+"	float3 right = (float3) (input[6], input[7], input[8]);\n"
+"	float3 top   = (float3) (input[9], input[10], input[11]);\n"
+"	float3 step = (float3) (input[12], input[13], input[14]);\n"
+"\n"
+"	const float fov = 0.25;\n"
+"	const float st_x = -fov + 2 * fov * xr;\n"
+"	const float st_y = -fov + 2 * fov * yr;\n"
+"\n"
+"	step *= 0.15;\n"
+"	step += top * st_y;\n"
+"	step += right * st_x;\n"
+"\n"
+"	unsigned short a = 0xFF;\n"
+"	unsigned short r = 0x00;\n"
+"	unsigned short b = 0x00;\n"
+"	unsigned short g = 0x00;\n"
+"	for (unsigned int n = 0; n < 2000; n++) {\n"
+"		const unsigned int px = (unsigned int) ray.x;\n"
+"		const unsigned int py = (unsigned int) ray.y;\n"
+"		const unsigned int pz = (unsigned int) ray.z;\n"
+"		const unsigned char block = space[s * s * pz + s * py + px];\n"
+"\n"
+"		if (block) {\n"
+"			     if (block == 1) { r += 0x2F; g += 0x00; b += 0x00; }\n"
+"			else if (block == 2) { r += 0xcc; g += 0x00; b += 0x00; break; }\n"
+"			else if (block == 3) { r += 0x00; g += 0xcc; b += 0x00; break; }\n"
+"			else if (block == 4) { r += 0x00; g += 0x00; b += 0xcc; break; }\n"
+"			else if (block == 5) { r += 0xcc; g += 0xcc; b += 0x00; break; }\n"
+"			else if (block == 6) { r += 0x00; g += 0xcc; b += 0xcc; break; }\n"
+"			else if (block == 7) { r += 0xcc; g += 0x00; b += 0xcc; break; }\n"
+"			else if (block == 8) { r += 0x0c; g += 0x0c; b += 0xcc; break; }\n"
+"			else if (block == 9) { r += 0x0c; g += 0xcc; b += 0x0c; break; }\n"
+"			else                 { r += 0xFF; g += 0xFF; b += 0xFF; break; }\n"
+"			if (r >= 0xFF) r = 0xFF;\n"
+"			if (g >= 0xFF) g = 0xFF;\n"
+"			if (b >= 0xFF) b = 0xFF;\n"
+"		}\n"
+"		next: ray = fmod(ray + step + sf, sf); continue;\n"
+"	}\n"
+"	if (r >= 0xFF) r = 0xFF;\n"
+"	if (g >= 0xFF) g = 0xFF;\n"
+"	if (b >= 0xFF) b = 0xFF;\n"
+"	const unsigned int color = (a << 24) | (r << 16) | (g << 8) | (b << 0);\n"
+"	output[id] = color;\n"
+"\n"
+"}\n";
+
+
+
+
+
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	/* 
+
+
+
+
+
+
+
+
+
+
+
+to compute the distance which we advance in the ray
+	upon moving one unit on the x axis, is given by S_x, 
+	which is defined to be:
+		S_x = sqrt(1 + (dy/dx) * (dy/dx) )
+	the y axis has something similar:
+		S_y = sqrt(1 + (dx/dy) * (dx/dy) )
+	we move this amount, when we choose that particular axis
+	to move along. furthermore, 
+
+
+wait crap this is all in two dimensions lololol 
+
+
+
+oopsies 
+
+
+
+hmm
+
+
+
+the distance of the hypotenuse is:
+
+	S = sqrt(dx^2 + dy^2 + dz^2)
+
+in 3D. this means that there are three S_# variables, 
+
+	S_x = sqrt(1 + (dy/dx)^2 + (dz/dx)^2)
+	S_y = sqrt((dx/dy)^2 + 1 + (dz/dy)^2)
+	S_y = sqrt((dx/dz)^2 + (dy/dz)^2 + 1)
+
+so now, we know the amount to 
+
+okay so basically we know that  
+
+	the  "step" variable    step.x      is dx 
+
+		step.y  is dy   and step.z  is dz 
+
+	thus, step.x / step.y     is dx/dy     
+
+	thus now, i think we know how to 
+		construct these S_# variables. 
+
+
+	yay
+
+
+so given these, 
+
+	we now create top level local variables, called
+
+	rx,  ry   rz      which are the ray progress 
+				in each of the axies. 
+
+
+question:
+we initialize these to the   noninteger or floating point part 
+	of the "ray" variable (which of course, is our starting position for every ray)..
+
+
+		is this the case?
+
+
+
+	
+
+	
+
+
+
+
+
+
+
+heres some sudo code i found online:
+
+
+	float3 raydir = normalize(mousecell - player);
+	float S_x = sqrt(1 + (step.y/step.x)*(step.y/step.x) + (step.z/step.x)*(step.z/step.x));
+	float S_y = sqrt((step.x/step.y)*(step.x/step.y) + 1 + (step.z/step.y)*(step.z/step.y));
+	float S_z = sqrt((step.x/step.z)*(step.x/step.z) + (step.y/step.z)*(step.y/step.z) + 1);
+	float3 rayunitstepsize = { S_x, S_y, S_z, };
+
+	float3 raystart = position;
+	int3 mapcheck = (int3) raystart;
+	float3 raylength1d = {0};
+
+	int3 unit = {0};
+
+	if (raydir.x < 0) {
+		unit.x = -1;
+		raylength.x = (raystart.x - (float)(mapcheck.x)) * rayunitstepsize.x;
+	} else {
+		unit.x = 1;
+		raylength.x = ((float)(mapcheck.x + 1) - raystart.x) * rayunitstepsize.x;
+	}
+
+	if (raydir.y < 0) {
+		unit.y = -1;
+		raylength.y = (raystart.y - (float)(mapcheck.y)) * rayunitstepsize.y;
+	} else {
+		unit.y = 1;
+		raylength.y = ((float)(mapcheck.y + 1) - raystart.y) * rayunitstepsize.y;
+	}
+
+	for (int i = 0; i < 1000; i++) {
+
+		if (raylength1d.x <  raylength1d.y) {
+			mapcheck.x += unit.x;
+			raylength1d.x += rayunitstepsize.x;
+		} else {
+			mapcheck.y += unit.y;
+			raylength1d.y += rayunitstepsize.y;
+		}
+
+		uint8 block = space[mapcheck.xyz];
+		if (block) {
+			color = colors[block];
+			goto found;
+		}
+	}
+	color = black;
+	found: printf("hello");
+
+
+	
+	*/
+
+
+// "	printf(\"%lf, %lf, %lf\\n\", S_x, S_y, S_z);\n"
+
+// //"	step *= 0.15;\n"
+
+
 
 
 
