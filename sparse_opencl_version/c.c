@@ -243,24 +243,23 @@ static char* read_file(const char* name) {
 	return string;
 }
 
+static const int max_unit_count = 500;
+
 int main(void) {
-	srand(42); //srand((unsigned)time(NULL));
-	const int s = 500;
-	const int space_count = s * s * s;
-	int8_t* space = calloc(space_count, 1);
+	nat unit_count = 2;
+	nat* space = calloc(4 * max_unit_count + 1, 1);
 
-	const int modulus = 10;
-	const int density = 400;
+	space[0] = unit_count;
 
-	for (int i = 0; i < space_count; i++) 
-		space[i] = rand() % density == 0 ? rand() % modulus : 0;
-	
-	for (int x = 1; x < 10; x++) {
-		for (int z = 1; z < 10; z++) {
-			const int y = 0;
-			space[s * s * x + s * y + z] = 1;
-		}
-	}
+	space[1] = 4;
+	space[2] = 10;
+	space[3] = 13;
+	space[4] = 11;
+
+	space[5] = 5;
+	space[6] = 14;
+	space[7] = 14;
+	space[8] = 12;
 
 	struct vec3 position = {10, 5, 10};
 	struct vec3 velocity = {0, 0, 0};	
@@ -362,18 +361,18 @@ int main(void) {
 		exit(1);
 	}
 
-	const size_t data_size = 15;
+	const size_t data_size = 15;  // todo: make this 14, get rid of [2], as its always 0.
 	float data[15] = {0};
 
 	SDL_GetWindowSize(window, &window_width, &window_height);
 	surface = SDL_GetWindowSurface(window);
 	size_t pixel_count = (size_t) surface->w * (size_t) surface->h;
 	check_arg(input =       clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(float) * data_size, NULL, NULL), input);
-	check_arg(space_array = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(uint8_t) * space_count, NULL, NULL), space_array);
+	check_arg(space_array = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(uint8_t) * max_unit_count, NULL, NULL), space_array);
 	check_arg(output =      clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint32_t) * pixel_count, NULL, NULL), output);
 	data[0] = (float) surface->w;
 	data[1] = (float) surface->h;
-	data[2] = (float) s;
+	data[2] = (float) 0.0;
 
 	if (pitch > pi_over_2) pitch = pi_over_2 - 0.0001f;
 	else if (pitch < -pi_over_2) pitch = -pi_over_2 + 0.0001f;
@@ -503,7 +502,7 @@ int main(void) {
 		data[5] = position.z;
 
 		qcheck(clEnqueueWriteBuffer(commands, input, CL_TRUE, 0, sizeof(float) * data_size, data, 0, NULL, NULL));
-		qcheck(clEnqueueWriteBuffer(commands, space_array, CL_TRUE, 0, sizeof(uint8_t) * space_count, space, 0, NULL, NULL));
+		qcheck(clEnqueueWriteBuffer(commands, space_array, CL_TRUE, 0, sizeof(nat) * (unit_count + 1), space, 0, NULL, NULL));
 		qcheck(clSetKernelArg(kernel, 0, sizeof(cl_mem), &input));
 		qcheck(clSetKernelArg(kernel, 1, sizeof(cl_mem), &output));
 		qcheck(clSetKernelArg(kernel, 2, sizeof(cl_mem), &space_array));
@@ -534,9 +533,10 @@ int main(void) {
 		position.x += velocity.x;
 		position.y += velocity.y;
 		position.z += velocity.z;
-		position.x = fmodf(position.x + (float)s, (float)s);
-		position.y = fmodf(position.y + (float)s, (float)s);
-		position.z = fmodf(position.z + (float)s, (float)s);
+
+		//position.x = fmodf(position.x + (float)s, (float)s);
+		//position.y = fmodf(position.y + (float)s, (float)s);
+		//position.z = fmodf(position.z + (float)s, (float)s);
 	}
 	clReleaseMemObject(input);
 	clReleaseMemObject(space_array);
@@ -561,11 +561,21 @@ int main(void) {
 
 
 
+	//srand(42); //srand((unsigned)time(NULL));
 
+/*
+	const int modulus = 10;
+	const int density = 400;
+	for (int i = 0; i < space_count; i++) 
+		space[i] = rand() % density == 0 ? rand() % modulus : 0;
+	for (int x = 1; x < 10; x++) {
+		for (int z = 1; z < 10; z++) {
+			const int y = 0;
+			space[s * s * x + s * y + z] = 1;
+		}
+	}
 
-
-
-
+*/
 
 
 

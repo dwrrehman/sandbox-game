@@ -68,7 +68,7 @@ __kernel void compute_pixel(
 	unsigned short b = 0x00;
 	unsigned short g = 0x00;
 
-	for (unsigned int n = 0; n < 200; n++) {
+	for (unsigned int n = 0; n < 800; n++) {
 		
 		const unsigned char block = space[s * s * m.z + s * m.y + m.x];
 
