@@ -1,0 +1,54 @@
+todo:
+-----------
+
+	- add sonar/raycasing  thingy    for determining which cells we can see, 
+		make it time dependent- the longer you sit there themore you can see,
+			but when you move, you have to recalibrate or something kinda
+
+				sonar prefrably 
+
+
+
+
+	- make it so we can place blocks, based on how much    material   we have 
+
+			make it so breaking blocks gathers material, 
+
+				and make it so that you have to hold down place longer for a stronger block. 
+
+
+	- add liquids!	with the right physics and stuff!
+
+
+	- should we make this a top down game? like terraria kinda?
+
+
+			ie, introduce gravity!    then movement gets more complex... the game becomes 1d basically lol. hmmmm
+
+
+
+	- make it mulitplyer next! thats the next big task. 
+
+	- just work on making the server client connection relaible/low latency, and have good properties. not like minecrafts connection lol 
+
+
+	- add some sort of terrain genreation!   
+
+
+	- add some sort of redstone like thing!  ie circuits! 
+
+		allow wires to cross too lol. prety important.
+
+
+
+
+	- add health!
+
+	= make the npc's  intelligent! just like players. place blocks, interact with the world, etc. they are just like players actually. 
+
+
+
+	- make them look the same too, with a slight difference maybe. ..idk
+
+
+	= 
