@@ -1,0 +1,3 @@
+# clang -framework OpenCL platforms.c -o list_platforms -Weverything
+clang -framework OpenCL devices.c -o list_devices -Weverything
+

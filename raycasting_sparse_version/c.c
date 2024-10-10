@@ -47,7 +47,7 @@ static inline struct vec3 cross(struct vec3 x, struct vec3 y) {
 }
 
 
-static const char* getErrorString(cl_int error) {
+static const char* ges(cl_int error) {
 switch(error) {
     case 0: return "CL_SUCCESS";
     case -1: return "CL_DEVICE_NOT_FOUND";
@@ -122,68 +122,68 @@ switch(error) {
     }
 }
 
-#define CaseReturnString(x) case x: return #x;
+#define cr(x) case x: return #x;
 
 static const char *opencl_errstr(cl_int err) {
     switch (err) {
-        CaseReturnString(CL_SUCCESS                        )                                  
-        CaseReturnString(CL_DEVICE_NOT_FOUND               )
-        CaseReturnString(CL_DEVICE_NOT_AVAILABLE           )
-        CaseReturnString(CL_COMPILER_NOT_AVAILABLE         ) 
-        CaseReturnString(CL_MEM_OBJECT_ALLOCATION_FAILURE  )
-        CaseReturnString(CL_OUT_OF_RESOURCES               )
-        CaseReturnString(CL_OUT_OF_HOST_MEMORY             )
-        CaseReturnString(CL_PROFILING_INFO_NOT_AVAILABLE   )
-        CaseReturnString(CL_MEM_COPY_OVERLAP               )
-        CaseReturnString(CL_IMAGE_FORMAT_MISMATCH          )
-        CaseReturnString(CL_IMAGE_FORMAT_NOT_SUPPORTED     )
-        CaseReturnString(CL_BUILD_PROGRAM_FAILURE          )
-        CaseReturnString(CL_MAP_FAILURE                    )
-        CaseReturnString(CL_MISALIGNED_SUB_BUFFER_OFFSET   )
-        CaseReturnString(CL_COMPILE_PROGRAM_FAILURE        )
-        CaseReturnString(CL_LINKER_NOT_AVAILABLE           )
-        CaseReturnString(CL_LINK_PROGRAM_FAILURE           )
-        CaseReturnString(CL_DEVICE_PARTITION_FAILED        )
-        CaseReturnString(CL_KERNEL_ARG_INFO_NOT_AVAILABLE  )
-        CaseReturnString(CL_INVALID_VALUE                  )
-        CaseReturnString(CL_INVALID_DEVICE_TYPE            )
-        CaseReturnString(CL_INVALID_PLATFORM               )
-        CaseReturnString(CL_INVALID_DEVICE                 )
-        CaseReturnString(CL_INVALID_CONTEXT                )
-        CaseReturnString(CL_INVALID_QUEUE_PROPERTIES       )
-        CaseReturnString(CL_INVALID_COMMAND_QUEUE          )
-        CaseReturnString(CL_INVALID_HOST_PTR               )
-        CaseReturnString(CL_INVALID_MEM_OBJECT             )
-        CaseReturnString(CL_INVALID_IMAGE_FORMAT_DESCRIPTOR)
-        CaseReturnString(CL_INVALID_IMAGE_SIZE             )
-        CaseReturnString(CL_INVALID_SAMPLER                )
-        CaseReturnString(CL_INVALID_BINARY                 )
-        CaseReturnString(CL_INVALID_BUILD_OPTIONS          )
-        CaseReturnString(CL_INVALID_PROGRAM                )
-        CaseReturnString(CL_INVALID_PROGRAM_EXECUTABLE     )
-        CaseReturnString(CL_INVALID_KERNEL_NAME            )
-        CaseReturnString(CL_INVALID_KERNEL_DEFINITION      )
-        CaseReturnString(CL_INVALID_KERNEL                 )
-        CaseReturnString(CL_INVALID_ARG_INDEX              )
-        CaseReturnString(CL_INVALID_ARG_VALUE              )
-        CaseReturnString(CL_INVALID_ARG_SIZE               )
-        CaseReturnString(CL_INVALID_KERNEL_ARGS            )
-        CaseReturnString(CL_INVALID_WORK_DIMENSION         )
-        CaseReturnString(CL_INVALID_WORK_GROUP_SIZE        )
-        CaseReturnString(CL_INVALID_WORK_ITEM_SIZE         )
-        CaseReturnString(CL_INVALID_GLOBAL_OFFSET          )
-        CaseReturnString(CL_INVALID_EVENT_WAIT_LIST        )
-        CaseReturnString(CL_INVALID_EVENT                  )
-        CaseReturnString(CL_INVALID_OPERATION              )
-        CaseReturnString(CL_INVALID_GL_OBJECT              )
-        CaseReturnString(CL_INVALID_BUFFER_SIZE            )
-        CaseReturnString(CL_INVALID_MIP_LEVEL              )
-        CaseReturnString(CL_INVALID_GLOBAL_WORK_SIZE       )
-        CaseReturnString(CL_INVALID_PROPERTY               )
-        CaseReturnString(CL_INVALID_IMAGE_DESCRIPTOR       )
-        CaseReturnString(CL_INVALID_COMPILER_OPTIONS       )
-        CaseReturnString(CL_INVALID_LINKER_OPTIONS         )
-        CaseReturnString(CL_INVALID_DEVICE_PARTITION_COUNT )
+        cr(CL_SUCCESS                        )                                  
+        cr(CL_DEVICE_NOT_FOUND               )
+        cr(CL_DEVICE_NOT_AVAILABLE           )
+        cr(CL_COMPILER_NOT_AVAILABLE         ) 
+        cr(CL_MEM_OBJECT_ALLOCATION_FAILURE  )
+        cr(CL_OUT_OF_RESOURCES               )
+        cr(CL_OUT_OF_HOST_MEMORY             )
+        cr(CL_PROFILING_INFO_NOT_AVAILABLE   )
+        cr(CL_MEM_COPY_OVERLAP               )
+        cr(CL_IMAGE_FORMAT_MISMATCH          )
+        cr(CL_IMAGE_FORMAT_NOT_SUPPORTED     )
+        cr(CL_BUILD_PROGRAM_FAILURE          )
+        cr(CL_MAP_FAILURE                    )
+        cr(CL_MISALIGNED_SUB_BUFFER_OFFSET   )
+        cr(CL_COMPILE_PROGRAM_FAILURE        )
+        cr(CL_LINKER_NOT_AVAILABLE           )
+        cr(CL_LINK_PROGRAM_FAILURE           )
+        cr(CL_DEVICE_PARTITION_FAILED        )
+        cr(CL_KERNEL_ARG_INFO_NOT_AVAILABLE  )
+        cr(CL_INVALID_VALUE                  )
+        cr(CL_INVALID_DEVICE_TYPE            )
+        cr(CL_INVALID_PLATFORM               )
+        cr(CL_INVALID_DEVICE                 )
+        cr(CL_INVALID_CONTEXT                )
+        cr(CL_INVALID_QUEUE_PROPERTIES       )
+        cr(CL_INVALID_COMMAND_QUEUE          )
+        cr(CL_INVALID_HOST_PTR               )
+        cr(CL_INVALID_MEM_OBJECT             )
+        cr(CL_INVALID_IMAGE_FORMAT_DESCRIPTOR)
+        cr(CL_INVALID_IMAGE_SIZE             )
+        cr(CL_INVALID_SAMPLER                )
+        cr(CL_INVALID_BINARY                 )
+        cr(CL_INVALID_BUILD_OPTIONS          )
+        cr(CL_INVALID_PROGRAM                )
+        cr(CL_INVALID_PROGRAM_EXECUTABLE     )
+        cr(CL_INVALID_KERNEL_NAME            )
+        cr(CL_INVALID_KERNEL_DEFINITION      )
+        cr(CL_INVALID_KERNEL                 )
+        cr(CL_INVALID_ARG_INDEX              )
+        cr(CL_INVALID_ARG_VALUE              )
+        cr(CL_INVALID_ARG_SIZE               )
+        cr(CL_INVALID_KERNEL_ARGS            )
+        cr(CL_INVALID_WORK_DIMENSION         )
+        cr(CL_INVALID_WORK_GROUP_SIZE        )
+        cr(CL_INVALID_WORK_ITEM_SIZE         )
+        cr(CL_INVALID_GLOBAL_OFFSET          )
+        cr(CL_INVALID_EVENT_WAIT_LIST        )
+        cr(CL_INVALID_EVENT                  )
+        cr(CL_INVALID_OPERATION              )
+        cr(CL_INVALID_GL_OBJECT              )
+        cr(CL_INVALID_BUFFER_SIZE            )
+        cr(CL_INVALID_MIP_LEVEL              )
+        cr(CL_INVALID_GLOBAL_WORK_SIZE       )
+        cr(CL_INVALID_PROPERTY               )
+        cr(CL_INVALID_IMAGE_DESCRIPTOR       )
+        cr(CL_INVALID_COMPILER_OPTIONS       )
+        cr(CL_INVALID_LINKER_OPTIONS         )
+        cr(CL_INVALID_DEVICE_PARTITION_COUNT )
         default: return "Unknown OpenCL error code";
     }
 }
@@ -197,7 +197,7 @@ static const char *opencl_errstr(cl_int err) {
 			printf("opencl: error:   ");\
 			puts(#statement);\
         		printf("Error number: %d", err);\
-	        	printf(" : %s (\"%s\")\n", getErrorString(err), opencl_errstr(err));\
+	        	printf(" : %s (\"%s\")\n", ges(err), opencl_errstr(err));\
 			puts("[press enter to continue]");\
 			getchar();\
 		}\
@@ -212,7 +212,7 @@ static const char *opencl_errstr(cl_int err) {
 			printf("opencl: error:   ");\
 			puts(#statement);\
         		printf("Error number: %d", err);\
-	        	printf(" : %s (\"%s\")\n", getErrorString(err), opencl_errstr(err));\
+	        	printf(" : %s (\"%s\")\n", ges(err), opencl_errstr(err));\
 			puts("[press enter to continue]");\
 			getchar();\
 		}\
@@ -226,7 +226,7 @@ static const char *opencl_errstr(cl_int err) {
 			printf("opencl: error:   ");\
 			puts(#statement);\
         		printf("Error number: %d", err);\
-	        	printf(" : %s (\"%s\")\n", getErrorString(err), opencl_errstr(err));\
+	        	printf(" : %s (\"%s\")\n", ges(err), opencl_errstr(err));\
 			puts("[press enter to continue]");\
 			getchar();\
 		}\
@@ -246,8 +246,8 @@ static char* read_file(const char* name) {
 static const int max_unit_count = 500;
 
 int main(void) {
-	const nat generate_count = 200;
-	const nat side_length = 1000;
+	const nat generate_count = 3;
+	const nat side_length = 30;
 	srand(42);
 
 	nat unit_count = 0;
@@ -350,14 +350,14 @@ int main(void) {
 		char buffer[2048];
 		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
 		printf("%s\n", buffer);
-		printf(" : %s\n", getErrorString(err));
+		printf(" : %s\n", ges(err));
 		exit(1);
 	}
 
 	check_arg(kernel = clCreateKernel(program, "compute_pixel", &err), kernel);
 	if (err != CL_SUCCESS) {
 		printf("Error: Failed to create compute_pixel kernel!\n");
-		printf(" : %s\n", getErrorString(err));
+		printf(" : %s\n", ges(err));
 		exit(1);
 	}
 
@@ -367,7 +367,6 @@ int main(void) {
 	SDL_GetWindowSize(window, &window_width, &window_height);
 	surface = SDL_GetWindowSurface(window);
 	size_t pixel_count = (size_t) surface->w * (size_t) surface->h;
-	printf("window: width=%lu, height=%lu (%lu pixels)\n", surface->w, surface->h, pixel_count);
 	check_arg(input =       clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(float) * data_size, NULL, NULL), input);
 	check_arg(space_array = clCreateBuffer(context,  CL_MEM_READ_ONLY,  sizeof(nat) * (4 * max_unit_count + 1), NULL, NULL), space_array);
 	check_arg(output =      clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint32_t) * pixel_count, NULL, NULL), output);
@@ -549,6 +548,60 @@ int main(void) {
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

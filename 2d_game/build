@@ -1,0 +1,1 @@
+clang c.c -Weverything -Wno-declaration-after-statement -o run -ferror-limit=1

@@ -1,0 +1,6 @@
+
+
+
+
+
+clang -g -O0 -Weverything -Wdeclaration-after-statement c.c -L/include 
