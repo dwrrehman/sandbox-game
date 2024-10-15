@@ -3,6 +3,37 @@
 // mulitplayer sandbox game
 // to replace the 3d game.
 
+
+
+
+
+
+
+
+/*
+
+1202410152.011226
+	so i implemented moving blocks, and the players hand,
+
+	now we just need to add terrain generation, and then its basically playable
+	oh and then we need to add the ability to save a world. 
+
+
+	and thennn we can make things multiplayer, i think. yayyyy
+
+	and then at that point, we'll add npc's yay. 
+
+
+
+
+*/
+
+
+
+
+
+
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -275,15 +306,29 @@ static void display(void) {
 	displaying = false;
 }
 
-static void init(void) {
+static void spawn(void) {
+	player_x = 0;
+	player_y = 0;
+	while (1) {
+		const nat x = (nat) rand() % side_length;
+		const nat y = (nat) rand() % side_length;
+		if (at_player((int64_t) x, (int64_t) y)) continue;
+		player_x = x;
+		player_y = y;
+		break;
+	}
+	facing = facing_up;
+	(*get_at_player(0, 0)) = 1 + facing;
+}
+
+static void generate_world(void) {
 	const nat total = side_length * side_length;
 	space = calloc(total, sizeof(uint32_t));
 	for (nat i = 0; i < total; i++) {
 		space[i] = ((uint32_t) !(rand() % 16)) * dirt;
 	}
 
-	for (uint32_t i = 0; i < block_type_count; i++) 
-		space[i] = i;
+	for (uint32_t i = 0; i < block_type_count; i++) space[i] = i;
 }
 
 static void tick(void) {
@@ -346,10 +391,11 @@ int main(void) {
 	struct sigaction action2 = {.sa_handler = interrupt_handler}; 
 	sigaction(SIGINT, &action2, NULL);
 	configure_terminal();
-	
 	char c = 0;
 
-	init();
+	generate_world();
+	spawn();
+
 loop:	tick();
 	display();
 	usleep(20000);
@@ -374,6 +420,12 @@ loop:	tick();
 done:
 	printf("exiting..\n");
 }
+
+
+
+
+
+
 
 /*
 
