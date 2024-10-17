@@ -1,0 +1,20 @@
+todo for terminal based 3d game:
+==================================
+
+
+	- get basic 3d rendering working     no libraries
+
+	- blend the colors for a character that has 8 pixels all with different colors.
+	- however, if they are all the same color, then keep the color. 
+	- don't blend with black?... or maybe do, idk.. hmmm
+
+	- start with a very low resolution    at the beginning, do it based on screen size plz
+
+
+
+	- figure out how to use the mouse with it maybe? idk... probably not actually nvm
+
+
+	- use sparse voxels, i think. yay. 
+
+	- 
