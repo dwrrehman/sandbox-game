@@ -1,0 +1,18 @@
+#!/bin/zsh
+
+if [ "release" = "$1" ]; then
+	clang -Ofast main.c -o client -lglfw
+
+elif [ "clean" = "$1" ]; then
+	rm -rf client
+	rm -rf client.dSYM
+
+elif [ "" = "$1" ]; then 
+	clang -g -O0 -Weverything -Wno-documentation -Wno-unused-parameter -Wno-padded -Wno-documentation-unknown-command -Wno-poison-system-directories -fsanitize=address,undefined main.c -o client -lglfw -lMoltenVK
+
+elif [ "shaders" = "$1" ]; then
+	/usr/local/bin/glslc shader.vert -o shader.vert.spv
+	/usr/local/bin/glslc shader.frag -o shader.frag.spv
+else 
+	echo "build: unknown target: $1"
+fi

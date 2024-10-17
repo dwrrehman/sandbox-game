@@ -1,0 +1,19 @@
+#!/bin/zsh
+
+
+if [ "release" = "$1" ]; then
+	clang -Weverything -Ofast c.c -o game
+
+
+elif [ "clean" = "$1" ]; then
+	rm -rf game
+	rm -rf game.dSYM
+
+
+elif [ "" = "$1" ]; then 
+	clang -g -O0 -Weverything -fsanitize=address,undefined c.c -o game
+
+
+else 
+	echo "build: unknown target: $1"
+fi

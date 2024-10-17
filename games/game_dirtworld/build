@@ -1,0 +1,8 @@
+#!/bin/zsh
+
+clang -g -Weverything -O0 -fsanitize=address,undefined c.c -o game
+
+# release mode:
+
+# clang -Ofast c.c -o game
+
