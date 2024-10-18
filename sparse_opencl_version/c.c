@@ -243,11 +243,10 @@ static char* read_file(const char* name) {
 	return string;
 }
 
-static const int max_unit_count = 500;
-
 int main(void) {
-	const nat generate_count = 200;
-	const nat side_length = 1000;
+	static const int max_unit_count = 1000;
+	const nat generate_count = 1000;
+	const nat side_length = 2000;
 	srand(42);
 
 	nat unit_count = 0;
