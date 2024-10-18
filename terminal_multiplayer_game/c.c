@@ -3,6 +3,83 @@
 // done on the cpu over several frames,
 // for its graphics. written on 1202410174.181851 dwrr
 
+
+
+
+
+/*
+
+
+
+
+		curent state:
+
+
+			we need to trace paths    and leave behind teh path as well, not just move forwards the head of the ray. 
+
+				this allows us to contniuouslyyyyy (essentially)  send a continuous stream of photons using that full path
+								thus keeping the pixel on.  that the ray hit. 
+
+
+
+					we do want to use ray marching though, to step forwards as we are currently doing as well, though, becasue that allows us to get object collision good.   we need to be using the dda algorithm for this though lol. to do it right, and efficiently. 
+
+
+								(doesnt matter if its a bit slow, just make it precise lol.)
+
+											(heck we don't even needddd dda lol)
+
+
+
+					we also want to i think, associate a ray with a bounced ray. ie, they associate via  tree like data structure ithink. or like a linked list, kinda. one ray links to another in the ray list. 
+
+
+							if it came about via a bounce. this allows us to track dependancies, when the path is suddenly blocked, at some earlier point in the ray trajectory. 
+
+
+
+					
+
+
+					also, we need to keeping around all these traced paths, becuase then we will be able to keep the ray count static, after a sufficient amount of computation lol. ie, everything has already been traced basically. 
+
+							this needs to happen. this is what allows us to have the insane performance we want. 
+
+
+								only this. 
+
+
+
+
+						
+
+			ohhh, but note, we need to have the retina still updated though, when move or move our head,  we need to update the retina ie, looping through the rays and finding which ones hit the retina, now that its moved lol. 
+
+
+					hmmm this is expensive, as well. crap.. hmmmm
+
+
+
+
+
+
+
+
+
+		yeah we have to solve that. crappp hmmmmm
+
+
+
+
+
+
+
+*/
+
+
+
+
+
 #include <signal.h>
 #include <math.h>
 #include <time.h>
@@ -22,7 +99,7 @@
 
 typedef uint64_t nat;
 
-static const nat side_length = 10;
+static const nat side_length = 100;
 
 enum blocks {
 
@@ -132,9 +209,9 @@ struct ray {
 	nat bounces;
 };
 
-static const float camera_sensitivity = 0.005f;
+static const float camera_sensitivity = 0.05f;
 static const float pi_over_2 = 1.57079632679f;
-static const float camera_accel = 0.09f;
+static const float camera_accel = 0.01f;
 
 static bool displaying = false;
 
@@ -196,8 +273,8 @@ static void configure_terminal(void) {
 static void window_resize_handler(int _) {if(_)_++;
 	if (displaying) return;
 	ioctl(0, TIOCGWINSZ, &window); 
-	height = 13;	//window.ws_row - 10; 
-	width = 33;	//window.ws_col - 20; 
+	height = 30;	//window.ws_row - 10; 
+	width = 80;	//window.ws_col - 20; 
 	max_length = (size_t) (128 * width * height);
 	retina = realloc(retina, width * height * sizeof(uint32_t));
 	screen = realloc(screen, max_length);
@@ -233,8 +310,10 @@ static void generate_world(void) {
 
 	space[s * s * 4 + s * 3 + 2] = snow;
 	space[s * s * 2 + s * 2 + 2] = snow;
+	space[s * s * 2 + s * 2 + 5] = snow;
 	space[s * s * 3 + s * 3 + 3] = snow;
 	space[s * s * 5 + s * 5 + 5] = light;
+	space[s * s * 5 + s * 7 + 8] = light;
 }
 
 static void tick(void) {
@@ -263,8 +342,9 @@ static void ray_trace(void) {
 				
 				const uint32_t b = space[s * s * x + s * y + z];
 	
-				if (b != light or rand() % 20) continue; // !
-
+				if (b != light or ray_count >= 10000) continue;
+				for (nat i = 0; i < 200; i++) {
+			
 				const float rx = (float) (rand() % 100000);
 				const float dx = rx / 100000.0f;
 
@@ -301,15 +381,18 @@ static void ray_trace(void) {
 
 				rays = realloc(rays, sizeof(struct ray) * (ray_count + 1));
 				rays[ray_count++] = new_ray;
-				printf("generated rays: %llu\n", ray_count);
+				//printf("generated rays: %llu\n", ray_count);
 				//usleep(10000);
+
+
+				}
 			}
 		}
 	}
 
 
 
-	const float factor = 0.1f;
+	const float factor = 0.4f;
 
 	for (nat i = 0; i < ray_count; i++) {
 		
@@ -342,14 +425,14 @@ static void ray_trace(void) {
 		const bool cy = dy < 0.5f;
 		const bool cz = dz < 0.5f;
 
-		if (not cx and not cy and not cz) { puts("0 0 0"); fflush(stdout); }
-		if (not cx and not cy and     cz) { puts("0 0 1"); fflush(stdout); }
-		if (not cx and     cy and not cz) { puts("0 1 0"); fflush(stdout); }
-		if (not cx and     cy and     cz) { puts("0 1 1"); fflush(stdout); }
-		if (    cx and not cy and not cz) { puts("1 0 0"); fflush(stdout); }
-		if (    cx and not cy and     cz) { puts("1 0 1"); fflush(stdout); }
-		if (    cx and     cy and not cz) { puts("1 1 0"); fflush(stdout); }
-		if (    cx and     cy and     cz) { puts("1 1 1"); fflush(stdout); }
+		if (not cx and not cy and not cz) { }//puts("0 0 0"); fflush(stdout); }
+		if (not cx and not cy and     cz) { }//puts("0 0 1"); fflush(stdout); }
+		if (not cx and     cy and not cz) { }//puts("0 1 0"); fflush(stdout); }
+		if (not cx and     cy and     cz) { }//puts("0 1 1"); fflush(stdout); }
+		if (    cx and not cy and not cz) { }//puts("1 0 0"); fflush(stdout); }
+		if (    cx and not cy and     cz) { }//puts("1 0 1"); fflush(stdout); }
+		if (    cx and     cy and not cz) { }//puts("1 1 0"); fflush(stdout); }
+		if (    cx and     cy and     cz) { }//puts("1 1 1"); fflush(stdout); }
 		// rays[i].bounces++; // eventually lol 
 	}
 
@@ -368,10 +451,51 @@ static void ray_trace(void) {
 		if (rays[i].position.z >= (float) s) outside = true;
 
 		if (rays[i].bounces > 3 or outside) {
-			printf("deleting a ray...");
-			fflush(stdout);
+			//printf("deleting a ray...");
+			//fflush(stdout);
 			rays[i] = rays[ray_count - 1];
 			ray_count--;
+		}
+	}
+
+	memset(retina, 0, 4 * height * width);
+	for (nat h = 0; h < height; h++) {
+		for (nat w = 0; w < width; w++) {
+			struct vec3 pixel = position;
+			const float hf = (float) h;
+			const float heightf = (float) height;
+			const float heightf2 = (float) height / 2.0f;
+			const float wf = (float) w;
+			const float widthf = (float) width;
+			const float widthf2 = (float) width / 2.0f;
+			pixel.x += top.x * (heightf2 - hf) / heightf;
+			pixel.y += top.y * (heightf2 - hf) / heightf;
+			pixel.z += top.z * (heightf2 - hf) / heightf;
+			pixel.x += right.x * (widthf2 - wf) / widthf;
+			pixel.y += right.y * (widthf2 - wf) / widthf;
+			pixel.z += right.z * (widthf2 - wf) / widthf;
+
+			for (nat i = 0; i < ray_count; i++) {
+				if (  	fabsf(rays[i].position.x - pixel.x) < 0.01f and 
+					fabsf(rays[i].position.y - pixel.y) < 0.01f and 
+					fabsf(rays[i].position.z - pixel.z) < 0.01f and
+
+					rays[i].direction.x * forward.x + 
+					rays[i].direction.y * forward.y + 
+					rays[i].direction.z * forward.z 
+					< 0
+				) {
+
+					retina[width * h + w] = 1;
+
+						// printf("deleting a ray...");
+						//fflush(stdout);
+						rays[i] = rays[ray_count - 1];
+						ray_count--;
+					
+
+				}
+			}
 		}
 	}
 }
@@ -383,13 +507,11 @@ static void display(void) {
 	nat length = 3;
 	memcpy(screen, "\033[H", 3);
 
-	const int64_t h = height / 2;
-	const int64_t w = width / 2;
+	for (nat h = 0; h < height; h++) {
+		for (nat w = 0; w < width; w++) {
 
-	for (int64_t i = -h; i < h; i++) {
-		for (int64_t j = -w; j < w; j++) {
-
-			const uint32_t b = dirt;
+			uint32_t b = retina[width * h + w];
+			if (b) b = snow;
 			length += (nat) snprintf(
 				screen + length, 16, "\033[38;5;%dm#\033[0m", color[b]
 			);
@@ -401,7 +523,7 @@ static void display(void) {
 	}
 	length += (nat) snprintf(
 		screen + length, 2048, 
-		"\033[0mdebug: pos(%lf %lf %lf} vel(%lf %lf %lf} str(%lf %lf %lf} for(%lf %lf %lf} right(%lf %lf %lf}", 
+		"\033[0mdebug: pos(%lf %lf %lf} vel(%lf %lf %lf} str(%lf %lf %lf} \033[K\n  for(%lf %lf %lf} top(%lf %lf %lf} right(%lf %lf %lf}", 
 		(double) position.x,
 		(double) position.y,
 		(double) position.z,
@@ -418,6 +540,10 @@ static void display(void) {
 		(double) forward.y,
 		(double) forward.z,
 
+		(double) top.x,
+		(double) top.y,
+		(double) top.z,
+
 		(double) right.x,
 		(double) right.y,
 		(double) right.z
@@ -432,6 +558,10 @@ static void display(void) {
 	fflush(stdout);
 
 	write(1, screen, length);
+
+	return;
+
+
 
 	printf("rays: %llu: {\033[K\n", ray_count);
 	fflush(stdout);
@@ -488,7 +618,7 @@ int main(void) {
 loop:	tick();
 	ray_trace();
 	display();
-	usleep(20000);
+	usleep(10000);
 	ssize_t n = read(0, &c, 1);
 	if (n == 0) goto loop;
 	if (n < 0) { perror("read"); exit(1); }
