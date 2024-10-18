@@ -22,16 +22,16 @@
 
 typedef uint64_t nat;
 
-static const nat side_length = 400;
+static const nat side_length = 10;
 
 enum blocks {
 
 	air,
+	light,
+	player,
 
-	player_facing_up,
-	player_facing_down,
-	player_facing_left,
-	player_facing_right,
+	unused_block1,
+	unused_block2,
 
 	water,
 	steam,
@@ -122,17 +122,33 @@ static int color[block_type_count] = {
 };
 
 struct vec3 { float x, y, z; };
+struct color { float r, b, g; };
+
+struct ray {
+	struct color color;
+	struct vec3 position;
+	struct vec3 direction;
+	float intensity;
+	nat bounces;
+};
 
 static const float camera_sensitivity = 0.005f;
 static const float pi_over_2 = 1.57079632679f;
 static const float camera_accel = 0.09f;
 
 static bool displaying = false;
+
 static nat height = 0;
 static nat width = 0;
 static nat max_length = 0;
+
+static uint32_t* retina = NULL;
 static char* screen = NULL;
+
 static uint32_t* space = NULL;
+static struct ray* rays = NULL;
+static nat ray_count = 0;
+
 static struct winsize window = {0};
 static struct termios terminal = {0};
 
@@ -145,9 +161,6 @@ static struct vec3 straight = {0};
 static struct vec3 top = {0};
 static float yaw = 0;
 static float pitch = 0;
-
-
-
 
 /*
 
@@ -163,8 +176,6 @@ static char* read_file(const char* name) {
 }
 
 */
-
-
 
 static void restore_terminal(void) {
 	tcsetattr(0, TCSAFLUSH, &terminal);
@@ -183,20 +194,19 @@ static void configure_terminal(void) {
 }
 
 static void window_resize_handler(int _) {if(_)_++;
+	if (displaying) return;
 	ioctl(0, TIOCGWINSZ, &window); 
 	height = 13;	//window.ws_row - 10; 
 	width = 33;	//window.ws_col - 20; 
 	max_length = (size_t) (128 * width * height);
-	if (not displaying) screen = realloc(screen, max_length);
+	retina = realloc(retina, width * height * sizeof(uint32_t));
+	screen = realloc(screen, max_length);
 }
 
 static noreturn void interrupt_handler(int _) { if(_)_++;
 	restore_terminal(); 
 	exit(0); 
 }
-
-
-
 
 static inline float inversesqrt(float y) {
 	float x2 = y * 0.5f;
@@ -215,31 +225,156 @@ static inline struct vec3 cross(struct vec3 x, struct vec3 y) {
 	return (struct vec3) { x.y * y.z - y.y * x.z, x.z * y.x - y.z * x.x, x.x * y.y - y.x * x.y };
 }
 
-
-
-
-
-
 static void generate_world(void) {
 	
 	const nat total = side_length * side_length * side_length;
+	const nat s = side_length;
 	space = calloc(total, sizeof(nat));
-	space[0] = snow;
-	space[2] = snow;
-	space[5] = snow;
-	space[12] = snow;
+
+	space[s * s * 4 + s * 3 + 2] = snow;
+	space[s * s * 2 + s * 2 + 2] = snow;
+	space[s * s * 3 + s * 3 + 3] = snow;
+	space[s * s * 5 + s * 5 + 5] = light;
 }
 
 static void tick(void) {
 	
+	const nat s = side_length;
+
+	position.x += velocity.x;
+	position.y += velocity.y;
+	position.z += velocity.z;
+	velocity.x *= 0.96f;
+	velocity.y *= 0.96f;
+	velocity.z *= 0.96f;
+
+	position.x = fmodf(position.x + (float)s, (float)s);
+	position.y = fmodf(position.y + (float)s, (float)s);
+	position.z = fmodf(position.z + (float)s, (float)s);
 }
 
+static void ray_trace(void) {
+
+	const nat s = side_length;
+
+	for (nat x = 0; x < s; x++) {
+		for (nat y = 0; y < s; y++) {
+			for (nat z = 0; z < s; z++) {
+				
+				const uint32_t b = space[s * s * x + s * y + z];
+	
+				if (b != light or rand() % 20) continue; // !
+
+				const float rx = (float) (rand() % 100000);
+				const float dx = rx / 100000.0f;
+
+				const float ry = (float) (rand() % 100000);
+				const float dy = ry / 100000.0f;
+
+				const float rz = (float) (rand() % 100000);
+				const float dz = rz / 100000.0f;
+
+				struct ray new_ray = {
+					.color = {1.0, 1.0, 1.0},
+					.position = {x, y, z},
+					.direction = {dx - 0.5f, dy - 0.5f, dz - 0.5f},
+					.intensity = 1.0,
+					.bounces = 0,
+				};
+
+				/*printf("generated ray  ###{pos={%lf,%lf,%lf},dir={%lf,%lf,%lf},color={%lf,%lf,%lf},intensity=%lf,bounces=%llu}\033[K\n", 
+
+					(double) new_ray.position.x, 
+					(double) new_ray.position.y, 
+					(double) new_ray.position.z, 
+					(double) new_ray.direction.x, 
+					(double) new_ray.direction.y, 
+					(double) new_ray.direction.z, 
+					(double) new_ray.color.r, 
+					(double) new_ray.color.g, 
+					(double) new_ray.color.g, 
+					(double) new_ray.intensity,
+					new_ray.bounces
+				);*/
+				//fflush(stdout);
+				//sleep(1);
+
+				rays = realloc(rays, sizeof(struct ray) * (ray_count + 1));
+				rays[ray_count++] = new_ray;
+				printf("generated rays: %llu\n", ray_count);
+				//usleep(10000);
+			}
+		}
+	}
 
 
 
+	const float factor = 0.1f;
+
+	for (nat i = 0; i < ray_count; i++) {
+		
+		rays[i].position.x += rays[i].direction.x * factor;
+		rays[i].position.y += rays[i].direction.y * factor;
+		rays[i].position.z += rays[i].direction.z * factor;
+
+		if (rays[i].position.x < 0) rays[i].position.x = 0;
+		if (rays[i].position.y < 0) rays[i].position.y = 0;
+		if (rays[i].position.z < 0) rays[i].position.z = 0;
+
+		if (rays[i].position.x > (float)s) rays[i].position.x = (float)s;
+		if (rays[i].position.y > (float)s) rays[i].position.y = (float)s;
+		if (rays[i].position.z > (float)s) rays[i].position.z = (float)s;
+
+		const float fx = rays[i].position.x;
+		const float fy = rays[i].position.y;
+		const float fz = rays[i].position.z;
+		nat x = (nat) fx;
+		nat y = (nat) fy;
+		nat z = (nat) fz;
+		x += s; y += s; z += s;
+		x %= s; y %= s; z %= s;
+		const uint32_t b = space[s * s * x + s * y + z];
+		if (b <= light) continue;
+		const float dx = fx - (float) x;
+		const float dy = fy - (float) y;
+		const float dz = fz - (float) z;
+		const bool cx = dx < 0.5f;
+		const bool cy = dy < 0.5f;
+		const bool cz = dz < 0.5f;
+
+		if (not cx and not cy and not cz) { puts("0 0 0"); fflush(stdout); }
+		if (not cx and not cy and     cz) { puts("0 0 1"); fflush(stdout); }
+		if (not cx and     cy and not cz) { puts("0 1 0"); fflush(stdout); }
+		if (not cx and     cy and     cz) { puts("0 1 1"); fflush(stdout); }
+		if (    cx and not cy and not cz) { puts("1 0 0"); fflush(stdout); }
+		if (    cx and not cy and     cz) { puts("1 0 1"); fflush(stdout); }
+		if (    cx and     cy and not cz) { puts("1 1 0"); fflush(stdout); }
+		if (    cx and     cy and     cz) { puts("1 1 1"); fflush(stdout); }
+		// rays[i].bounces++; // eventually lol 
+	}
 
 
+	
+	for (nat i = 0; i < ray_count; i++) {
 
+		bool outside = false;
+
+		if (rays[i].position.x <= 0.0f) outside = true;
+		if (rays[i].position.y <= 0.0f) outside = true;
+		if (rays[i].position.z <= 0.0f) outside = true;
+
+		if (rays[i].position.x >= (float) s) outside = true;
+		if (rays[i].position.y >= (float) s) outside = true;
+		if (rays[i].position.z >= (float) s) outside = true;
+
+		if (rays[i].bounces > 3 or outside) {
+			printf("deleting a ray...");
+			fflush(stdout);
+			rays[i] = rays[ray_count - 1];
+			ray_count--;
+		}
+	}
+}
 
 
 static void display(void) {
@@ -250,8 +385,10 @@ static void display(void) {
 
 	const int64_t h = height / 2;
 	const int64_t w = width / 2;
+
 	for (int64_t i = -h; i < h; i++) {
 		for (int64_t j = -w; j < w; j++) {
+
 			const uint32_t b = dirt;
 			length += (nat) snprintf(
 				screen + length, 16, "\033[38;5;%dm#\033[0m", color[b]
@@ -263,18 +400,68 @@ static void display(void) {
 		screen[length++] = 10;
 	}
 	length += (nat) snprintf(
-		screen + length, 128, 
-		"\033[0mdebug: facing %u {x=%llu y=%llu} ", 
-		0, 0LLU, 0LLU
+		screen + length, 2048, 
+		"\033[0mdebug: pos(%lf %lf %lf} vel(%lf %lf %lf} str(%lf %lf %lf} for(%lf %lf %lf} right(%lf %lf %lf}", 
+		(double) position.x,
+		(double) position.y,
+		(double) position.z,
+
+		(double) velocity.x,
+		(double) velocity.y,
+		(double) velocity.z,
+
+		(double) straight.x,
+		(double) straight.y,
+		(double) straight.z,
+
+		(double) forward.x,
+		(double) forward.y,
+		(double) forward.z,
+
+		(double) right.x,
+		(double) right.y,
+		(double) right.z
 	);
+
 	screen[length++] = 033;
 	screen[length++] = '[';
 	screen[length++] = 'K';
 	screen[length++] = 10;
+
+	printf("\033[H\033[2J");
+	fflush(stdout);
+
 	write(1, screen, length);
+
+	printf("rays: %llu: {\033[K\n", ray_count);
+	fflush(stdout);
+
+	for (nat i = 0; i < ray_count; i++) {
+
+		printf("ray{pos={%lf,%lf,%lf},dir={%lf,%lf,%lf},color={%lf,%lf,%lf},intensity=%lf,bounces=%llu}\033[K\n", 
+
+			(double) rays[i].position.x, 
+			(double) rays[i].position.y, 
+			(double) rays[i].position.z, 
+
+			(double) rays[i].direction.x, 
+			(double) rays[i].direction.y, 
+			(double) rays[i].direction.z, 
+
+			(double) rays[i].color.r, 
+			(double) rays[i].color.g, 
+			(double) rays[i].color.g, 
+
+			(double) rays[i].intensity,
+
+			rays[i].bounces
+		);
+		fflush(stdout);
+	}
+	puts("}\033[K");
+	fflush(stdout);
 	displaying = false;
 }
-
 
 int main(void) {
 	srand((unsigned) time(0));
@@ -284,7 +471,6 @@ int main(void) {
 	struct sigaction action2 = {.sa_handler = interrupt_handler}; 
 	sigaction(SIGINT, &action2, NULL);
 	configure_terminal();
-
 
 	position = (struct vec3) {1, 5, 4};
 	velocity = (struct vec3) {0, 0, 0};
@@ -298,7 +484,9 @@ int main(void) {
 
 	char c = 0;
 	generate_world();
+
 loop:	tick();
+	ray_trace();
 	display();
 	usleep(20000);
 	ssize_t n = read(0, &c, 1);
