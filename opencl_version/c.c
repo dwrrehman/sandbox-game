@@ -245,12 +245,12 @@ static char* read_file(const char* name) {
 
 int main(void) {
 	srand(42); //srand((unsigned)time(NULL));
-	const int s = 500;
+	const int s = 100;
 	const int space_count = s * s * s;
 	int8_t* space = calloc(space_count, 1);
 
 	const int modulus = 10;
-	const int density = 400;
+	const int density = 40;
 
 	for (int i = 0; i < space_count; i++) 
 		space[i] = rand() % density == 0 ? rand() % modulus : 0;

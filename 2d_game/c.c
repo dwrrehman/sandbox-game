@@ -5,11 +5,6 @@
 
 
 
-
-
-
-
-
 /*
 
 1202410152.011226
@@ -17,14 +12,8 @@
 
 	now we just need to add terrain generation, and then its basically playable
 	oh and then we need to add the ability to save a world. 
-
-
 	and thennn we can make things multiplayer, i think. yayyyy
-
 	and then at that point, we'll add npc's yay. 
-
-
-
 
 */
 
@@ -240,7 +229,7 @@ static void configure_terminal(void) {
 
 static void window_resize_handler(int _) {if(_)_++;
 	ioctl(0, TIOCGWINSZ, &window); 
-	height = window.ws_row - 2; 
+	height = window.ws_row - 1; 
 	width = window.ws_col - 2; 
 	max_length = (size_t) (128 * width * height);
 	if (not displaying) screen = realloc(screen, max_length);
@@ -293,11 +282,11 @@ static void display(void) {
 		screen[length++] = 10;
 	}
 
-	length += (nat) snprintf(
+	/*length += (nat) snprintf(
 		screen + length, 128, 
 		"\033[0mdebug: facing %u {x=%llu y=%llu} ", 
 		facing, player_x, player_y
-	);
+	);*/
 	screen[length++] = 033;
 	screen[length++] = '[';
 	screen[length++] = 'K';
@@ -329,6 +318,8 @@ static void generate_world(void) {
 	}
 
 	for (uint32_t i = 0; i < block_type_count; i++) space[i] = i;
+
+	
 }
 
 static void tick(void) {

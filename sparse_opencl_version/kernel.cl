@@ -26,27 +26,26 @@ __kernel void compute_pixel(
 	dir += right * st_x;
 	dir += top * st_y;
 	dir = fast_normalize(dir);
+
 	unsigned short a = 0xFF;
 	unsigned short r = 0x00;
 	unsigned short b = 0x00;
 	unsigned short g = 0x00;
 	const unsigned int unit_count = (int) (space[0] * 4);
-	//const float radius_squared = 1.0;
 
 	for (unsigned int n = 0; n < unit_count; n += 4) {
-		//const unsigned long block_c = space[n + 1];
+		const unsigned long block_c = space[n + 1];
 		const float block_x = space[n + 2];
 		const float block_y = space[n + 3];
 		const float block_z = space[n + 4];
 		float3 center = (float3) (block_x, block_y, block_z);
 		float dist = fast_distance(position, center);
-		//float rhs = dist * dist - radius_squared;
 		float mydot = dot(dir, position - center);
-		//float lhs = mydot * mydot;
 		if (mydot * mydot >= (dist * dist - 1) && mydot < 0) {
-			r = 0xFF;
-			g = 0xFF;
-			b = 0x00;
+			if (block_c == 0) { r = 0xFF; g = 0x00; b = 0xFF; }
+			if (block_c == 1) { r = 0x00; g = 0xFF; b = 0xFF; }
+			else { r = 0xFF; g = 0xFF; b = 0xFF; }
+
 			break;
 		}
 	}

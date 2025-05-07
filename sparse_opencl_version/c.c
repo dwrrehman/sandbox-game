@@ -244,15 +244,15 @@ static char* read_file(const char* name) {
 }
 
 int main(void) {
-	static const int max_unit_count = 1000;
-	const nat generate_count = 1000;
-	const nat side_length = 2000;
+	static const int max_unit_count = 13;
+	const nat generate_count = 13;
+	const nat side_length = 20;
 	srand(42);
 
 	nat unit_count = 0;
 	nat* space = calloc(4 * max_unit_count + 1, sizeof(nat));
 	for (nat i = 0; i < generate_count; i++) {
-		space[1 + 4 * unit_count + 0] = rand() % side_length;
+		space[1 + 4 * unit_count + 0] = rand() % 4;
 		space[1 + 4 * unit_count + 1] = rand() % side_length;
 		space[1 + 4 * unit_count + 2] = rand() % side_length;
 		space[1 + 4 * unit_count + 3] = rand() % side_length;
