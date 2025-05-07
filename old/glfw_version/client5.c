@@ -1,3 +1,5 @@
+client 5 
+
 // C client for the sandbox game, using GLFW3 and openGL.
 
 #include <iso646.h>
@@ -10,50 +12,76 @@
 #include <math.h>
 #include <assert.h>
 #include <time.h>
-
 #define GLFW_INCLUDE_GLCOREARB
 #include <GLFW/glfw3.h>
-
 #include "atlas.h"
 #include "glad/glad.h"
-
-// temporary:
-
-static uint32_t err = 0;
-#define cc	do { err = glGetError(); if (err != GL_NO_ERROR) { printf("%s: line%u: err%u\n", __FILE__, __LINE__, err);  exit(1); } } while(0);
+typedef uint64_t nat;
 
 static const float fovy = 1.22173f /*radians*/;
 static const float znear = 0.01f;
 static const float zfar = 1000.0f;
 static const float camera_sensitivity = 0.005f;
 static const float camera_accel = 0.00001f;
-// static const int32_t ms_delay_per_frame = 8;
+
+enum blocks {
+	air_block,
+	grass_block,
+	dirt_block,
+	stone_block,
+	granite_block,
+	wood_block,
+	leaves_block,
+	water_block,
+	moss_block,
+	iron_ore_block,
+	off_cell_block,
+	on_cell_block,
+	off_path_block,
+	on_path_block,
+	glass_block,
+	block_count,
+};
+
+static int seed = 42;
+
+static int hash[] = {
+	208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247,247,40,
+	185,248,251,245,28,124,204,204,76,36,1,107,28,234,163,202,224,245,128,167,204,
+	9,92,217,54,239,174,173,102,193,189,190,121,100,108,167,44,43,77,180,204,8,81,
+	70,223,11,38,24,254,210,210,177,32,81,195,243,125,8,169,112,32,97,53,195,13,
+	203,9,47,104,125,117,114,124,165,203,181,235,193,206,70,180,174,0,167,181,41,
+	164,30,116,127,198,245,146,87,224,149,206,57,4,192,210,65,210,129,240,178,105,
+	228,108,245,148,140,40,35,195,38,58,65,207,215,253,65,85,208,76,62,3,237,55,89,
+	232,50,217,64,244,157,199,121,252,90,17,212,203,149,152,140,187,234,177,73,174,
+	193,100,192,143,97,53,145,135,19,103,13,90,135,151,199,91,239,247,33,39,145,
+	101,120,99,3,186,86,99,41,237,203,111,79,220,135,158,42,30,154,120,67,87,167,
+	135,176,183,191,253,115,184,21,233,58,129,233,142,39,128,211,118,137,139,255,
+	114,20,218,113,154,27,127,246,250,1,8,198,250,209,92,222,173,21,88,102,219
+};
+
+static uint32_t err = 0;
+#define cc	do { err = glGetError(); if (err != GL_NO_ERROR) { printf("%s: line%u: err%u\n", __FILE__, __LINE__, err);  exit(1); } } while(0);
 
 struct vec3 {float x,y,z;};
 typedef float* mat4;
-
 static float view_matrix[16] = {0};
 static float perspective_matrix[16] = {0};
 static float matrix[16] = {0};
 static float copy[16] = {0};
 static double lastx = 0, lasty = 0;
 static bool first = true;
-
 static int window_width = 1280;
 static int window_height = 720;
 static float aspect = 1280.0f / 720.0f;
-
 static float delta = 0.0; 
 static float pitch = 0.0f, yaw = 0.0f;
-
 static struct vec3 position = {20, 25, 20};
 static struct vec3 velocity = {0, 0, 0};
-
 static struct vec3 forward = 	{0, 0, -1};
 static struct vec3 straight = 	{0, 0, 1};
 static struct vec3 up = 	{0, 1, 0};
 static struct vec3 right = 	{-1, 0, 0};
-
 static const char* vertex_shader_code = "        			\n\
 #version 330 core							\n\
 									\n\
@@ -207,22 +235,7 @@ static void mouse_button_callback(__attribute__((unused)) GLFWwindow* window, in
 		puts("left mouse button clicked!!");
 }
 
-static int seed = 42;
 
-static int hash[] = {
-	208,34,231,213,32,248,233,56,161,78,24,140,71,48,140,254,245,255,247,247,40,
-	185,248,251,245,28,124,204,204,76,36,1,107,28,234,163,202,224,245,128,167,204,
-	9,92,217,54,239,174,173,102,193,189,190,121,100,108,167,44,43,77,180,204,8,81,
-	70,223,11,38,24,254,210,210,177,32,81,195,243,125,8,169,112,32,97,53,195,13,
-	203,9,47,104,125,117,114,124,165,203,181,235,193,206,70,180,174,0,167,181,41,
-	164,30,116,127,198,245,146,87,224,149,206,57,4,192,210,65,210,129,240,178,105,
-	228,108,245,148,140,40,35,195,38,58,65,207,215,253,65,85,208,76,62,3,237,55,89,
-	232,50,217,64,244,157,199,121,252,90,17,212,203,149,152,140,187,234,177,73,174,
-	193,100,192,143,97,53,145,135,19,103,13,90,135,151,199,91,239,247,33,39,145,
-	101,120,99,3,186,86,99,41,237,203,111,79,220,135,158,42,30,154,120,67,87,167,
-	135,176,183,191,253,115,184,21,233,58,129,233,142,39,128,211,118,137,139,255,
-	114,20,218,113,154,27,127,246,250,1,8,198,250,209,92,222,173,21,88,102,219
-};
 
 static int noise2(int x, int y) {
     int tmp = hash[(y + seed) % 256];
@@ -398,26 +411,6 @@ int main(void) {
 	);cc;
 
 
-enum blocks {
-	air_block,
-	grass_block,
-	dirt_block,
-	stone_block,
-	granite_block,
-	wood_block,
-	leaves_block,
-	water_block,
-	moss_block,
-	iron_ore_block,
-	off_cell_block,
-	on_cell_block,
-	off_path_block,
-	on_path_block,
-	glass_block,
-	block_count,
-};
-
-
 #define at(x,y,z)  space[s * s * (x) + s * (y) + (y)]
 
 /*	const int s = 200;
@@ -536,6 +529,98 @@ enum blocks {
 	unsigned short right_x[256] 	= {1,0,3,4,5,6,7,2,3,4,5,6,7,1};
 	unsigned short right_y[256] 	= {0,0,0,0,0,0,0,1,1,1,1,1,1,1};
 
+
+
+	for (int x = 0; x < s; x++) {
+		for (int y = 0; y < s; y++) {
+			for (int z = 0; z < s; z++) {
+
+				int8_t block = space[s * s * x + s * y + z];
+				if (not block) continue;
+
+				block--;
+				
+				const float e = 1.0 / 8.0;
+				const float _ = 0;
+
+				if (not z or not space[s * s * (x) + s * (y) + (z - 1)]) { 
+					// LEFT
+					const float ut = e * left_x[block];
+					const float vt = e * left_y[block];
+					push_vertex(0,0,0, ut+e,vt+e);
+					push_vertex(0,1,0, ut+e,vt+_);
+					push_vertex(1,0,0, ut+_,vt+e);
+					push_vertex(1,1,0, ut+_,vt+_);
+					push_vertex(1,0,0, ut+_,vt+e);
+					push_vertex(0,1,0, ut+e,vt+_);
+				}
+
+				if (z >= s - 1 or not space[s * s * (x) + s * (y) + (z + 1)]) {
+					//RIGHT
+					const float ut = e * right_x[block];
+					const float vt = e * right_y[block];
+					push_vertex(0,0,1, ut+e,vt+e);
+					push_vertex(1,0,1, ut+_,vt+e);
+					push_vertex(0,1,1, ut+e,vt+_);
+					push_vertex(1,1,1, ut+_,vt+_);
+					push_vertex(0,1,1, ut+e,vt+_);
+					push_vertex(1,0,1, ut+_,vt+e);
+				} 
+
+				if (x >= s - 1 or not space[s * s * (x + 1) + s * (y) + (z)]) {
+					// BACK
+					const float ut = e * back_x[block];
+					const float vt = e * back_y[block];
+					push_vertex(1,1,1, ut+e,vt+_); // back top right
+					push_vertex(1,0,0, ut+_,vt+e); // back bottom left
+					push_vertex(1,1,0, ut+_,vt+_); // back bottom right
+					push_vertex(1,1,1, ut+e,vt+_); // back top right
+					push_vertex(1,0,1, ut+e,vt+e); // back top left
+					push_vertex(1,0,0, ut+_,vt+e); // back bottom left
+				}
+
+				if (not x or not space[s * s * (x - 1) + s * (y) + (z)]) {
+					// FRONT
+					const float ut = e * front_x[block];
+					const float vt = e * front_y[block];
+					push_vertex(0,1,1, ut+_,vt+_); //top right
+					push_vertex(0,1,0, ut+e,vt+_); //bottom right
+					push_vertex(0,0,0, ut+e,vt+e); //bottom left
+					push_vertex(0,1,1, ut+_,vt+_); //top right
+					push_vertex(0,0,0, ut+e,vt+e); //bottom left
+					push_vertex(0,0,1, ut+_,vt+e); //top left
+				}
+
+				if (not y or not space[s * s * (x) + s * (y - 1) + (z)]) {
+					// DOWN
+					const float ut = e * down_x[block];
+					const float vt = e * down_y[block];
+					push_vertex(1,0,1, ut+_,vt+_);
+					push_vertex(0,0,1, ut+_,vt+e);
+					push_vertex(1,0,0, ut+e,vt+_);
+					push_vertex(0,0,0, ut+e,vt+e);
+					push_vertex(1,0,0, ut+e,vt+_);
+					push_vertex(0,0,1, ut+_,vt+e);
+				}
+
+				if (y >= s - 1 or not space[s * s * (x) + s * (y + 1) + (z)]) {
+					// UP
+					const float ut = e * up_x[block];
+					const float vt = e * up_y[block];
+					push_vertex(1,1,1, ut+_,vt+_);
+					push_vertex(1,1,0, ut+_,vt+e);
+					push_vertex(0,1,1, ut+e,vt+_);
+					push_vertex(0,1,0, ut+e,vt+e);
+					push_vertex(0,1,1, ut+e,vt+_);
+					push_vertex(1,1,0, ut+_,vt+e);
+				}
+			}
+		}
+	}
+
+
+
+/*
 	for (int x = 0; x < s; x++) {
 		for (int y = 0; y < s; y++) {
 			for (int z = 0; z < s; z++) {
@@ -621,6 +706,12 @@ enum blocks {
 			}
 		}
 	}
+*/
+
+
+
+
+
 	GLuint vertex_array_buffer;
 	glGenBuffers(1, &vertex_array_buffer);cc;
 	glBindBuffer(GL_ARRAY_BUFFER, vertex_array_buffer);cc;
@@ -628,8 +719,6 @@ enum blocks {
 	glEnableVertexAttribArray(0);cc;
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));cc;
 	glEnableVertexAttribArray(1);cc;
-	
-	// const float jump_accel = 0.0001f;
 
 	while (not glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -721,19 +810,12 @@ enum blocks {
 		position.y += velocity.y; 
 		position.z += velocity.z;
 
-
-
-
-
 		if (position.x < 0) position.x = 0;
 		if (position.y < 0) position.y = 0;
 		if (position.z < 0) position.z = 0;
 		if (position.x >= s) position.x = (float)s - 0.01f;
 		if (position.y >= s) position.y = (float)s - 0.01f;
 		if (position.z >= s) position.z = (float)s - 0.01f;
-	
-
-
 
 		const clock_t end_time = clock();
 		delta = (float) (end_time - begin_time);
