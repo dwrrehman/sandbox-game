@@ -1,0 +1,845 @@
+commit 96efb5eee688dc0c201ddd54544597ab8c9e05fb
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Fri May 22 01:59:13 2026 -0700
+
+    completely overhaul the directory structure of the entire repo, sorting files by type instead of by project and sub directories, there are many duplicate files, but i can sort those out by using a deduplication utility for text files that i wrote. a lot of the build files arent too important too, and i tried to make sure i didnt lose any data lol. so hypothetically everythings there still, in those files. archiving this repository, as its quite big. game development will continue in the relational-sandbox-game git repository, instead, as its just cleaner. see ya there. yayyyy
+
+commit e307152fe5f938c05b1b673fa7b5eb3848a486e4
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed May 7 03:34:52 2025 -0700
+
+    add the current glfw working version of the code, and put it in the voxel game dir. gunna finish collision detection sooon lol.
+
+commit d5b418533d704e16eb16b931327669315cd10b89
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed May 7 02:32:26 2025 -0700
+
+    add the current code
+
+commit 8574a17f674aefeea7d93dc2a6a30ec68aa29237
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed May 7 01:41:43 2025 -0700
+
+    add some changes that are small to the game, not much, im thinking of redoing the entire way we are making the universe lol
+
+commit 41681bd787e5eb96ce204326c11b1a48dc7815e0
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Thu Oct 24 01:21:00 2024 -0700
+
+    push the current shell editor code, which i based off of the opencl game lol. kinda. ended up not being too similar lol.
+
+commit 02c589459ddebdc1cf1b0d1fcb63fe0a3c7b34bf
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Thu Oct 17 23:46:02 2024 -0700
+
+    push the rendering code, still a work in progress, but we have raytracing happening, we just need to make the traces persistent lol
+
+commit 2c67735f1423e80a8de27404ae58dfa2aa5f1c03
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Thu Oct 17 22:36:07 2024 -0700
+
+    push thecode
+
+commit 9600842fae72aa77ada660336edc413687e038e6
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Thu Oct 17 19:59:49 2024 -0700
+
+    add the 3d terminal game start for the code. i think i am going to try to do object first raytracing in order to do rendering, i think. well see how it works out. should be pretty cool lol, gunna spread out computation over frames lol
+
+commit a7c42ba786565f8a9782371ea633ad1d991bd919
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Thu Oct 17 01:48:26 2024 -0700
+
+    push the start of the terminal 3d game that we are going to make. i think this one should be quite useful actually, and easier in general than dealing with so many pixels lol
+
+commit c41aac0572420e0b8b540e7b38663248fcdc505e
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Thu Oct 17 01:15:51 2024 -0700
+
+    add the previous versions of this game to the repo, i am thinking of making a 3d game in the terinmal, using braile characters, possibly. not sure. well see.
+
+commit c47bfba99b21efc5e7f723fce75c2bc5abc6c178
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue Oct 15 01:14:15 2024 -0700
+
+    fix some bugs with the moving and hand system, and also sketch the next couple of things we are going to implement. multiplayer is coming soon, which is fun lol. yay
+
+commit b45e64df0c054109edcbe13da41b2be2f25c409d
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue Oct 15 01:00:33 2024 -0700
+
+    add block picking up and placing down in the game, and also add the basic sketch of the block palette lol.
+
+commit 52b406351f843c787166e7e707dee22043d6fcb5
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Thu Oct 10 01:43:09 2024 -0700
+
+    add the todo list or the 2d game
+
+commit 3c8ab97c6cac0584111efdf84b3e32ed24bdbc1a
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Thu Oct 10 01:36:12 2024 -0700
+
+    add the 2d game, as an experiment in getting the multiplyer system to work. the base game is actually fairly playable already, in single player lol. next step is to add intelligent npcs, and then multiplayer too yay
+
+commit 2f1879c1fded208a2ac70fea808fc6e51493b6e9
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Mon Sep 9 17:58:08 2024 -0700
+
+    OMG it WORKED FIRST TRYYYYY i redid the whole rendering system to not use dda and a voxel grid that stores all blocks including zeros, but instead is a sparse voxel grid that only stores the locations of the nonzero blocks. and also they look like spheres but thats a small price to pay lol. ignore that lololol
+
+commit 0dc31d44ceb847cb87a81b14789791c7c756cd8c
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sat Jul 20 21:29:34 2024 -0700
+
+    make it so that you can detach the mouse aka pause the client easier, kinda. man this thing is really fun to play already and its just a bunch of cubes and flying around lol
+
+commit 52a36dc01e377a85ab8ea356ff2e793d9fd33403
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sat Jul 20 21:15:50 2024 -0700
+
+    implement the dda algorithm, just about perfectly which cause the frames per second to jump up to about 30 or 40 frames for most scenes, and 20 frames on really complex ones yayyyyyyy this thing is basically usable now, if we wanted to stop here in terms of performance, we could, i think. wow lol. nice. only like less than 1000 lines of code too lol.
+
+commit ed7c1080c1d027a3b59f5e688136aff938fcc70e
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Fri Jul 19 20:51:16 2024 -0700
+
+    add transparency to the game, i am going to try to implement dda next, just to get a basic raycasting method that isnt terrible in place lol. next will be optimizing the whole pipeline so that its as optimal as possible in terms of memory usage, and computation time per ray.
+
+commit 183c52b64fdebeeb6aedce35aa40f6dffba769a0
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Fri Jul 19 18:58:26 2024 -0700
+
+    add the opencl functionality for the rendering pipeline. its actually so good, we can render insane scenes already, and we havent even started doing the serious voxel optimizations lol. WOW. this is going to be insane once its doneeeee
+
+commit 1dd01c0358822a5c1e44399e681ee7164ef00fe6
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Fri Jul 19 13:52:36 2024 -0700
+
+    add the in the opencl machinery to the 3d game.
+
+commit 308063d86d576d874ee02e577a1e8d5a5ed2b3af
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed Jul 17 23:26:24 2024 -0700
+
+    start the proces of implementing the dda raycasting algorithm, to improve performance so that we can run this in debug build mode always lol. our efficiency should allow us to do that always, no matter the scene.
+
+commit e3b43796c4bd9455cf9b612aa69f8a626bc97f7f
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed Jul 17 22:55:43 2024 -0700
+
+    allow the camera to move now, and get colored cubes rendering quite well actually. still doign all of this using only a single cpu core, eventually we want to try to move all of this computation to multiple threads, and the gpu as well, using opencl. so yeah, that will be fun lol. yay.
+
+commit 514ec7bef63cf52e81c02883435b60b735217d32
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Fri Jul 5 23:28:01 2024 -0700
+
+    got the basic raycasting algorithm implmented yayyyyyyy it works pretty well actually, to the point where its actually making me think.. what if figured out some way of rendering voxels that was so efficient it could be done cpu side....hm....
+
+commit 1c249a88b2e5a0313e804488ea833634d1fa9033
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Fri Jul 5 21:12:42 2024 -0700
+
+    push the current opencl version, i am going to try to do some basic cpu raycasting at first, then eventually push this computation on to the gpu, i think. well see how that goes using opencl.
+
+commit 169d692488948f0d6f0be5f83539d82bbc9ee573
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed Jul 3 22:37:50 2024 -0700
+
+    i think i found the graphics rendering solution that i am going to use, basically, we are going to use sdl2s surface from the window to write directly to the frame buffer, and then we are going to use opencl to get general purpose access to the gpu, basically. so yeah. that should be enough machinery for us to do raycasting to make a voxel engine lol. well see
+
+commit 15de2720e497dcae11b9e7370121fc44d5a52db4
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed Jul 3 20:56:15 2024 -0700
+
+    push the current new revision of the client to make it not use metal, but opencl instead, i think. not quite sure, im playing around with many things at the moment to see what would be best for the client lol.
+
+commit 6e91ab19ed31b7a51b85949ca65c5e0f0e413777
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed Jul 3 02:01:52 2024 -0700
+
+    start the process of figuring out how to render voxels via raycasting in metal... i think it uses the fragment shader and casts one ray per pixel.. i thinkkk
+
+commit e874dd34e0f906f343c70305fa57bff754abb08e
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed Jul 3 01:36:02 2024 -0700
+
+    set up the build file for automatic forming of the metal tool, and move the glfw version into the old directory.
+
+commit 006a74917e93750c97ef1148523a538fb921ee95
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed Jul 3 01:29:32 2024 -0700
+
+    push the current tools directory for the voxel metal based client
+
+commit 198d72d7f3b5bd1000ec711f036c00f2f08ef926
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sat Jun 22 17:30:24 2024 -0700
+
+    add a riscv machine build file, as strdup wasnt in clang for some reason, and also change the ip to match things
+
+commit bfc8aeff8f51cbfa9c8eaeb7176d3626002fbbbe
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sat Jun 15 14:23:24 2024 -0700
+
+    started the server, things are going well, but its super involved so far and definitely still a major work in progress. but yeah, its coming along. i dont know if i should have made it multithreaded at its core, but i think its the right call. i thinkkkk not sure though.. hm.
+
+commit 146be099a13f169b6f7498b8c9186d999a0b4340
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sat Jun 15 02:13:44 2024 -0700
+
+    figured out UDP ipv6 networking, basically. i realized i have to do the server and client now, because the player position is caluclated server side, but updated client side, and im not having collision dectection on client as much. trying this out.
+
+commit 4cc6ae92cff33d7d22d203d8501929b2fd17315c
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Fri Jun 7 18:51:09 2024 -0700
+
+    change the build system slightly
+
+commit 0d11c62bd7682ebb8ea9a02381fde4ac60dc366e
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Thu May 16 00:32:41 2024 -0700
+
+    take another stab at collision detection, its almosttttt working now. its still pretty finicky, but getting there. after that, ill do breaking and placing blocks, and then terrain generation and the health system probably. yayyyyyy
+
+commit f01b66aa88fddcf9bd12319c682b697d9d605f93
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed May 15 18:57:28 2024 -0700
+
+    move the ray lib code to its own directory.
+
+commit 29a8afe86678375b671803bab449f9bee4b7aee4
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed May 15 16:04:47 2024 -0700
+
+    make the raylib and glfw versions in sync i think.
+
+commit c2eaaf8c8256ed08b2dbc753b66220db9722669e
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed May 15 15:28:16 2024 -0700
+
+    make a new version for my friend of the game using raylib, and mesh generation.
+
+commit e56ff9583f45d245d71a769c55674dc2179576a2
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue May 14 22:24:08 2024 -0700
+
+    removed the collision detection code because i was doing it slightly wrong, and im also trying to work on linux support right now, and not having much success lol. getting there though.
+
+commit f869bf2cf55b4ab3e08da209bc03944488ad8008
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue May 14 18:19:32 2024 -0700
+
+    push the current code with terrrain generationa nd collision dettection
+
+commit 5976e2bf9dc970bf2da2d7445e7d2df041d0e221
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue May 14 14:47:16 2024 -0700
+
+    add 15 more blocks with the correct rendering on them too yayyyyyyy
+
+commit fc9e30e679887cf22e3f20c5b799d66787781201
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue May 14 13:51:53 2024 -0700
+
+    got multiple blocks working, and fixed rendering of the front and back block faces.
+
+commit c06bba64fa4e62e62d65ea43a4c918a5d7cffc5b
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue May 14 04:12:13 2024 -0700
+
+    I GOT IT WORKING FINALLYYYYYY i got textured multiple cubes rendering properlyyyyyy omgggg this took wayyyy too long. holy crap
+
+commit 730df89ffd508f4b852041d232c7a0e2437eaa15
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue May 14 03:00:51 2024 -0700
+
+    push the current code for the client
+
+commit 6f0c54c68247402d4c1f5742e7ea27507fc57634
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue May 14 00:54:26 2024 -0700
+
+    push the current glfw version of the code. its coming along well, gunna start cube rendering again from scratch, to try to debug why textures isnt working. we are using opengl 4.1 now though.
+
+commit 182ec7c70fd1d460a1f61a34cf040eb8a5b86c70
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Mon May 13 21:27:08 2024 -0700
+
+    okay turns out metal sucks to use, and would only work on mac anyways. we are gunna switch to raylib, until we find that its not fast enough lol. already have a working raylib example that renders 3d stuff, so yeah, this is going to be like 10000000 percent easier now lololol
+
+commit bd372051ed8b68e7db238984988276f583fcf509
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Mon May 13 20:38:51 2024 -0700
+
+    push the new Metal graphics api version of the game, still a work in progress. had to remove the tools directory to get this thing to push finally to git lol.
+
+commit d6c8ae7c270b1391da11602d615a739a7ee70bde
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Fri Mar 29 02:58:03 2024 -0700
+
+    finallyyyyy added textures to the game. still trying to get the texture atlas working, but its pretty close yayyyyy.
+
+commit edb4cc3ac309bd266b07e2330f8fc1e99e0fac29
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sun Dec 5 11:11:29 2021 -0800
+
+    clean up the code a ton, and make it more polished, preparing to add the player pretty soon.
+
+commit 974ab841a594407241570453cc77d64642a183d3
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue Nov 30 17:33:55 2021 -0800
+
+    add some code for the ray casting, add a todo list, and also revert back to using a single matrix, and clacuating it cpu side, because its better.
+
+commit 93834363923c83eb4f2d59a6b02cc2ce05f93744
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sun Nov 28 13:22:32 2021 -0800
+
+    add the cube renderer, although its horribly unoptimized.
+
+commit 31e93605847e76ef5f07603bde778ec35519776b
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sun Nov 28 00:57:25 2021 -0800
+
+    clean up the code and fix some stupid stuff in the rendering code and data structures.
+
+commit 5feace071d28f196007cc0e0d8485fda5c2692d8
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sun Nov 28 00:19:10 2021 -0800
+
+    get rendering of a partial cube working, as well as camera movement, and other rendering things worked out. slowly coming together.
+
+commit 3807252379feb0abadc4ee2981c77eb6dcc24366
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed Nov 24 18:30:36 2021 -0800
+
+    add exmaple of lighting from the internet, for reference.
+
+commit 9d5755dddcfabab2f3bd6403b8172736c915578c
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed Nov 24 17:53:53 2021 -0800
+
+    get camera view and perspective working. now to add indexing to the verticies, and add a cube renderer.
+
+commit 6af5343ae80eba821ac64b22584a861e10da306b
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue Nov 23 17:10:59 2021 -0800
+
+    remake the client of the game to be 3d, and voxel based. making a better version of minecraft, as opposed to our end goal, for right now.
+
+commit 488399ea54bc7c540413260d4bfa1a896e7e583f
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Jul 9 20:26:34 2021 -0700
+
+    push the new server code, and slightly tweaked client code.
+
+commit 09302105c5c6bf4b9b929be5508935f510db72db
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Wed Jul 7 19:03:32 2021 -0700
+
+    add git ignore.
+
+commit b00a19bf64fbdadad21030d6e955fa1019be3d39
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Wed Jul 7 19:00:56 2021 -0700
+
+    make the game build again.
+
+commit 121cc89ea72eb7bb2cfc64fd55c0a6bc52cc481a
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Tue Jun 22 11:55:23 2021 -0700
+
+    add a bunch of key presses to the client code.
+
+commit 1ca37ff2c5ea6877df397ef0225ba939ea094464
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Tue Jun 22 11:50:23 2021 -0700
+
+    make a respawn button, to go back to 0 0.
+
+commit f38f9838436957f3736ee6d647ff16209a327303
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Tue Jun 22 10:47:40 2021 -0700
+
+    add debug mode to the server code. test out the save functionality. everything works great.
+
+commit f46ab8815046edc3bb13b23b4f6d66dbccbc3180
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Tue Jun 22 10:37:09 2021 -0700
+
+    add the new server and client code with several fixed bugs and the ability to save a world.
+
+commit 79ed30b701fdcc0e0152ce8962b3605b4594df8c
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Mon Jun 21 21:21:22 2021 -0700
+
+    make some small changes to the server and client code.
+
+commit a0209b2eabbea5f03e87e52ecf4f9deb36efe788
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Mon Jun 21 20:23:16 2021 -0700
+
+    make the client and server simpler, by removing all threading. we dont need it.
+
+commit 0fc8a3bdd2a2fbd147c90b2dd059551151167ae3
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 21 14:58:20 2021 -0700
+
+    fix a tiny little bug.
+
+commit 4e5d6fe2e76fa87b3502e85e8eb66f09fd1bcdc9
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 21 14:54:27 2021 -0700
+
+    push the code to do a multi client test.
+
+commit 671c633d37a9e965be3f583e1278f526a590a3df
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Mon Jun 21 14:26:25 2021 -0700
+
+    make the game send a ten by ten display packet, and have the player move around in it and place blocks. works really well.
+
+commit c26d2d32d33c7d4252f8b152e09da73f2d2aaa2f
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 21 11:26:45 2021 -0700
+
+    add the new rendering code, aand try to figure out how to seend a frame image over the network..
+
+commit 8c94cfc44c8067f3144f936b9e7f8bc1c0337273
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Sun Jun 20 21:58:00 2021 -0700
+
+    remove comments and simplify greatly the client and server.
+
+commit 6ef15bda893e1e008fcfda7debd036a4a3ed7d93
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sun Jun 20 17:00:41 2021 -0700
+
+    make the usage of the server more easy and have a defualt port.
+
+commit 05edbc601ac14d799c4171ec09e793ccd98bb747
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Sun Jun 20 16:57:09 2021 -0700
+
+    start to form the actual networking architecture of the game. server only sends display packets, and client only sends movement commands. basically.
+
+commit 32041e6e1bd514f1f1d7b96251a38c84796d3d83
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Sun Jun 20 14:59:13 2021 -0700
+
+    push the little change i made to the source.
+
+commit 498c02fa23ba22d07b302c9d6a1f9bce4545d93c
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Tue Jun 15 09:40:52 2021 -0700
+
+    make the client use sdl2 again in order to display and get keyboard input.
+
+commit 3cc6eb63d2417b56296df9a2af6304c9bc4784c0
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 14 23:33:18 2021 -0700
+
+    make the server and client code alot more cleaner, and determine the language of commands that will be used.
+
+commit 988f98ffe3b112dc7a642e31f749e8a8388d47de
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 14 22:58:10 2021 -0700
+
+    make the client and server receive command line arguments for the connections parameters.
+
+commit 5f1a5f0587fc58be158eb652570c64d500365951
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 14 22:41:19 2021 -0700
+
+    refactor the udp server so that it actually works with multiple connections, without having one thread per connection. they are all just multiplexed onto the same read call.
+
+commit bb97d81847c645798093b5a460d1cfc3b5a09f09
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 7 22:01:35 2021 -0700
+
+    simplify the handshake for the udp connection code.
+
+commit 1c18b3c46e1ac55b4620c0d04e92a6b91e44ef04
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 7 21:45:30 2021 -0700
+
+    fix the problem, we can only have one fd.
+
+commit cd13599fa3a3153fa40eadb39f4b1cfb94fb7f8d
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 7 21:35:23 2021 -0700
+
+    add back in the reuse port and aaddress code.
+
+commit d196208af25da39ee10f8550c87f66ac91c5f0c1
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 7 21:32:16 2021 -0700
+
+    build clean.
+
+commit 3d34c7000ea19fd8ffdc8399819295bfedcfac4d
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 7 21:32:00 2021 -0700
+
+    make the connection client handler make a new file descriptor, to be seperate, hopefully.
+
+commit 9b395492d576d0af3dc95467412808f740d84d34
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Jun 7 21:02:52 2021 -0700
+
+    move the server and client code to a different dir, and put the udp code in replace of it.
+
+commit eaba8da397855bd8198f3e6b241967e03e037267
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Sat Jun 5 13:53:26 2021 -0700
+
+    push the current unfinsihed foundation for the udp engine. it needs to not use broadcast packets, lol.
+
+commit 4ae36c56874d3cd2353e3f6566133020d7cdcfab
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Jun 4 23:27:53 2021 -0700
+
+    make sure all the code is committed, so we can begin making our udp protocol ontop of it for our game.
+
+commit 548cec6dd68447975f7174c41c05c324e18d9877
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Fri Jun 4 23:27:00 2021 -0700
+
+    push the initial ipv6 UDP server and client programs. they work well so far.
+
+commit 838198c06abd562f126f254764c7c3c77f467279
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Wed Jun 2 10:52:43 2021 -0700
+
+    push the server code.
+
+commit 14c49dc7a4a1c832075809190b0e84af9d57ed2e
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Wed Jun 2 10:50:30 2021 -0700
+
+    change the server code to read acks, when doing a display command.
+
+commit 256c7718d5bdb4a555e33706fc8f492f6144f8cc
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Wed Jun 2 10:36:02 2021 -0700
+
+    make the reads timeout after one second, to keep the client from la
+
+commit ab5352b9ca8149c0f46a9fac8981587cffa0c038
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Tue Jun 1 21:49:13 2021 -0700
+
+    make small edits to the client code.
+
+commit 588bfa349511bd154ea6774155828cf046828000
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Tue Jun 1 16:57:19 2021 -0700
+
+    push the new testing world that im going to be working in.
+
+commit 0fcc2bae7918e571d89cd7a30f6cea0f6dbb163b
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue Jun 1 15:20:25 2021 -0700
+
+    get alot of progress on rendering blocks, and movement. adding a world, and mechanics is next i think.
+
+commit c7d19b382c080fa8033ba1755195968e1fb0ab63
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue Jun 1 13:37:43 2021 -0700
+
+    add feature to be able to resize the logical view size, independnetly of the windows size. work really well.
+
+commit a3187272f6963f1135bec928cb0f2070b6711199
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Tue Jun 1 13:12:05 2021 -0700
+
+    remove udp from the game. its just not a good idea.
+
+commit a8ae2b9bd0f5c3312fab80f30daaaaa33a6340a5
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 18:08:19 2021 -0700
+
+    add the current state of the code.
+
+commit 5a9a49ea65ec56669f5ee7814dae2773bc9d48d2
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 17:51:58 2021 -0700
+
+    simplify the display code.
+
+commit c69cc2ca7fea13fd32a647d1b6f8ac18fe8881f0
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 16:16:15 2021 -0700
+
+    change usgae messgea for server.
+
+commit 655eec4c0a2f4b7322c6314dbacf06a0d0ff8aa2
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 14:12:50 2021 -0700
+
+    push the code again.
+
+commit 63d913dd1b4f3f5bf5e3038d70f5abd77113eaa9
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 14:06:25 2021 -0700
+
+    push the code.
+
+commit f080d0d7169fcbb53b8b680b65374463e936eca9
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 14:02:12 2021 -0700
+
+    add the display code heppening each frame again.
+
+commit a86a3c514abec6e280d7011ae1d9fbc625212d44
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 13:58:10 2021 -0700
+
+    it worked. i did it. we now are using udp in order to display images.
+
+commit 72a06cb31441fc1902f904e4c36ac64c108f5d8d
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 13:56:36 2021 -0700
+
+    i think i found the bug.
+
+commit df986a3d65392aa62b0dec2e0c45a740c634c6ee
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 13:41:51 2021 -0700
+
+    push the fixed code.
+
+commit a79d13288cc3eb287b6aff5ef897ffec5a4d5dbf
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 13:35:12 2021 -0700
+
+    push the fixed code.
+
+commit 73bb7d8f819ba7d970607d1bcec55ab30930f3f3
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 13:31:42 2021 -0700
+
+    push the fixed code.
+
+commit a881d5c7c6f47dfdefb55d9efb940643433dd509
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 13:21:09 2021 -0700
+
+    push the code again.
+
+commit ba38f4480a4b08eef9236236fbf292eabebfab58
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 13:14:45 2021 -0700
+
+    push the code again.
+
+commit c10cf39a0ff02d8de3d4a06880df9b27fb958c86
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 13:10:14 2021 -0700
+
+    add the code.
+
+commit 7fa6b1f1bbdbff6501cf8d1b9282f9fa451698f1
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 13:06:41 2021 -0700
+
+    client is being pretty buggy right now.
+
+commit 5abb7c8788094fbb13284d7a423cd560f0495c48
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 12:58:07 2021 -0700
+
+    fix the udp code, slightly.
+
+commit 03395c2b5f681e9909eb9b71ce38bab9ca0abd60
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 12:53:56 2021 -0700
+
+    add the server code and client code.
+
+commit f7bf6feb6a06c1a29bb788cbfe2b78fb80ddad71
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 12:14:05 2021 -0700
+
+    make the game use udp for the display packets. hopefully it works.
+
+commit 544c21da2ea8a19adc16c0ee532a5a005b766c22
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 12:01:19 2021 -0700
+
+    push the code with the display in the loop.
+
+commit 90cb199c049bb47eb0a09f60877e90300dee1654
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 11:49:36 2021 -0700
+
+    push the code.
+
+commit 27b635195b478a95f111c6502d6206ae17fad660
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 11:46:22 2021 -0700
+
+    fix a bug with sending the size of the display.
+
+commit 17f014e6d6102a7e72b6e51e6094b6aee64242f9
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Mon May 3 11:39:00 2021 -0700
+
+    push the state of the game.
+
+commit d5c613700d9ec54fedc16a28380886620981a254
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 11:36:15 2021 -0700
+
+    debugging the display packet code, for displaying blocks.
+
+commit 896a7463f4de4fcc6ad04f38bd7ce9be60642078
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon May 3 10:31:08 2021 -0700
+
+    add the player, and its file. also make it savable. alsso make the client read display packets.
+
+commit 12d696ddf827e6abf3e8e70798e415dab67c2099
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Sun May 2 23:22:48 2021 -0700
+
+    add networking to the game, now. it works very well. carried over from my 256 game. hope it works reliably.
+
+commit f7d6d3cc11afc9d52abddcd6ac9f63b5a6b68639
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Sat May 1 17:08:53 2021 -0700
+
+    add the server back in. and add a tb on it.
+
+commit fb741b6a1f84f3ce781949c70c74484c714492b5
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Apr 30 18:38:49 2021 -0700
+
+    add back in weverything, becuase its a way of life.
+
+commit 520cfcdf027c92ac341d716b404bde21608be554
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Apr 30 18:25:31 2021 -0700
+
+    begin the process of making the client connect to the server using sockets. also add a fps counter.
+
+commit b7d809c3da44c07182544cf35a5da76b71d5e433
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Apr 30 17:50:52 2021 -0700
+
+    clean up the directory structure of the project a bit.
+
+commit 830eef899ada9f671b914d27546509686d590778
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Apr 30 17:50:11 2021 -0700
+
+    make essentially the finsihed version of the client, albeit, with no networking, or controls, or content. but the mechanics are all there.
+
+commit c8df1c2f63844c2c515ba56d89518f2d28cbe611
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Apr 30 16:58:24 2021 -0700
+
+    make the client actuall render pixels. okay, this is definitely the right way to go.
+
+commit c3749594a9a131fb43589a7092ea513f2133f124
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Apr 30 16:51:32 2021 -0700
+
+    add the stuff that i have to go through later.
+
+commit de2792320ba721a89785abb0c466123d0060f205
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Apr 30 16:51:03 2021 -0700
+
+    use sdl2 instead of the terminal, for the client, because that way we can poll for keys, and print the screen pixels much more efficiently.
+
+commit fb42842f1ec32716ab6135570034e85e28ee5cec
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Wed Apr 28 11:46:56 2021 -0700
+
+    push the braile drawing code, for an alternative to pixel drawing in the client. i might use sdl though,for precise input control.
+
+commit 5c6c841bc52f77f4802034039e881c5d88e69335
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Thu Apr 22 18:04:02 2021 -0700
+
+    push changes.
+
+commit 5603b1383e0999b763d7375e37cd5eb3fe475545
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Apr 19 12:17:24 2021 -0700
+
+    start the server iterate method, to run a 3d cellular automaton, using the most memory efficient model posssible. im literally using every single bit. completely maximally dense lol.
+
+commit da50b66565c4d0d9d542d53daa62b042f4b288f3
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Apr 19 09:56:17 2021 -0700
+
+    get a simple but very reliable save and load system in place.
+
+commit 8904d36bf0eaa314e237fa66adc07db54722e495
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Sun Apr 18 21:51:35 2021 -0700
+
+    organize all of our previous attempts. i think i figured out the fundemental nature of what we are trying to create, and it turns out that we can actually just use the terminal again. whoopieee
+
+commit 6d0adfbde9a27e4641548801b2c4b6fcc96d6198
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Sat Apr 17 21:21:50 2021 -0700
+
+    find another tutorial that im going to follow, that actually uses descriptor sets. also get the pipeline code and the swapchain initilaized. things are almost starting to take shape now.
+
+commit e6e042dfeb9ba809891c8805f1f4b6059539ff44
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Apr 16 16:50:28 2021 -0700
+
+    restructure the directory layout, and add the vulkan code to construct the swapchain, and renderpass. at least, initialially. still alot to go.
+
+commit 20d38f454119df467811962f911cac5f8800d06f
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Fri Apr 16 00:00:05 2021 -0700
+
+    start the process of making the game actually 3D, using the vulkan graphics API. alot of work, but i think its neccessary.
+
+commit ad449047841785e03975992d6d4c31c86c748068
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Apr 12 19:45:47 2021 -0700
+
+    make the display of the rogues more of what ive been visioning, and make a debug mode, to visualize the paths. there are serious performance bugs in the game rightnow, to do with memory allocation, i think.
+
+commit 511ba6794709c850a36cd0bf836fd184da9f2cc0
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Apr 12 18:46:36 2021 -0700
+
+    get astar path finding properly working, super duper well. i just had a less than instead of a subtraction in my comparison function type of bug. super annoying lol.
+
+commit ad665d39b2029fdde210f9652e47fdc201200904
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Apr 12 17:42:06 2021 -0700
+
+    add pathfinding code, untested, probably buggy as heck.
+
+commit 3c9eaf673b96c1e08dbe609bf00fcec51d60073e
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Apr 12 15:06:47 2021 -0700
+
+    add rogues to the game, now im going to add pathfinding.
+
+commit 40631f3005a024b9578db68726c66d282d2d5427
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Apr 12 13:26:47 2021 -0700
+
+    build clean, and update the comments in the source code.
+
+commit b497dcdf2d7deac770a27adf3984e2d9bea9e615
+Author: dwrrehman <dwrrehman@gmail.com>
+Date:   Mon Apr 12 13:23:13 2021 -0700
+
+    Initial Commit of the current source code for the game.
+
+commit 011dfc198c4d0fdc9e71aaa990bd49db1f011e94
+Author: Daniel Rehman <dwrrehman@gmail.com>
+Date:   Mon Apr 12 20:21:07 2021 +0000
+
+    Initial commit
