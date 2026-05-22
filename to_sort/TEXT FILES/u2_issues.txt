@@ -1,0 +1,133 @@
+--------------------------------------------------------------------
+---------------- u2 server and client issues: ---------------------
+--------------------------------------------------------------------
+
+LEGEND:
+[---------------------------------------------------------------------------------------------------------s
+	"feature": something which would be nice to add to make the game more fun.
+
+	"bug": not intented behavior, which decreases the fun of the game.
+
+	"opt": an optimization issue, which is annoying, but isnt required to be solved.
+] ---------------------------------------------------------------------------------------------------------
+;
+
+
+
+BUGS:
+
+
+
+	- x: bug: draw all players as blue blocks, ;
+	
+	- - x: bug: display their name tags above them. (small subtle text);
+
+
+
+	- bug: "connection reset by peer" error:  solution: [packet division]
+		
+		1. find what size of packet actually causes a connection reset by peer.
+
+		2. send the display packet number, N
+
+		3. then send N packets of all equal size, which collectively, 
+			when concatenated, produce the original array.
+
+		3.1: read each packet into the same byte array, but at different offsets. 
+			(we the java read (using offset) function)!
+
+		
+
+
+
+FEATURES:
+
+
+	- x: feature: make better enviornment (initial state) generation code, using perlin noise.;
+
+
+	- feature: make a way for the user to determine (change?) the enviorment (game state?).
+
+
+	- x: feature: add rogues! add their positions in the display packet, ;
+		and make them red ish, in a changing way.
+
+	
+
+
+OPTS:       deleted:
+
+
+x:	- opt: high latency for movement, when connecting to a far away server.;
+
+x: 	- - do some sort of interpolation/ clientside simulation of things...?;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---------------------------------- SOLVED ISSUES: ----------------------------------------------
+
+
+
+
+
+solved:	- bug: hitting "+" doesnt work.  make it work.;
+
+
+solved:	- try to make the movement slower?;
+
+
+
+solved:	- big issue:    put all "playing" Gamemode code into the playing state, 
+	
+			and leave only the "Begin" Gamemode code left in the begin state.
+
+
+
+
+
+solved:	- drawing way too often. only do a packet thingy every time the packet actually changes...;
+
+solved:	- drop the frame rate of the game.;
+
+
+solved:	- the WADS conrtols are laggy, and staggering. the dont move half the time, 
+	
+		and when they do move, they move way too much. ;;
+
+
+
+
+
+TERMINATED:
+
+
+	- make the change neighborhood actually a double circle hx:
+
+	not just:
+		 I
+		JKL
+	but:
+		 8
+	        UIOP
+	       HJ L;
+	        K

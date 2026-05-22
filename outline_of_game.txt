@@ -1,0 +1,13 @@
+relational sandbox game
+------------------------
+202605225.015405 by dwrr
+------------------------
+
+i'm making a timestep / turn based   game which has simple input and output  of just text
+
+	the game consists of a set of semantic relationships, which comprise the world, and this data can be explored via your player, which is also relationships. actions in the game consist of adding certain semantic relationships, as long as they are consistent with the laws of physics of the universe. 
+
+currently still a work in progress!
+
+
+

@@ -1,0 +1,9 @@
+----- TODO LIST ------------------------------------
+
+- make the keyboard commands customizeable (ie, have a editable keymapping)
+
+- pollish the key commands for the game.
+
+- allow arbitrary code to be executed in the game, in n3zqx2l, of course.
+
+- 

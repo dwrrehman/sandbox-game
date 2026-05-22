@@ -1,0 +1,16 @@
+#!/bin/zsh
+
+if [ "release" = "$1" ]; then
+	clang -Ofast main.c -o client -lGLEW -lglfw -framework OpenGL
+
+elif [ "clean" = "$1" ]; then
+	rm -rf client
+	rm -rf client.dSYM
+
+elif [ "" = "$1" ]; then 
+	clang -g -O0 -Weverything -Wno-documentation -Wno-reserved-id-macro -Wno-unused-parameter -Wno-padded -Wno-documentation-unknown-command -Wno-poison-system-directories -fsanitize=address,undefined main.c -o client -L/usr/local/Cellar/glew/2.2.0_1/lib -L/usr/local/Cellar/glfw/3.3.4/lib -lGLEW -lglfw -framework OpenGL
+
+else 
+	echo "build: unknown target: $1"
+fi
+

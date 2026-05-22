@@ -1,0 +1,94 @@
+/System/Library/CoreServices/Xcode Previews.app
+/usr/share/zsh/5.9/functions/_xcode-select
+/usr/bin/xcode-select
+/System/Library/LaunchAgents/com.apple.dt.xcodepreviewsapp.plist
+/System/Library/LifecyclePolicy/DomainAttributes/com.apple.xcodepreviews.plist
+/System/Library/Automator/Build Xcode Project.action
+/usr/share/man/man1/xcode-select.1
+/Users/dwrr/Downloads/UsingARenderPipelineToRenderPrimitives/HelloTriangle.xcodeproj
+/Library/Apple/System/Library/Receipts/com.apple.pkg.XcodeSystemResources.bom
+/Library/Apple/System/Library/Receipts/com.apple.pkg.XcodeSystemResources.plist
+/Applications/Xcode.app
+/Users/dwrr/Music/other_stuff_offloaded_from_Documents/FreeRTOSv202212.00/FreeRTOS-Plus/ThirdParty/wolfSSL/IDE/XCODE
+/Users/dwrr/Music/other_stuff_offloaded_from_Documents/FreeRTOSv202212.00/FreeRTOS-Plus/ThirdParty/wolfSSL/IDE/XCODE/wolfssl_testsuite.xcodeproj
+/Users/dwrr/Music/other_stuff_offloaded_from_Documents/FreeRTOSv202212.00/FreeRTOS-Plus/ThirdParty/wolfSSL/IDE/XCODE/Benchmark/wolfBench.xcodeproj
+/Users/dwrr/Music/other_stuff_offloaded_from_Documents/FreeRTOSv202212.00/FreeRTOS-Plus/ThirdParty/wolfSSL/IDE/XCODE/wolfssl.xcodeproj
+/Users/dwrr/Music/other_stuff_offloaded_from_Documents/FreeRTOSv202212.00/FreeRTOS-Plus/ThirdParty/wolfSSL/IDE/XCODE/wolfssl-FIPS.xcodeproj
+/Users/dwrr/Library/HTTPStorages/com.apple.dt.Xcode
+/Users/dwrr/Documents/projects/games/game_directories/block-game/block-game/old/source/client/block-game.xcodeproj
+/Users/dwrr/Documents/projects/games/game_directories/block-game/block-game/old/source/server/server.xcodeproj
+/Users/dwrr/Documents/projects/games/game_directories/block-game/source/server/server.xcodeproj
+/Users/dwrr/Documents/projects/games/game_directories/block-game/source/server_old_code/server.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/special/sdl_editors/editor0/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/special/sdl_editors/editor0/editor 2.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/special/sdl_editors/editor1/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/special/sdl_editors/editor1/editor 2.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/special/mac_editor/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/fuzz_testing_the_editor/editor_fuzz_test/editor_fuzz_test.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/fuzz_testing_the_editor/editor_fuzz_test/editor_fuzz_test 2.xcodeproj
+/Users/dwrr/Documents/documents/tbs/i decided to delete xcode today.txt
+/Users/dwrr/Documents/documents/tbs/how to remake xcode for my use cases.txt
+/Users/dwrr/Documents/documents/tbs/bad situation with trying to stop using xcode.txt
+/Users/dwrr/Documents/documents/tbs/what do i use in xcode tb.txt
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/source/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/wef2/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/old/new-editor/new-editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/old/editor-test/editor-test.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/editor/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/old/test_generate_line_view/sandbox1.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/old_editor/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/better_editor/better_editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/ed/source/ed.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/special/sdl_editors/editor0/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/special/sdl_editors/editor1/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/special/mac_editor/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/fuzz_testing_the_editor/editor_fuzz_test/editor_fuzz_test.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/backup/source/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/backup/old/wef2/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/backup/old/old/new-editor/new-editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/backup/old/old/editor-test/editor-test.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/backup/old/old/test_generate_line_view/sandbox1.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/backup/old/old_editor/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/old/old-text-editor/old/build/old/backup/old/editor/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/wef2/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/old/new-editor/new-editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/old/editor-test/editor-test.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/old/test_generate_line_view/sandbox1.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/old_editor/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/ed/source/ed.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/source/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/wef2/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/wef2/editor 2.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/old/new-editor/new-editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/old/new-editor/new-editor 2.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/old/editor-test/editor-test.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/old/editor-test/editor-test 2.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/old/test_generate_line_view/sandbox1 2.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/old/test_generate_line_view/sandbox1.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/old_editor/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/old_editor/editor 2.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/editor/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/build/old/backup/old/editor/editor 2.xcodeproj
+/Users/dwrr/Documents/other/personal/old/raspberry_pi_files/old_stuff_go_through/location/projects/unstable_text_editor/old/editor/editor.xcodeproj
+/Users/dwrr/Documents/other/personal/school/wsuv/junior/spring2019/systems programming/final_project/final_project_xcode
+/Users/dwrr/Documents/other/personal/school/wsuv/wsuv/junior/spring2019/systems programming/final_project/final_project_xcode
+/Users/dwrr/Documents/other/art/programming/c/tests/delete_xcode_projects
+/Users/dwrr/Documents/other/art/programming/c/tests/delete_xcode_projects/delete-xcode-projects.c
+/Users/dwrr/Documents/projects/games/game_directories/block-game/block-game/source/client/client.xcodeproj
+/Users/dwrr/Documents/projects/games/game_directories/block-game/block-game/source/server_old_code/server.xcodeproj
+/Users/dwrr/Documents/projects/games/game_directories/block-game/block-game/source/server/server.xcodeproj
+/Users/dwrr/Documents/projects/games/game_directories/block-game/old/source/client/block-game.xcodeproj
+/Users/dwrr/Documents/projects/games/game_directories/block-game/source/client/client.xcodeproj
+/Users/dwrr/Documents/other/art/programming/languages/bash/useful/xcode
+/Users/dwrr/Documents/projects/games/game_directories/block-game/old/source/server/server.xcodeproj
+/Users/dwrr/Library/Application Support/JetBrains/JetBrainsClient223.8836.42/plugins/color-scheme-xcode
+/Users/dwrr/Library/Application Support/JetBrains/JetBrainsClient223.8836.42/plugins/color-scheme-xcode/lib/color-scheme-xcode.jar
+/Users/dwrr/Library/Application Support/JetBrains/JetBrainsClient223.8836.42/plugins/keymap-xcode
+/Users/dwrr/Library/Application Support/JetBrains/JetBrainsClient223.8836.42/plugins/keymap-xcode/lib/keymap-xcode.jar
+/Applications/ti/ccs1220/ccs/ccs_base/cloudagent/src/node_modules/usb/libusb/Xcode
+/Applications/ti/ccs1220/ccs/ccs_base/cloudagent/src/node_modules/usb/libusb/Xcode/libusb.xcodeproj
+/Applications/ti/ccs1220/ccs/tirex3/ti-rex-core/node_modules/brace/theme/xcode.js
+/Library/Developer/CommandLineTools/SDKs/MacOSX13.3.sdk/usr/share/man/man1/xcode-select.1
+/Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk/usr/share/man/man1/xcode-select.1
+/Library/Developer/CommandLineTools/SDKs/MacOSX12.3.sdk/usr/share/man/man1/xcode-select.1
+/Library/Developer/CommandLineTools/SDKs/MacOSX12.1.sdk/usr/share/man/man1/xcode-select.1

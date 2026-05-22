@@ -1,0 +1,58 @@
+
+--------------------------- GAME PLAY NOTES: -----------------------------------
+ 
+ 
+    - movement of the camera in XYZ directions uses the 
+        minecraft "WASD-LSHIFT-SPACE" keyboard mapping. which should be familar.
+    
+    - W and S always go in the forwards direction, whatever that is according to your camera rotation.
+
+
+    - the mouse is used to turn the camera. totally clientside.
+
+ 
+    - press "<ESC>" then "0"   to quit the game without saving.
+    - press "<ESC>" then "`"   to enter metagamemode 1: freed mouse, change settings. 
+    - press "<ESC>" then "1"   to enter metagamemode 1: the default, filled blocks.
+    - press "<ESC>" then "2"   to enter metagamemode 2: wireframe view.
+    - press "<ESC>" then "3"   to enter metagamemode 3: ?
+ 
+    - press "<TAB>" then "0"   save and quit the game.
+    - press "<TAB>" then "`"   to enter gamemode 0: paused game. 
+    - press "<TAB>" then "1"   to enter gamemode 1: the default.
+    - press "<TAB>" then "2"   to enter gamemode 2: ?
+    - press "<TAB>" then "3"   to enter gamemode 3: ?
+        
+ 
+
+	- hold RSHIFT in order to rotate the camera about the forward(z) vector. ie, yaw.
+	- press enter, in order to right yourself to the correct upward vector.
+
+
+
+
+
+ ------------------------- general notes: -----------------------------
+ 
+    - there is no undoing actions in the game.
+ 
+    - blocks are placed and destroyed using interactions.
+  
+    - the world is a finite, and discrete, cellular automaton.
+  
+  
+
+
+
+
+new stuff:
+
+
+
+	- the player flies around seemingly continuously, however it is always the floored position (specfically, upon change by a unit...) which is sent to the server, always.
+	- - the idea is that the world will them be updated to appear infront of you, or behind you further, according to your render distance. thus giving the appearance of an infinite world. perfect.
+
+
+
+	- you hold
+    

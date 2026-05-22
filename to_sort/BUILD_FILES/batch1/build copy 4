@@ -1,0 +1,3 @@
+#!/bin/zsh
+
+clang -Weverything -Wno-padded -Wno-declaration-after-statement client.m `sdl2-config --cflags --libs` -framework Metal -framework QuartzCore -o run

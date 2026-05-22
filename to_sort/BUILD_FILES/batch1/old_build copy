@@ -1,0 +1,3 @@
+clang client.c -o client -O3 -Weverything
+clang server.c -o server -O3 -Weverything
+
